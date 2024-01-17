@@ -72,7 +72,8 @@ async def scan_repo(
                     build_id=deployment.build_id,
                     flavour=deployment.flavour,
                     selectors=[d.dict() for d in deployment.selectors],
-                    repo=repo
+                    repo=repo,
+                    image=deployment.image,
                 ),
             )
 
