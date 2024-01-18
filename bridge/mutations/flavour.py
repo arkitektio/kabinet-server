@@ -17,6 +17,6 @@ async def pull_flavour(
         id=input.id
     )
 
-    await backend.adelay_pull_flavour(flavour)
+    await backend.apull_flavour(flavour)
 
     return flavour

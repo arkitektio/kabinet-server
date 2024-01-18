@@ -3,7 +3,8 @@ from django.contrib.auth import get_user_model
 from .storages import PrivateMediaStorage
 import uuid
 # Create your models here.
-
+from bridge.repo import selectors as rselectors
+from typing import List
 
 
 class Repo(models.Model):
@@ -15,7 +16,6 @@ class Repo(models.Model):
         return self.name
     
 
-
 class GithubRepo(Repo):
     repo = models.CharField(max_length=4000)
     user = models.CharField(max_length=4000)
@@ -25,19 +25,19 @@ class GithubRepo(Repo):
         return f"{self.user}/{self.repo}:{self.branch}"
 
     @property
-    def pyproject_url(self):
+    def pyproject_url(self) -> str:
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/pyproject.toml"
 
     @property
-    def readme_url(self):
+    def readme_url(self)-> str:
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/README.md"
 
     @property
-    def manifest_url(self):
+    def manifest_url(self)-> str:
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt/manifest.yaml"
 
     @property
-    def deployments_url(self):
+    def deployments_url(self)-> str:
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt/deployments.yaml"
     
     
@@ -67,6 +67,28 @@ class Release(models.Model):
         ]
 
 
+class Setup(models.Model):
+    """ This model is represents
+    an authenticaated Release that is bound
+    to a user (the installer). Setups are created
+    when a user installs a release 
+        return selectors(self.selectors)and authorizes
+    it to access their resources.
+    
+    
+    
+    """
+    release = models.ForeignKey(
+        Release, on_delete=models.CASCADE, related_name="setups"
+    )
+    installer = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now=True)
+    api_token = models.CharField(max_length=400, default="Fake Token")
+    fakts_url = models.CharField(max_length=400, default="lok:80")
+    instance = models.CharField(max_length=400, default="default")
+    command = models.CharField(max_length=400, default="arkitekt run prod")
+
+
 class Flavour(models.Model):
     release = models.ForeignKey(
         Release, on_delete=models.CASCADE, related_name="flavours"
@@ -94,14 +116,27 @@ class Flavour(models.Model):
         ordering = ["-created_at"]
 
 
-class Whale(models.Model):
+    def get_selectors(self) -> List[rselectors.Selector]:
+        field_json = rselectors.SelectorFieldJson(**{"selectors": self.selectors})
+        return field_json.selectors
+    
+
+
+
+
+
+
+class Pod(models.Model):
+    backend = models.CharField(max_length=2000)
+    setup =  models.ForeignKey(
+        Setup,
+        on_delete=models.CASCADE,
+        related_name="pods",
+    )
     flavour = models.ForeignKey(
         Flavour,
         on_delete=models.CASCADE,
-        related_name="whales",
+        related_name="pods",
     )
-    url = models.CharField(max_length=1000)
-    client_id = models.CharField(max_length=1000)
-    token = models.CharField(max_length=10000, null=True)
-    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    pod_id = models.CharField(max_length=1000)
     created_at = models.DateTimeField(auto_now=True)

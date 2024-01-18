@@ -3,10 +3,10 @@ from strawberry_django.optimizer import DjangoOptimizerExtension
 from kante.directives import upper, replace, relation
 from bridge import types
 from bridge import mutations
+from bridge import subscriptions
 from bridge import queries
 import strawberry_django
 from koherent.strawberry.extension import KoherentExtension
-from bridge.backend import ContainerBackendExtension
 from typing import List
 
 @strawberry.type
@@ -20,6 +20,7 @@ class Query:
         resolver=queries.me, description="Return the currently logged in user"
     )
     flavours: List[types.Flavour] = strawberry_django.field()
+    pods: List[types.Pod] = strawberry_django.field()
 
 
 @strawberry.type
@@ -38,12 +39,30 @@ class Mutation:
         resolver=mutations.pull_flavour,
         description="Create a new dask cluster on a bridge server",
     )
+    create_setup: types.Setup = strawberry_django.mutation(
+        resolver=mutations.create_setup,
+        description="Create a new dask cluster on a bridge server",
+    )
+    deploy_setup: types.Pod = strawberry_django.mutation(
+        resolver=mutations.deploy_setup,
+        description="Create a new dask cluster on a bridge server",
+    )
+
+@strawberry.type
+class Subscription:
+    """The root subscription type"""
+
+    flavour: types.FlavourUpdate = strawberry.subscription(
+        resolver=subscriptions.flavour,
+        description="Create a new dask cluster on a bridge server",
+    )
 
 
 schema = strawberry.Schema(
     query=Query,
     mutation=Mutation,
+    subscription=Subscription,
     directives=[upper, replace, relation],
-    extensions=[DjangoOptimizerExtension, KoherentExtension, ContainerBackendExtension],
+    extensions=[DjangoOptimizerExtension, KoherentExtension],
     types=[types.Selector, types.CudaSelector, types.CPUSelector]
 )

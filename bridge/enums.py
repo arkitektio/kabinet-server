@@ -3,17 +3,18 @@ from enum import Enum
 
 
 @strawberry.enum(description="The state of a dask cluster")
-class DaskClusterState(int, Enum):
+class PodStatus(int, Enum):
     """The state of a dask cluster"""
 
-    PENDING = 1
-    RUNNING = 2
-    STOPPING = 3
-    STOPPED = 4
-    FAILED = 5
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    STOPPING = "STOPPING"
+    STOPPED = "STOPPED"
+    FAILED = "FAILED"
+    UNKOWN = "UNKOWN"
 
 
-def map_string_to_enum(string: str) -> DaskClusterState:
+def map_string_to_pod_status(string: str) -> PodStatus:
     """Map a string to a DaskClusterState
 
     Dask Gateway sometimes returns a string instead of an enum. This function
@@ -31,5 +32,7 @@ def map_string_to_enum(string: str) -> DaskClusterState:
     
     """
 
-
-    return DaskClusterState[string.upper()]
+    try:
+        return PodStatus[string.upper()]
+    except KeyError:
+        return PodStatus.FAILED

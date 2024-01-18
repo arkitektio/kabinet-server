@@ -8,6 +8,7 @@ class BaseSelector(BaseModel):
     """
 
     required: bool = True
+    weight: int = 1
 
     class Config:
         extra = "forbid"

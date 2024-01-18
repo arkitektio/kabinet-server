@@ -10,10 +10,10 @@ services:
     image: jhnnsrs/daten:next
     labels:
       - "arkitekt.default.service=db"
-  kluster:
+  port_next:
     build: .
     ports:
-    - 9010:80
+    - 9030:80
     labels:
       - "arkitekt.default.service=kluster"
       - "traefik.enable=true"

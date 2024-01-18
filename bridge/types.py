@@ -9,6 +9,9 @@ from typing import List
 from bridge import models, types
 from bridge.repo import selectors
 from kante.types import Info
+from bridge.backend import get_backend
+from bridge.backends import messages
+
 
 @strawberry_django.type(get_user_model(), description="A user of the bridge server. Maps to an authentikate user")
 class User:
@@ -26,7 +29,6 @@ class User:
 class Repo:
     id: auto
     name: str
-
 
 
 @strawberry_django.type(models.GithubRepo, description="A user of the bridge server. Maps to an authentikate user")
@@ -51,6 +53,24 @@ class Release:
     logo: Optional[str]
     original_logo: Optional[str]
     entrypoint: str
+    setups: List["Setup"]
+
+
+@strawberry_django.type(models.Setup, description="A user of the bridge server. Maps to an authentikate user")
+class Setup:
+    id: auto
+    release: Release
+    installer: User
+    api_token: str
+
+
+
+@strawberry.experimental.pydantic.type(messages.FlavourUpdate, description=" A selector is a way to select a release")
+class FlavourUpdate:
+    """ A selector is a way to select a release"""
+    status: str
+    progress: float
+
 
 
 @strawberry.experimental.pydantic.interface(selectors.BaseSelector, description=" A selector is a way to select a release")
@@ -72,13 +92,6 @@ class CPUSelector(Selector):
     frequency: Optional[int] = None
 
 
-
-
-
-
-
-
-
 @strawberry_django.type(models.Flavour, description="A user of the bridge server. Maps to an authentikate user")
 class Flavour:
     id: auto
@@ -87,13 +100,34 @@ class Flavour:
     logo: Optional[str]
     original_logo: Optional[str]
     entrypoint: str
+    image: str
+    release: Release
 
     @strawberry_django.field()
     def selectors(self, info: Info) -> List[types.Selector]:
-        field_json = selectors.SelectorFieldJson(**{"selectors": self.selectors})
-        return field_json.selectors
+        return self.get_selectors()
 
 
 
 
+@strawberry_django.type(models.Pod, description="A user of the bridge server. Maps to an authentikate user")
+class Pod:
+    id: auto
+    flavour: Flavour
+    setup: Setup
+    backend: str
+    pod_id: str
+    
+    @strawberry.field(description="The Lifecycle of the pod")
+    async def status(self, info: Info) -> str:
+        backend = get_backend()
+        return await backend.aget_status(self)
+    
+    @strawberry.field(description="The Lifecycle of the pod")
+    async def logs(self, info: Info) -> str:
+        backend = get_backend()
+        return await backend.aget_logs(self)
+    
+    
 
+    
