@@ -3,7 +3,7 @@ from enum import Enum
 
 
 @strawberry.enum(description="The state of a dask cluster")
-class PodStatus(int, Enum):
+class PodStatus(str, Enum):
     """The state of a dask cluster"""
 
     PENDING = "PENDING"
