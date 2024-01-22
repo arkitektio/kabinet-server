@@ -11,6 +11,6 @@ class UpUpdate(PullUpdate):
 
 
 class FlavourUpdate(BaseModel):
-    flavour: str
+    id: str
     status: str
     progress: float

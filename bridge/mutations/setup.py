@@ -13,8 +13,24 @@ async def create_setup(
 
     installer = info.context.request.user
 
+    backend = get_backend()
+
+    
+    if input.flavour:
+        flavour = await models.Flavour.objects.aget(
+            id=input.flavour
+        )
+    else:
+        release = await models.Release.objects.aget(
+            id=input.release
+        )
+
+        flavour = await backend.aget_fitting_flavour(release)
+
+
+
     setup = await models.Setup.objects.acreate(
-        release_id=input.release,
+        flavour=flavour,
         installer=installer,
         command=input.command,
         api_token=input.fakts_token,

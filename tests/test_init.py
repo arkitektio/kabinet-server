@@ -12,6 +12,7 @@ def test_init() -> None:
     assert backend.channel_layer is not None, "Backend should have a channel layer"
 
 @pytest.mark.asyncio
+@pytest.mark.docker
 async def test_pull_flavour(db: typing.Any) -> None:
 
     backend = DockerBackend()
@@ -52,6 +53,7 @@ async def test_pull_flavour(db: typing.Any) -> None:
     
 
 @pytest.mark.asyncio
+@pytest.mark.docker
 async def test_up_setup(db: typing.Any) -> None:
     backend = DockerBackend()
 

@@ -5,6 +5,7 @@ import datetime
 import semver
 from bridge.repo.selectors import Selector
 import uuid
+from rekuest_core.inputs.models import DefinitionInputModel
 
 class Manifest(BaseModel):
     identifier: str
@@ -31,6 +32,15 @@ class Manifest(BaseModel):
 
     class Config:
         validate_assignment = True
+
+
+
+
+class Inspection(BaseModel):
+    size: int
+    definitions: List[DefinitionInputModel]
+
+
 
 
 class Deployment(BaseModel):
@@ -68,6 +78,10 @@ class Deployment(BaseModel):
     deployed_at: datetime.datetime = Field(
         default_factory=datetime.datetime.now,
         description="The timestamp of the deployment",
+    )
+    inspection: Optional[Inspection] = Field(
+        description="The inspection of the deployment",
+        default=None,
     )
 
 

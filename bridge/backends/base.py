@@ -1,4 +1,4 @@
-from bridge.models import Flavour, Setup, Pod
+from bridge.models import Flavour, Setup, Pod, Release
 from bridge.backends.errors import NotImplementedByBackendError
 from typing import AsyncGenerator
 from channels.layers import get_channel_layer, InMemoryChannelLayer
@@ -46,6 +46,27 @@ class ContainerBackend:
           
            
         raise NotImplementedByBackendError("Subclasses should implement this!")
+    
+    async def aget_fitting_flavour(self, release: Release) -> Flavour:
+        """ A function to get the flavour that best fits a release
+
+        This function is called by the API when a user requests a release to be run. This should
+        cause the flavour that best fits the release to be returned. This function
+        should return immediately
+
+        Args:
+            release (Release): The release to get the flavour for
+
+        Raises:
+            NotImplementedError: This function should be implemented by subclasses
+
+        """
+        raise NotImplementedByBackendError("Subclasses should implement this!")
+    
+
+    async def ais_image_pulled(self,image: str) -> bool:
+        """ A function to check if a flavour is pulled"""
+    
    
 
     async def aup_setup(self, setup: Setup) -> Pod:
@@ -123,6 +144,27 @@ class ContainerBackend:
         raise NotImplementedByBackendError("Subclasses should implement this!")
         pass
 
+    def awatch_flavours(self, info: Info) -> AsyncGenerator[messages.FlavourUpdate, None]:
+        """ A async generator that yields updates to all flavours
+
+        This function is called by the API when a user requests to watch all flavours within a graphql
+        subscription. This function should then yield updates to all flavours, which will be sent to
+        the user.
+        
+        Most like this should delegate to the alisten function, which is implemented by the backend
+        base class and allows for easy listening to channels.
+
+        Args:
+            info (Info): The info object from the graphql query
+
+        Raises:
+            NotImplementedError: This function should be implemented by subclasses
+
+    
+
+        """
+        raise NotImplementedByBackendError("Subclasses should implement this!")
+        pass
 
 
     async def asend_background(self, function: str, *args: typing.Any, **kwargs: typing.Any) -> None:

@@ -12,6 +12,7 @@ async def pull_flavour(
     """ Create a new dask cluster on a bridge server"""
 
     backend = get_backend()
+    
 
     flavour = await models.Flavour.objects.aget(
         id=input.id

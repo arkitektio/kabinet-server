@@ -2,8 +2,9 @@ from typing import Any, Coroutine, AsyncGenerator
 from bridge.backends.base import ContainerBackend
 from channels.layers import get_channel_layer
 from bridge.backends.messages import PullUpdate, UpUpdate, FlavourUpdate
-from bridge.models import Flavour, Setup, Pod
+from bridge.models import Flavour, Release, Setup, Pod
 from bridge.repo import selectors
+from bridge.enums import PodStatus
 import docker
 import os
 from kante.types import Info
@@ -84,6 +85,45 @@ class DockerBackend(ContainerBackend):
         """ Watches a flavour for updates and sends them to the client  """
         async for i in self.alisten(info, "whale_pull", FlavourUpdate, groups=[flavour.id]):
             yield i
+
+    async def awatch_flavours(self, info: Info):
+        """ Watches a flavour for updates and sends them to the client  """
+        async for i in self.alisten(info, "whale_pull", FlavourUpdate, groups=["all"]):
+            yield i
+
+
+    async def aget_fitting_flavour(self, release: Release) -> Flavour:
+
+        flavour_dict = {}
+
+        error_dict = {}
+
+        async for flavour in Flavour.objects.filter(release=release).all():
+            try:
+                rating = await self.arate_flavour(flavour)
+                flavour_dict[flavour] = rating
+            except RateError as e:
+                logger.warning(f"Flavour {flavour} cannot be deployed")
+                error_dict[flavour] = e
+
+            
+
+        # Sort flavours by rating
+        sorted_flavours = sorted(flavour_dict.items(), key=lambda x: x[1])
+
+        # Pull the best flavour
+
+        try:
+            best_flavour = sorted_flavours[0][0]
+            return best_flavour
+        except IndexError:
+            logger.error("No flavours available for setup")
+
+            error_string = "\n".join([f"{k.name}: {v}" for k, v in error_dict.items()])
+
+
+            raise Exception("No flavours available for setup: " +error_string)
+        
         
 
    
@@ -111,7 +151,7 @@ class DockerBackend(ContainerBackend):
         finished = []
 
 
-        await self.abroadcast("whale_pull", FlavourUpdate(status="Pulling", progress=0.5, flavour=flavour.id), groups=[flavour.id])
+        await self.abroadcast("whale_pull", FlavourUpdate(status="Pulling", progress=0.1, id=flavour.id), groups=[flavour.id, "all"])
 
 
         for f in s:
@@ -132,16 +172,26 @@ class DockerBackend(ContainerBackend):
                         "Progress: " + flavour.image + " " + str(progress)
                     )
 
-                    await self.abroadcast("whale_pull", FlavourUpdate(status="Pulling", progress=progress, flavour=flavour.id), groups=[flavour.id])
+                    await self.abroadcast("whale_pull", FlavourUpdate(status="Pulling", progress=progress, id=flavour.id), groups=[flavour.id, "all"])
                 
 
-        await self.abroadcast("whale_pull", FlavourUpdate(status="Pulling", progress=1, flavour=flavour.id), groups=[flavour.id])
+        await self.abroadcast("whale_pull", FlavourUpdate(status="Pulled", progress=1, id=flavour.id), groups=[flavour.id, "all"])
 
 
     async def apull_flavour(self, flavour: Flavour) -> None:
         """ A function to pull a flavour"""
         await self.asend_background("abackground_pull_flavour", flavour.id)
         return None
+    
+    async def ais_image_pulled(self, image: str) -> bool:
+        """ A function to check if a flavour is pulled"""
+
+
+        try:
+            image = self.api.images.get(image)
+            return True
+        except docker.errors.ImageNotFound:
+            return False
         
 
 
@@ -156,17 +206,11 @@ class DockerBackend(ContainerBackend):
         Returns:
             int: The rating of the flavour (-1 if it cannot be deployed)
 
-        Raises:
+        Raises:str
             RateError: If the flavour cannot be deployed
         """
 
         count = 0
-
-
-        try:
-            self.api.images.get(flavour.image)
-        except docker.errors.ImageNotFound:
-            raise RateError(f"Image {flavour.image} not found")
 
         for selector in flavour.get_selectors():
             if isinstance(selector, selectors.CudaSelector):
@@ -187,13 +231,49 @@ class DockerBackend(ContainerBackend):
         return count
     
 
-    async def aup_setup_with_flavour(self, setup: Setup, flavour: Flavour) -> Pod:
 
+
+    async def aget_status(self, pod: Pod) -> PodStatus:
+        try:
+            container = self.api.containers.get(pod.pod_id)
+            return container.status
+        except docker.errors.NotFound:
+            return "Not Found"
+        
+
+    async def aget_logs(self, pod: Pod) -> str:
+        try:
+            container = self.api.containers.get(pod.pod_id)
+            return container.logs().decode("utf-8")
+        except docker.errors.NotFound:
+            return "Not Found"
+
+
+
+    async def aup_setup(self, setup: Setup) -> Pod:
+
+
+        # Iterate over flavours and pull them
+
+        
 
         # Create a pod
 
+        flavour = await Flavour.objects.aget(
+            id=setup.flavour.id
+        )
+
 
         container_id = f"{setup.id}-{flavour.id}"
+
+
+        try:
+            # Lets see if a pod already exists
+            image = self.api.images.get(flavour.image)
+        except docker.errors.ImageNotFound:
+            raise Exception("Flavour not pulled. Please pull first")
+
+
 
 
         device_requests = []
@@ -250,59 +330,6 @@ class DockerBackend(ContainerBackend):
         )
 
         return pod
-
-    async def aget_status(self, pod: Pod) -> str:
-        try:
-            container = self.api.containers.get(pod.pod_id)
-            return container.status
-        except docker.errors.NotFound:
-            return "Not Found"
-        
-
-    async def aget_logs(self, pod: Pod) -> str:
-        try:
-            container = self.api.containers.get(pod.pod_id)
-            return container.logs().decode("utf-8")
-        except docker.errors.NotFound:
-            return "Not Found"
-
-
-
-    async def aup_setup(self, setup: Setup) -> Pod:
-
-
-        # Iterate over flavours and pull them
-
-        flavour_dict = {}
-
-        error_dict = {}
-
-        async for flavour in Flavour.objects.filter(release=setup.release).all():
-            try:
-                rating = await self.arate_flavour(flavour)
-                flavour_dict[flavour] = rating
-            except RateError as e:
-                logger.warning(f"Flavour {flavour} cannot be deployed")
-                error_dict[flavour] = e
-
-            
-
-        # Sort flavours by rating
-        sorted_flavours = sorted(flavour_dict.items(), key=lambda x: x[1])
-
-        # Pull the best flavour
-
-        try:
-            best_flavour = sorted_flavours[0][0]
-        except IndexError:
-            logger.error("No flavours available for setup")
-
-            error_string = "\n".join([f"{k.name}: {v}" for k, v in error_dict.items()])
-
-
-            raise Exception("No flavours available for setup: " +error_string)
-
-        return await self.aup_setup_with_flavour(setup, best_flavour)
 
         
 

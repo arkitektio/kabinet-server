@@ -8,6 +8,8 @@ from bridge import queries
 import strawberry_django
 from koherent.strawberry.extension import KoherentExtension
 from typing import List
+from rekuest_core.constants import interface_types
+
 
 @strawberry.type
 class Query:
@@ -20,6 +22,8 @@ class Query:
         resolver=queries.me, description="Return the currently logged in user"
     )
     flavours: List[types.Flavour] = strawberry_django.field()
+    releases: List[types.Release] = strawberry_django.field()
+    definitions: List[types.Definition] = strawberry_django.field()
     pods: List[types.Pod] = strawberry_django.field()
 
 
@@ -47,6 +51,10 @@ class Mutation:
         resolver=mutations.deploy_setup,
         description="Create a new dask cluster on a bridge server",
     )
+    rescan_repos: list[types.GithubRepo] = strawberry_django.mutation(
+        resolver=mutations.rescan_repos,
+        description="Create a new dask cluster on a bridge server",
+    )
 
 @strawberry.type
 class Subscription:
@@ -54,6 +62,10 @@ class Subscription:
 
     flavour: types.FlavourUpdate = strawberry.subscription(
         resolver=subscriptions.flavour,
+        description="Create a new dask cluster on a bridge server",
+    )
+    flavours: types.FlavourUpdate = strawberry.subscription(
+        resolver=subscriptions.flavours,
         description="Create a new dask cluster on a bridge server",
     )
 
@@ -64,5 +76,5 @@ schema = strawberry.Schema(
     subscription=Subscription,
     directives=[upper, replace, relation],
     extensions=[DjangoOptimizerExtension, KoherentExtension],
-    types=[types.Selector, types.CudaSelector, types.CPUSelector]
+    types=[types.Selector, types.CudaSelector, types.CPUSelector] + interface_types
 )

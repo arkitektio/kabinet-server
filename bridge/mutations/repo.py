@@ -3,6 +3,7 @@ from bridge import types, inputs, models
 import logging
 import aiohttp
 import yaml
+from bridge.repo.db import parse_config
 from bridge.repo.models import DeploymentsConfigFile
 from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
@@ -19,6 +20,25 @@ async def adownload_logo(url: str) -> File:
             img_tmp.flush()
 
     return File(img_tmp)
+
+
+async def aget_deployment(deployments_url: str) -> DeploymentsConfigFile:
+    async with aiohttp.ClientSession(headers={
+        "Cache-Control": "no-cache"
+    }) as session:
+        async with session.get(deployments_url) as response:
+            z = await response.text()
+
+    z = yaml.safe_load(z)
+    if not isinstance(z, dict):
+        raise Exception("Invalid deployments.yml")
+    
+
+    config = DeploymentsConfigFile(**z)
+    return config
+
+
+
         
 async def scan_repo(
     info: Info, input: inputs.ScanRepoInput
@@ -28,56 +48,13 @@ async def scan_repo(
         id=input.id
     )
 
-    async with aiohttp.ClientSession(headers={
-        "Cache-Control": "no-cache"
-    }) as session:
-        async with session.get(repo.deployments_url) as response:
-            z = await response.text()
 
-    z = yaml.safe_load(z)
-    if not isinstance(z, dict):
-        raise Exception("Invalid deployments.yml")
+    config = await aget_deployment(repo.deployments_url)
     
 
-    config = DeploymentsConfigFile(**z)
 
-    deps = []
     try:
-        for deployment in config.deployments:
-            manifest = deployment.manifest
-
-            app, _ = await models.App.objects.aget_or_create(
-                identifier=manifest.identifier,
-            )
-
-            release, _ = await models.Release.objects.aupdate_or_create(
-                version=manifest.version,
-                app=app,
-                defaults=dict(
-                    scopes=manifest.scopes,
-                ),
-            )
-
-            if manifest.logo:
-                logo_file = await adownload_logo(manifest.logo)
-                release.logo.save(f"logo{release.id}.png", logo_file)
-                await release.asave()
-
-
-            dep, _ = await models.Flavour.objects.aupdate_or_create(
-                release=release,
-                name=deployment.flavour ,
-                defaults=dict(
-                    deployment_id=deployment.deployment_id,
-                    build_id=deployment.build_id,
-                    flavour=deployment.flavour,
-                    selectors=[d.dict() for d in deployment.selectors],
-                    repo=repo,
-                    image=deployment.image,
-                ),
-            )
-
-            deps.append(dep)
+        parsed = await parse_config(config, repo)
     except KeyError as e:
         logger.error(e, exc_info=True)
         pass
@@ -94,10 +71,44 @@ async def create_github_repo(
         info: Info, input: inputs.CreateGithupRepoInput
 ) -> types.GithubRepo:
     
-    return await models.GithubRepo.objects.acreate(
+    dep_url = models.GithubRepo.build_deployments_url(input.user, input.repo, input.branch)
+
+    config = await aget_deployment(dep_url)
+
+
+    repo =  await models.GithubRepo.objects.acreate(
         name=input.name,
         user=input.user,
         branch=input.branch,
         repo=input.repo,
         creator=info.context.request.user,
     )
+
+
+    if input.auto_scan:
+        try:
+            parsed = await parse_config(config, repo)
+        except KeyError as e:
+            logger.error(e, exc_info=True)
+            pass
+
+
+    return repo
+
+
+async def rescan_repos(
+        info: Info
+) -> list[types.GithubRepo]:
+    repos = models.GithubRepo.objects.all()
+
+    async for repo in repos:
+        config = await aget_deployment(repo.deployments_url)
+
+        try:
+            parsed = await parse_config(config, repo)
+        except KeyError as e:
+            logger.error(e, exc_info=True)
+            pass
+
+
+    return repos

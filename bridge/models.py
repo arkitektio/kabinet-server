@@ -38,7 +38,12 @@ class GithubRepo(Repo):
 
     @property
     def deployments_url(self)-> str:
-        return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt/deployments.yaml"
+        return self.build_deployments_url(self.user, self.repo, self.branch)
+    
+
+    @classmethod
+    def build_deployments_url(cls, user: str, repo: str, branch: str) -> str:
+        return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt/deployments.yaml"
     
     
     
@@ -67,26 +72,7 @@ class Release(models.Model):
         ]
 
 
-class Setup(models.Model):
-    """ This model is represents
-    an authenticaated Release that is bound
-    to a user (the installer). Setups are created
-    when a user installs a release 
-        return selectors(self.selectors)and authorizes
-    it to access their resources.
-    
-    
-    
-    """
-    release = models.ForeignKey(
-        Release, on_delete=models.CASCADE, related_name="setups"
-    )
-    installer = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now=True)
-    api_token = models.CharField(max_length=400, default="Fake Token")
-    fakts_url = models.CharField(max_length=400, default="lok:80")
-    instance = models.CharField(max_length=400, default="default")
-    command = models.CharField(max_length=400, default="arkitekt run prod")
+
 
 
 class Flavour(models.Model):
@@ -103,7 +89,7 @@ class Flavour(models.Model):
     )
     image = models.CharField(max_length=400, default="jhnnsrs/fake:latest")
     builder = models.CharField(max_length=400)
-    definitions = models.JSONField(default=list)
+    inspection = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now=True)
     deployed_at = models.DateTimeField(null=True)
 
@@ -121,7 +107,131 @@ class Flavour(models.Model):
         return field_json.selectors
     
 
+class Setup(models.Model):
+    """ This model is represents
+    an authenticaated Release that is bound
+    to a user (the installer). Setups are created
+    when a user installs a release 
+        return selectors(self.selectors)and authorizes
+    it to access their resources.
+    
+    
+    
+    """
+    flavour = models.ForeignKey(
+        Flavour, on_delete=models.CASCADE, related_name="setups"
+    )
+    installer = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now=True)
+    api_token = models.CharField(max_length=400, default="Fake Token")
+    fakts_url = models.CharField(max_length=400, default="lok:80")
+    instance = models.CharField(max_length=400, default="default")
+    command = models.CharField(max_length=400, default="arkitekt run prod")
+    
 
+
+class Collection(models.Model):
+    name = models.CharField(
+        max_length=1000, unique=True, help_text="The name of this Collection"
+    )
+    description = models.TextField(help_text="A description for the Collection")
+    defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
+
+
+class Protocol(models.Model):
+    name = models.CharField(
+        max_length=1000, unique=True, help_text="The name of this Protocol"
+    )
+    description = models.TextField(help_text="A description for the Protocol")
+
+    def __str__(self) -> str:
+        return self.name
+
+
+
+class Definition(models.Model):
+    """Nodes are abstraction of RPC Tasks. They provide a common API to deal with creating tasks.
+
+    See online Documentation"""
+
+    flavours = models.ManyToManyField(
+        Flavour,
+        related_name="definitions",
+        help_text="The flavours this Definition belongs to",
+    )
+
+    definition_version = models.CharField(
+        max_length=1000,
+        help_text="The version of the Node definition",
+        default="0.0.1",
+    )
+
+    hash = models.CharField(
+        max_length=1000,
+        help_text="The hash of the Node (completely unique)",
+        unique=True,
+    )
+
+    collections = models.ManyToManyField(
+        Collection,
+        related_name="nodes",
+        help_text="The collections this Node belongs to",
+    )
+    pure = models.BooleanField(
+        default=False, help_text="Is this function pure. e.g can we cache the result?"
+    )
+    idempotent = models.BooleanField(
+        default=False, help_text="Is this function pure. e.g can we cache the result?"
+    )
+    kind = models.CharField(
+        max_length=1000,
+        help_text="The kind of this Node. e.g. is it a function or a generator?",
+    )
+    interfaces = models.JSONField(
+        default=list, help_text="Intercae that we use to interpret the meta data"
+    )
+    port_groups = models.JSONField(
+        default=list, help_text="Intercae that we use to interpret the meta data"
+    )
+    name = models.CharField(
+        max_length=1000, help_text="The cleartext name of this Node"
+    )
+    meta = models.JSONField(
+        null=True, blank=True, help_text="Meta data about this Node"
+    )
+
+    description = models.TextField(help_text="A description for the Node")
+    scope = models.CharField(
+        max_length=1000,
+        default="GLOBAL",
+        help_text="The scope of this Node. e.g. does the data it needs or produce live only in the scope of this Node or is it global or does it bridge data?",
+    )
+    is_test_for = models.ManyToManyField(
+        "self",
+        related_name="tests",
+        blank=True,
+        symmetrical=False,
+        help_text="The users that have pinned the position",
+    )
+    protocols = models.ManyToManyField(
+        Protocol,
+        related_name="nodes",
+        blank=True,
+        help_text="The protocols this Node implements (e.g. Predicate)",
+    )
+
+    hash = models.CharField(
+        max_length=1000,
+        help_text="The hash of the Node (completely unique)",
+        unique=True,
+    )
+    defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
+
+    args = models.JSONField(default=list, help_text="Inputs for this Node")
+    returns = models.JSONField(default=list, help_text="Outputs for this Node")
+
+    def __str__(self) -> str:
+        return f"{self.name}"
 
 
 

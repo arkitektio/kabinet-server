@@ -16,3 +16,15 @@ async def flavour(
 
     async for message in backend.awatch_flavour(info,flavour):
         yield message
+
+
+
+async def flavours(
+    info: Info,
+) -> AsyncGenerator[types.FlavourUpdate, None]:
+    """Join and subscribe to message sent to the given rooms."""
+
+    backend = get_backend()
+
+    async for message in backend.awatch_flavours(info):
+        yield message
