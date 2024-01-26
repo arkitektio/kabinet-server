@@ -1,4 +1,3 @@
-import strawberry_django
 import strawberry
 from typing import Optional
 from pydantic import BaseModel
@@ -6,6 +5,7 @@ from strawberry.experimental import pydantic
 from typing import Literal, Union
 import datetime
 from rekuest_core import enums
+
 
 class ChoiceModel(BaseModel):
     label: str
@@ -68,12 +68,10 @@ class ChoiceReturnWidgetModel(ReturnWidgetModel):
 ReturnWidgetModelUnion = Union[CustomReturnWidgetModel, ChoiceReturnWidgetModel]
 
 
-
 class EffectDependencyModel(BaseModel):
     condition: str
     key: str
     value: str
-
 
 
 class EffectModel(BaseModel):
@@ -90,8 +88,6 @@ class CustomEffectModel(EffectModel):
     kind: Literal["CUSTOM"]
     hook: str
     ward: str
-
-
 
 
 EffectModelUnion = Union[MessageEffectModel, CustomEffectModel]
@@ -116,8 +112,6 @@ class BindsModel(BaseModel):
     clients: Optional[list[str]] = None
     desired_instances: int = 1
     minimum_instances: int = 1
-
-
 
 
 class PortGroupModel(BaseModel):
@@ -148,8 +142,6 @@ class PortModel(BaseModel):
     groups: list[str] | None
 
 
-
-
 class DefinitionModel(BaseModel):
     id: strawberry.ID
     hash: str
@@ -163,5 +155,3 @@ class DefinitionModel(BaseModel):
     tests: list[str]
     protocols: list[str]
     defined_at: datetime.datetime
-
-

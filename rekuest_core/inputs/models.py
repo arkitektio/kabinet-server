@@ -9,24 +9,21 @@ class BindsInputModel(BaseModel):
     desired_instances: int = 1
 
 
-
-
 class EffectDependencyInputModel(BaseModel):
     key: str
     condition: str
     value: str
 
 
-
 class EffectInputModel(BaseModel):
     dependencies: list[EffectDependencyInputModel]
     kind: enums.EffectKind
+
 
 class ChoiceInputModel(BaseModel):
     value: str
     label: str
     description: str | None
-
 
 
 class AssignWidgetInputModel(BaseModel):
@@ -53,7 +50,6 @@ class ReturnWidgetInputModel(BaseModel):
     ward: str | None = None
 
 
-
 class ChildPortInputModel(BaseModel):
     label: str | None
     kind: enums.PortKind
@@ -66,7 +62,6 @@ class ChildPortInputModel(BaseModel):
     effects: list[EffectInputModel] | None = None
     assign_widget: Optional["AssignWidgetInputModel"] = None
     return_widget: Optional["ReturnWidgetInputModel"] = None
-
 
 
 class PortInputModel(BaseModel):
@@ -93,12 +88,13 @@ class PortGroupInputModel(BaseModel):
 
 class DefinitionInputModel(BaseModel):
     """A definition for a template"""
+
     description: str = "No description provided"
     collections: list[str] = Field(default_factory=list)
     name: str
     port_groups: list[PortGroupInputModel] = Field(default_factory=list)
-    args: list[PortInputModel]= Field(default_factory=list)
-    returns: list[PortInputModel]  = Field(default_factory=list)
+    args: list[PortInputModel] = Field(default_factory=list)
+    returns: list[PortInputModel] = Field(default_factory=list)
     kind: enums.NodeKind
-    is_test_for: list[str]= Field(default_factory=list)
-    interfaces: list[str]= Field(default_factory=list)
+    is_test_for: list[str] = Field(default_factory=list)
+    interfaces: list[str] = Field(default_factory=list)

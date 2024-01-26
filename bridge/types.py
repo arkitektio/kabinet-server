@@ -7,21 +7,30 @@ import strawberry_django
 from django.contrib.auth import get_user_model
 from strawberry import auto
 from typing import List
-from bridge import models, types
+from bridge import models, types, enums, filters
 from bridge.repo import selectors
 from kante.types import Info
-from bridge.backend import get_backend
-from bridge.backends import messages
 from rekuest_core import enums as rkenums
 from rekuest_core import scalars as rkscalars
 from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
-from asgiref.sync import async_to_sync
+from authentikate.models import App as Client
+
+@strawberry_django.type(
+    Client, description="A user of the bridge server. Maps to an authentikate user"
+)
+class Client:
+    id: auto
+    identifier: str
 
 
-@strawberry_django.type(get_user_model(), description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(
+    get_user_model(),
+    description="A user of the bridge server. Maps to an authentikate user",
+)
 class User:
-    """ A user of the bridge server"""
+    """A user of the bridge server"""
+
     id: auto
     sub: str
     username: str
@@ -29,15 +38,12 @@ class User:
     password: str
 
 
-
-
-@strawberry_django.type(models.Repo, description="A user of the bridge server. Maps to an authentikate user")
-class Repo:
-    id: auto
-    name: str
-
-
-@strawberry_django.type(models.GithubRepo, description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(
+    models.GithubRepo,
+    description="A user of the bridge server. Maps to an authentikate user",
+    filters=filters.GithubRepoFilter,
+    pagination=True,
+)
 class GithubRepo:
     id: auto
     name: str
@@ -46,12 +52,19 @@ class GithubRepo:
     user: str
     flavours: List["Flavour"]
 
-@strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")
+
+@strawberry_django.type(
+    models.App, description="A user of the bridge server. Maps to an authentikate user"
+)
 class App:
     id: auto
     identifier: str
 
-@strawberry_django.type(models.Release, description="A user of the bridge server. Maps to an authentikate user")
+
+@strawberry_django.type(
+    models.Release,
+    description="A user of the bridge server. Maps to an authentikate user",
+)
 class Release:
     id: auto
     version: str
@@ -64,11 +77,10 @@ class Release:
 
     @strawberry_django.field(description="Is this release deployed")
     def installed(self, info: Info) -> bool:
-        return self.flavours.filter(setups__installer=info.context.request.user).first() is not None
-    
-    @strawberry_django.field(description="Is this release deployed")
-    def setups(self, info: Info) -> List["Setup"]:
-        return models.Setup.objects.filter(flavour__release=self, installer=info.context.request.user).all()
+        return (
+            self.flavours.filter(setups__installer=info.context.request.user).first()
+            is not None
+        )
 
     @strawberry_django.field(description="Is this release deployed")
     def description(self, info: Info) -> str:
@@ -77,45 +89,52 @@ class Release:
     @strawberry_django.field(description="Is this release deployed")
     def colour(self, info: Info) -> str:
         return "#254d11"
-    
-@strawberry_django.type(models.Setup, description="A user of the bridge server. Maps to an authentikate user")
-class Setup:
+
+
+@strawberry_django.type(
+    models.Deployment,
+    description="A user of the bridge server. Maps to an authentikate user",
+)
+class Deployment:
     id: auto
     flavour: "Flavour"
     installer: User
     api_token: str
 
 
-
-@strawberry.experimental.pydantic.type(messages.FlavourUpdate, description=" A selector is a way to select a release")
-class FlavourUpdate:
-    """ A selector is a way to select a release"""
-    status: str
-    progress: float
-    id: strawberry.ID
-
-
-
-@strawberry.experimental.pydantic.interface(selectors.BaseSelector, description=" A selector is a way to select a release")
+@strawberry.experimental.pydantic.interface(
+    selectors.BaseSelector, description=" A selector is a way to select a release"
+)
 class Selector:
-    """ A selector is a way to select a release"""
+    """A selector is a way to select a release"""
+
     type: str
     required: bool
 
 
-@strawberry.experimental.pydantic.type(selectors.CudaSelector, description=" A selector is a way to select a release")
+@strawberry.experimental.pydantic.type(
+    selectors.CudaSelector, description=" A selector is a way to select a release"
+)
 class CudaSelector(Selector):
-    """ A selector is a way to select a release"""
+    """A selector is a way to select a release"""
+
     compute_capability: str
 
-@strawberry.experimental.pydantic.type(selectors.CPUSelector, description=" A selector is a way to select a release")
+
+@strawberry.experimental.pydantic.type(
+    selectors.CPUSelector, description=" A selector is a way to select a release"
+)
 class CPUSelector(Selector):
-    """ A selector is a way to select a release"""
+    """A selector is a way to select a release"""
+
     min: int
     frequency: Optional[int] = None
 
 
-@strawberry_django.type(models.Flavour, description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(
+    models.Flavour,
+    description="A user of the bridge server. Maps to an authentikate user",
+)
 class Flavour:
     id: auto
     name: str
@@ -125,43 +144,35 @@ class Flavour:
     entrypoint: str
     image: str
     release: Release
-    setups: List[Setup]
+    deployments: List[Deployment]
 
     @strawberry_django.field()
     def selectors(self, info: Info) -> List[types.Selector]:
         return self.get_selectors()
-    
-    @strawberry_django.field()
-    def pulled(self, info: Info) -> bool:
-        backend = get_backend()
-        print(self.image)
-        return async_to_sync(backend.ais_image_pulled)(self.image)
-    
-    @strawberry_django.field()
-    def latest_update(self, info: Info) -> FlavourUpdate:
-        return FlavourUpdate(status="Pulled", progress=1, id=self.id)
 
 
-
-@strawberry_django.type(models.Collection, description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(
+    models.Collection,
+    description="A user of the bridge server. Maps to an authentikate user",
+)
 class Collection:
     id: auto
     name: str
     description: str
     defined_at: datetime.datetime
 
-@strawberry_django.type(models.Protocol, description="A user of the bridge server. Maps to an authentikate user")
+
+@strawberry_django.type(
+    models.Protocol,
+    description="A user of the bridge server. Maps to an authentikate user",
+)
 class Protocol:
     id: auto
     name: str
     description: str
 
 
-
-
-@strawberry_django.type(
-    models.Definition, pagination=True
-)
+@strawberry_django.type(models.Definition, pagination=True)
 class Definition:
     id: strawberry.ID
     hash: rkscalars.NodeHash
@@ -185,26 +196,33 @@ class Definition:
         return [rmodels.PortModel(**i) for i in self.returns]
 
 
+@strawberry_django.type(models.LogDump, description="The logs of a pod")
+class LogDump:
+    id: auto
+    pod: "Pod"
+    logs: str
+    created_at: datetime.datetime
+
+@strawberry_django.type(
+    models.Backend, description="A user of the bridge server. Maps to an authentikate user"
+)
+class Backend:
+    id: auto
+    user: User
+    client: Client
 
 
-@strawberry_django.type(models.Pod, description="A user of the bridge server. Maps to an authentikate user")
+
+@strawberry_django.type(
+    models.Pod, description="A user of the bridge server. Maps to an authentikate user"
+)
 class Pod:
     id: auto
     flavour: Flavour
-    setup: Setup
-    backend: str
+    backend: Backend
+    deployment: Deployment
+    latest_log_dump: LogDump
     pod_id: str
-    
-    @strawberry.field(description="The Lifecycle of the pod")
-    async def status(self, info: Info) -> str:
-        backend = get_backend()
-        return await backend.aget_status(self)
-    
-    @strawberry.field(description="The Lifecycle of the pod")
-    async def logs(self, info: Info) -> str:
-        backend = get_backend()
-        return await backend.aget_logs(self)
-    
-    
+    status: enums.PodStatus
 
-    
+

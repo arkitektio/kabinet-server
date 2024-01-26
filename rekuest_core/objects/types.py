@@ -1,15 +1,15 @@
 import datetime
-from typing import Any, ForwardRef, Literal, Optional, Union
+from typing import Optional
 
 import strawberry
 import strawberry_django
-from authentikate.strawberry.types import App, User
 from pydantic import BaseModel
 from strawberry import LazyType
 from strawberry.experimental import pydantic
 
 from rekuest_core.objects import models
 from rekuest_core import enums, scalars
+
 
 class ChoiceModel(BaseModel):
     label: str
@@ -20,8 +20,6 @@ class ChoiceModel(BaseModel):
 @pydantic.type(models.ChoiceModel, fields=["label", "value", "description"])
 class Choice:
     pass
-
-
 
 
 @pydantic.interface(models.AssignWidgetModel)
@@ -74,14 +72,11 @@ class ChoiceReturnWidget(ReturnWidget):
     choices: strawberry.auto
 
 
-
 @pydantic.type(models.EffectDependencyModel)
 class EffectDependency:
     condition: enums.LogicalCondition
     key: str
     value: str
-
-
 
 
 @pydantic.interface(models.EffectModel)
@@ -127,8 +122,6 @@ class ChildPort:
     return_widget: ReturnWidget | None
 
 
-
-
 @pydantic.type(models.PortGroupModel)
 class PortGroup:
     key: str
@@ -153,10 +146,7 @@ class Port:
     groups: list[str] | None
 
 
-
-@pydantic.type(
-    models.DefinitionModel
-)
+@pydantic.type(models.DefinitionModel)
 class Definition:
     hash: scalars.NodeHash
     name: str
@@ -177,4 +167,3 @@ class Definition:
     @strawberry_django.field()
     def returns(self) -> list[Port]:
         return [models.PortModel(**i) for i in self.returns]
-

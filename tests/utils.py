@@ -1,5 +1,6 @@
 import os
 
+
 def build_relative_dir(path: str) -> str:
     """Build a relative directory from a path
 
@@ -13,4 +14,4 @@ def build_relative_dir(path: str) -> str:
     str
         The relative directory
     """
-    return os.path.join( os.path.dirname(__file__), path)
+    return os.path.join(os.path.dirname(__file__), path)

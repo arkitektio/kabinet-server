@@ -1,6 +1,3 @@
-from .flavour import flavour, flavours
+from .pod import pod, pods
 
-__all__ = [
-    "flavour",
-    "flavours"
-]
+__all__ = ["pod", "pods"]

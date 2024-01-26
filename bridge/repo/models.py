@@ -7,6 +7,7 @@ from bridge.repo.selectors import Selector
 import uuid
 from rekuest_core.inputs.models import DefinitionInputModel
 
+
 class Manifest(BaseModel):
     identifier: str
     version: str
@@ -28,19 +29,13 @@ class Manifest(BaseModel):
     def to_console_string(self) -> str:
         return f"📦 {self.identifier} ({self.version}) by {self.author}"
 
-    
-
     class Config:
         validate_assignment = True
-
-
 
 
 class Inspection(BaseModel):
     size: int
     definitions: List[DefinitionInputModel]
-
-
 
 
 class Deployment(BaseModel):

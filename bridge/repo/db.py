@@ -7,8 +7,7 @@ from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
 
 
-
-async def adownload_logo(url: str) -> File: #type: ignore
+async def adownload_logo(url: str) -> File:  # type: ignore
     """Downloads a logo from a url and returns a django file"""
     img_tmp = NamedTemporaryFile(delete=True)
     async with aiohttp.ClientSession() as session:
@@ -17,10 +16,11 @@ async def adownload_logo(url: str) -> File: #type: ignore
             img_tmp.flush()
 
     return File(img_tmp)
-        
 
 
-async def parse_config(config: DeploymentsConfigFile, repo: models.GithubRepo) -> list[models.Flavour]:
+async def parse_config(
+    config: DeploymentsConfigFile, repo: models.GithubRepo
+) -> list[models.Flavour]:
     """Parse a deployments config file and create models"""
 
     deps = []
@@ -45,10 +45,9 @@ async def parse_config(config: DeploymentsConfigFile, repo: models.GithubRepo) -
                 release.logo.save(f"logo{release.id}.png", logo_file)
                 await release.asave()
 
-
             flavour, _ = await models.Flavour.objects.aupdate_or_create(
                 release=release,
-                name=deployment.flavour ,
+                name=deployment.flavour,
                 defaults=dict(
                     deployment_id=deployment.deployment_id,
                     build_id=deployment.build_id,
@@ -58,7 +57,6 @@ async def parse_config(config: DeploymentsConfigFile, repo: models.GithubRepo) -
                     image=deployment.image,
                 ),
             )
-
 
             if deployment.inspection:
                 inspection = deployment.inspection
@@ -74,12 +72,8 @@ async def parse_config(config: DeploymentsConfigFile, repo: models.GithubRepo) -
                     )
                     await def_model.flavours.aadd(flavour)
 
-
-
             deps.append(flavour)
     except Exception as e:
         raise DBError("Could not create models from deployments") from e
-    
+
     return deps
-
-

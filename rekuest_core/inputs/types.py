@@ -1,45 +1,42 @@
 from typing import Optional
-from pydantic import BaseModel
 from strawberry.experimental import pydantic
-from typing import Any
 from strawberry import LazyType
 from rekuest_core.inputs import models
 import strawberry
 from rekuest_core import enums, scalars
 
 
-
 @pydantic.input(models.EffectDependencyInputModel)
 class EffectDependencyInput:
-    """ An effect dependency is a dependency that is used to determine
+    """An effect dependency is a dependency that is used to determine
     whether or not an effect should be applied to a port. For example,
     you could have an effect dependency that checks whether or not
     a port is null, and if it is, then the effect is applied.
-    
+
     It is composed of a key, a condition, and a value. The key is the
     name of the port that the effect dependency is checking. The condition
     is the logical condition that the value should be checked against.
 
 
-    
+
     """
+
     key: str
     condition: enums.LogicalCondition
     value: scalars.AnyDefault
 
 
-
-
 @pydantic.input(models.EffectInputModel)
 class EffectInput:
-    """ An effect is a way to modify a port based on a condition. For example,
+    """An effect is a way to modify a port based on a condition. For example,
     you could have an effect that sets a port to null if another port is null.
 
     Or, you could have an effect that hides the port if another port meets a condition.
     E.g when the user selects a certain option in a dropdown, another port is hidden.
-    
-    
+
+
     """
+
     dependencies: list[EffectDependencyInput]
     label: str
     description: str | None
@@ -47,25 +44,24 @@ class EffectInput:
 
 @pydantic.input(models.ChoiceInputModel)
 class ChoiceInput:
-    """ A choice is a value that can be selected in a dropdown. 
+    """A choice is a value that can be selected in a dropdown.
 
     It is composed of a value, a label, and a description. The value is the
     value that is returned when the choice is selected. The label is the
     text that is displayed in the dropdown. The description is the text
     that is displayed when the user hovers over the choice.
-    
+
     """
+
     value: scalars.AnyDefault
     label: str
     description: str | None
 
 
-
-
 @pydantic.input(models.AssignWidgetInputModel)
 class AssignWidgetInput:
-    """ An Assign Widget is a UI element that is used to assign a value to a port.
-    
+    """An Assign Widget is a UI element that is used to assign a value to a port.
+
     It gets displayed if we intend to assign to a node, and represents the Widget
     that gets displayed in the UI. For example, a dropdown, a text input, a slider,
     etc.
@@ -73,9 +69,10 @@ class AssignWidgetInput:
     This input type composes elements of all the different kinds of assign widgets.
     Please refere to each subtype for more information.
 
-    
-    
+
+
     """
+
     kind: enums.AssignWidgetKind
     query: scalars.SearchQuery | None = None
     choices: list[ChoiceInput] | None = None
@@ -90,8 +87,8 @@ class AssignWidgetInput:
 
 @pydantic.input(models.ReturnWidgetInputModel)
 class ReturnWidgetInput:
-    """ A Return Widget is a UI element that is used to display the value of a port.
-    
+    """A Return Widget is a UI element that is used to display the value of a port.
+
     Return Widgets get displayed both if we show the return values of an assignment,
     but also when we inspect the given arguments of a previous run task. Their primary
     usecase is to adequately display the value of a port, in a user readable way.
@@ -101,9 +98,8 @@ class ReturnWidgetInput:
     date could be overwriten to display a calendar widget.
 
     Return Widgets provide more a way to customize this overwriten behavior.
-    
-    """
 
+    """
 
     kind: enums.ReturnWidgetKind
     query: scalars.SearchQuery | None = None
@@ -116,16 +112,15 @@ class ReturnWidgetInput:
     ward: str | None = None
 
 
-
-
 @pydantic.input(models.ChildPortInputModel)
 class ChildPortInput:
-    """ A child port is a port that is nested inside another port. For example,
+    """A child port is a port that is nested inside another port. For example,
 
     a List of Integers has a governing port that is a list, and a child port that
     is of kind integer.
-    
+
     """
+
     label: str | None
     kind: enums.PortKind
     scope: enums.PortScope
@@ -142,16 +137,14 @@ class ChildPortInput:
     return_widget: Optional["ReturnWidgetInput"] = None
 
 
-
-
 @pydantic.input(models.PortInputModel)
 class PortInput:
-    """ Port
+    """Port
 
     A Port is a single input or output of a node. It is composed of a key and a kind
-    which are used to uniquely identify the port. 
-    
-    If the Port is a structure, we need to define a identifier and scope, 
+    which are used to uniquely identify the port.
+
+    If the Port is a structure, we need to define a identifier and scope,
     Identifiers uniquely identify a specific type of model for the scopes (e.g
     all the ports that have the identifier "@mikro/image" are of the same type, and
     are hence compatible with each other). Scopes are used to define in which context
@@ -161,9 +154,10 @@ class PortInput:
     and can be wired to any other port that has the same identifier, as there exists a
     mechanism to resolve and retrieve the object for each app. Please check the rekuest
     documentation for more information on how this works.
-    
-    
+
+
     """
+
     key: str
     scope: enums.PortScope
     label: str | None = None
@@ -200,9 +194,9 @@ class DefinitionInput:
     any information about the actual implementation of the node ( this is handled
     by a template that implements a node).
 
-    
-    
-    
+
+
+
     """
 
     description: str | None = None
@@ -214,5 +208,3 @@ class DefinitionInput:
     kind: enums.NodeKind
     is_test_for: list[str] | None = strawberry.field(default_factory=list)
     interfaces: list[str] | None = strawberry.field(default_factory=list)
-
-

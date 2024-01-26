@@ -15,14 +15,13 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "kluster_server.settings")
 django.setup()
 
-from channels.routing import ProtocolTypeRouter, URLRouter # noqa
-from channels.routing import ProtocolTypeRouter, URLRouter, ChannelNameRouter
+from channels.routing import ProtocolTypeRouter, URLRouter  # noqa
+from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack  # noqa
 from django.urls import re_path  # noqa
 from django.core.asgi import get_asgi_application  # noqa
 from kante.consumers import KanteHTTPConsumer, KanteWsConsumer  # noqa
 from kante.cors import CorsMiddleware  # noqa
-from bridge.backends.consumer import BackendConsumer
 
 # Initialize Django ASGI application early to ensure the AppRegistry
 # is populated before importing code that may import ORM models.
@@ -48,7 +47,7 @@ application = ProtocolTypeRouter(
             [
                 re_path("^graphql", gql_http_consumer),
                 re_path(
-                    "^", django_asgi_app # type: ignore
+                    "^", django_asgi_app  # type: ignore
                 ),  # This might be another endpoint in your app
             ]
         ),
@@ -56,9 +55,5 @@ application = ProtocolTypeRouter(
         "websocket": CorsMiddleware(
             AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
         ),
-        "channel": ChannelNameRouter({
-            "backend": BackendConsumer.as_asgi(),
-        }),
-
     }
 )

@@ -1,4 +1,3 @@
-
 class RepoError(Exception):
     pass
 

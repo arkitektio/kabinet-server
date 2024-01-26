@@ -141,8 +141,6 @@ Selector = Union[
 ]
 
 
-
-
 class SelectorFieldJson(BaseModel):
     selectors: List[Selector] = Field(
         description="The selectors are used to place this image on the nodes",

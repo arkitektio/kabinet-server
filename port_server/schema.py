@@ -5,6 +5,7 @@ from bridge import types
 from bridge import mutations
 from bridge import subscriptions
 from bridge import queries
+from bridge import messages
 import strawberry_django
 from koherent.strawberry.extension import KoherentExtension
 from typing import List
@@ -23,6 +24,7 @@ class Query:
     )
     flavours: List[types.Flavour] = strawberry_django.field()
     releases: List[types.Release] = strawberry_django.field()
+    github_repos: List[types.GithubRepo] = strawberry_django.field()
     definitions: List[types.Definition] = strawberry_django.field()
     pods: List[types.Pod] = strawberry_django.field()
 
@@ -39,33 +41,34 @@ class Mutation:
         resolver=mutations.create_github_repo,
         description="Create a new Github repository on a bridge server",
     )
-    pull_flavour: types.Flavour = strawberry_django.mutation(
-        resolver=mutations.pull_flavour,
+    create_deployment: types.Deployment = strawberry_django.mutation(
+        resolver=mutations.create_deployment,
         description="Create a new dask cluster on a bridge server",
     )
-    create_setup: types.Setup = strawberry_django.mutation(
-        resolver=mutations.create_setup,
+    update_deployment: types.Deployment = strawberry_django.mutation(
+        resolver=mutations.update_deployment,
         description="Create a new dask cluster on a bridge server",
     )
-    deploy_setup: types.Pod = strawberry_django.mutation(
-        resolver=mutations.deploy_setup,
+    create_pod: types.Pod = strawberry_django.mutation(
+        resolver=mutations.create_pod,
         description="Create a new dask cluster on a bridge server",
     )
-    rescan_repos: list[types.GithubRepo] = strawberry_django.mutation(
-        resolver=mutations.rescan_repos,
+    update_pod: types.Pod = strawberry_django.mutation(
+        resolver=mutations.update_pod,
         description="Create a new dask cluster on a bridge server",
     )
+
 
 @strawberry.type
 class Subscription:
     """The root subscription type"""
 
-    flavour: types.FlavourUpdate = strawberry.subscription(
-        resolver=subscriptions.flavour,
+    pod: messages.PopUpdateMessage = strawberry.subscription(
+        resolver=subscriptions.pod,
         description="Create a new dask cluster on a bridge server",
     )
-    flavours: types.FlavourUpdate = strawberry.subscription(
-        resolver=subscriptions.flavours,
+    pods: messages.PopUpdateMessage = strawberry.subscription(
+        resolver=subscriptions.pods,
         description="Create a new dask cluster on a bridge server",
     )
 
@@ -76,5 +79,5 @@ schema = strawberry.Schema(
     subscription=Subscription,
     directives=[upper, replace, relation],
     extensions=[DjangoOptimizerExtension, KoherentExtension],
-    types=[types.Selector, types.CudaSelector, types.CPUSelector] + interface_types
+    types=[types.Selector, types.CudaSelector, types.CPUSelector] + interface_types,
 )

@@ -2,9 +2,11 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from .storages import PrivateMediaStorage
 import uuid
+
 # Create your models here.
 from bridge.repo import selectors as rselectors
 from typing import List
+from authentikate.models import App as Client
 
 
 class Repo(models.Model):
@@ -14,7 +16,7 @@ class Repo(models.Model):
 
     def __str__(self) -> str:
         return self.name
-    
+
 
 class GithubRepo(Repo):
     repo = models.CharField(max_length=4000)
@@ -29,24 +31,21 @@ class GithubRepo(Repo):
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/pyproject.toml"
 
     @property
-    def readme_url(self)-> str:
+    def readme_url(self) -> str:
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/README.md"
 
     @property
-    def manifest_url(self)-> str:
+    def manifest_url(self) -> str:
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt/manifest.yaml"
 
     @property
-    def deployments_url(self)-> str:
+    def deployments_url(self) -> str:
         return self.build_deployments_url(self.user, self.repo, self.branch)
-    
 
     @classmethod
     def build_deployments_url(cls, user: str, repo: str, branch: str) -> str:
         return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt/deployments.yaml"
-    
-    
-    
+
 
 class App(models.Model):
     identifier = models.CharField(max_length=4000)
@@ -72,9 +71,6 @@ class Release(models.Model):
         ]
 
 
-
-
-
 class Flavour(models.Model):
     release = models.ForeignKey(
         Release, on_delete=models.CASCADE, related_name="flavours"
@@ -84,9 +80,7 @@ class Flavour(models.Model):
     build_id = models.CharField(max_length=400, default=uuid.uuid4)
     flavour = models.CharField(max_length=400, default="vanilla")
     selectors = models.JSONField(default=list)
-    repo = models.ForeignKey(
-        Repo, on_delete=models.CASCADE, related_name="flavours"
-    )
+    repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="flavours")
     image = models.CharField(max_length=400, default="jhnnsrs/fake:latest")
     builder = models.CharField(max_length=400)
     inspection = models.JSONField(default=dict)
@@ -101,33 +95,9 @@ class Flavour(models.Model):
         ]
         ordering = ["-created_at"]
 
-
     def get_selectors(self) -> List[rselectors.Selector]:
         field_json = rselectors.SelectorFieldJson(**{"selectors": self.selectors})
         return field_json.selectors
-    
-
-class Setup(models.Model):
-    """ This model is represents
-    an authenticaated Release that is bound
-    to a user (the installer). Setups are created
-    when a user installs a release 
-        return selectors(self.selectors)and authorizes
-    it to access their resources.
-    
-    
-    
-    """
-    flavour = models.ForeignKey(
-        Flavour, on_delete=models.CASCADE, related_name="setups"
-    )
-    installer = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now=True)
-    api_token = models.CharField(max_length=400, default="Fake Token")
-    fakts_url = models.CharField(max_length=400, default="lok:80")
-    instance = models.CharField(max_length=400, default="default")
-    command = models.CharField(max_length=400, default="arkitekt run prod")
-    
 
 
 class Collection(models.Model):
@@ -146,7 +116,6 @@ class Protocol(models.Model):
 
     def __str__(self) -> str:
         return self.name
-
 
 
 class Definition(models.Model):
@@ -234,19 +203,54 @@ class Definition(models.Model):
         return f"{self.name}"
 
 
+class Backend(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    client = models.ForeignKey(Client, on_delete=models.CASCADE)
+    instance_id = models.CharField(max_length=1000)
+    last_heartbeat = models.DateTimeField(auto_now=True)
 
 
-class Pod(models.Model):
-    backend = models.CharField(max_length=2000)
-    setup =  models.ForeignKey(
-        Setup,
-        on_delete=models.CASCADE,
-        related_name="pods",
-    )
+class Deployment(models.Model):
     flavour = models.ForeignKey(
         Flavour,
         on_delete=models.CASCADE,
+        related_name="deployments",
+    )
+    backend = models.ForeignKey(Backend, on_delete=models.CASCADE)
+    pulled = models.BooleanField(default=False)
+    api_token = models.CharField(max_length=1000)
+
+    created_at = models.DateTimeField(auto_now=True)
+
+
+class Pod(models.Model):
+    backend = models.ForeignKey(Backend, on_delete=models.CASCADE)
+    pod_id = models.CharField(max_length=1000)
+
+    backend = models.CharField(max_length=2000)
+    deployment = models.ForeignKey(
+        Deployment,
+        on_delete=models.CASCADE,
         related_name="pods",
     )
-    pod_id = models.CharField(max_length=1000)
+    status = models.CharField(max_length=1000, default="pending")
+
+    created_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["backend", "pod_id"], name="Unique pod for backend "
+            )
+        ]
+        ordering = ["-created_at"]
+
+
+class LogDump(models.Model):
+    pod = models.ForeignKey(
+        Pod,
+        on_delete=models.CASCADE,
+        related_name="log_dumps",
+    )
+    logs = models.TextField()
     created_at = models.DateTimeField(auto_now=True)

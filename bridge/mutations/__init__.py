@@ -1,13 +1,16 @@
 """Mutations for the bridge app."""
 from .repo import scan_repo, create_github_repo, rescan_repos
-from .flavour import pull_flavour
-from .setup import create_setup, deploy_setup
+from .flavour import match_flavours
+from .deployment import create_deployment, update_deployment
+from .pod import create_pod, update_pod
 
 __all__ = [
     "scan_repo",
     "create_github_repo",
-    "pull_flavour",
-    "create_setup",
-    "deploy_setup",
+    "match_flavours",
+    "create_deployment",
+    "update_deployment",
+    "create_pod",
+    "update_pod",
     "rescan_repos",
 ]

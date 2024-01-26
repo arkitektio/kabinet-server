@@ -1,11 +1,11 @@
 import strawberry
 from enum import Enum
 
+
 @strawberry.enum
 class NodeKind(str, Enum):
     FUNCTION = "FUNCTION"
     GENERATOR = "GENERATOR"
-
 
 
 @strawberry.enum
