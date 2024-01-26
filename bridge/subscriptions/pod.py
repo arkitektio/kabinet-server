@@ -7,7 +7,7 @@ import strawberry
 async def pod(
     info: Info,
     pod_id: strawberry.ID,
-) -> AsyncGenerator[messages.PopUpdateMessage, None]:
+) -> AsyncGenerator[messages.PodUpdateMessage, None]:
     """Join and subscribe to message sent to the given rooms."""
 
     pod = await models.Pod.objects.aget(id=pod_id)
@@ -18,7 +18,7 @@ async def pod(
 
 async def pods(
     info: Info,
-) -> AsyncGenerator[messages.PopUpdateMessage, None]:
+) -> AsyncGenerator[messages.PodUpdateMessage, None]:
     """Join and subscribe to message sent to the given rooms."""
 
     async for message in gateways.pod_gateway.alisten(info, ["all"]):

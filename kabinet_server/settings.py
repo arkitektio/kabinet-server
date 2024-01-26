@@ -86,7 +86,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "port_server.urls"
+ROOT_URLCONF = "kabinet_server.urls"
 
 TEMPLATES = [
     {
@@ -109,8 +109,8 @@ AUTHENTICATION_BACKENDS = (
     "guardian.backends.ObjectPermissionBackend",
 )
 
-WSGI_APPLICATION = "port_server.wsgi.application"
-ASGI_APPLICATION = "port_server.asgi.application"
+WSGI_APPLICATION = "kabinet_server.wsgi.application"
+ASGI_APPLICATION = "kabinet_server.asgi.application"
 
 
 # Database

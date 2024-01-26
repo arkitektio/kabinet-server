@@ -19,8 +19,21 @@ class Query:
     github_repo: types.GithubRepo = strawberry_django.field(
         resolver=queries.github_repo, description="Return all dask clusters"
     )
+    definition: types.Definition = strawberry_django.field(
+        resolver=queries.definition, description="Return all dask clusters"
+    )
+    release: types.Release = strawberry_django.field(
+        resolver=queries.release, description="Return all dask clusters"
+    )
+    flavour: types.Flavour = strawberry_django.field(
+        resolver=queries.flavour, description="Return all dask clusters"
+    )
     me: types.User = strawberry_django.field(
         resolver=queries.me, description="Return the currently logged in user"
+    )
+    best_flavour: types.Flavour = strawberry_django.field(
+        resolver=queries.best_flavour,
+        description="Return the currently logged in user",
     )
     flavours: List[types.Flavour] = strawberry_django.field()
     releases: List[types.Release] = strawberry_django.field()
@@ -63,11 +76,11 @@ class Mutation:
 class Subscription:
     """The root subscription type"""
 
-    pod: messages.PopUpdateMessage = strawberry.subscription(
+    pod: messages.PodUpdateMessage = strawberry.subscription(
         resolver=subscriptions.pod,
         description="Create a new dask cluster on a bridge server",
     )
-    pods: messages.PopUpdateMessage = strawberry.subscription(
+    pods: messages.PodUpdateMessage = strawberry.subscription(
         resolver=subscriptions.pods,
         description="Create a new dask cluster on a bridge server",
     )

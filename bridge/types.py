@@ -81,6 +81,10 @@ class Release:
             self.flavours.filter(setups__installer=info.context.request.user).first()
             is not None
         )
+    
+    @strawberry_django.field(description="Is this release deployed")
+    def deployments(self, info: Info) -> List["Deployment"]:
+        return models.Deployment.objects.filter(flavour__release=self).all()
 
     @strawberry_django.field(description="Is this release deployed")
     def description(self, info: Info) -> str:
@@ -100,6 +104,7 @@ class Deployment:
     flavour: "Flavour"
     installer: User
     api_token: str
+    backend: "Backend"
 
 
 @strawberry.experimental.pydantic.interface(

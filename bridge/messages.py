@@ -8,12 +8,14 @@ class PodUpdateMessageModel(BaseModel):
     id: str
     status: str
     created: bool
+    progress: int | None = None
 
 
 @pydantic.type(PodUpdateMessageModel, description="An update on a pod")
-class PopUpdateMessage:
+class PodUpdateMessage:
     """Create a dask cluster input"""
 
     id: str
     status: str
     created: bool
+    progress: int | None = None

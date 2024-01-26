@@ -155,7 +155,7 @@ class UpdatePodInput:
 
 class CreateDeploymentInputModel(BaseModel):
     """Create a new Github repository input model"""
-
+    instance_id: strawberry.ID
     flavour: strawberry.ID
     pulled: bool = False
 
@@ -165,7 +165,7 @@ class CreateDeploymentInputModel(BaseModel):
 )
 class CreateDeploymentInput:
     """Create a new Github repository input"""
-
+    instance_id: strawberry.ID
     flavour: strawberry.ID
     pulled: bool | None = False
 

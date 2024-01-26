@@ -12,7 +12,7 @@ import os
 
 import django
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "kluster_server.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "kabinet_server.settings")
 django.setup()
 
 from channels.routing import ProtocolTypeRouter, URLRouter  # noqa
