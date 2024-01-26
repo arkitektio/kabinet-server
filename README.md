@@ -6,6 +6,7 @@ Kabinet is a GraphQL API that allows you to visualize containers that are runnin
 Arkitekt App). It is designed to be
 used with Arkitekt Apps that are running in these containers, but can be used for any containerized application 
 
+This is a highly developmental service, that aims to replace Port in the Arkitekt Next Deployment. It is not yet ready for production.
 
 ## Usage
 
@@ -30,6 +31,5 @@ a user. Thinks: "Napari 0.4.10 on Python 3.8 authorized as John Doe and able to 
 
 Pod: A Pod is a running instance of a Setup. Pods are the actual running containers that provide the functionality of an App. They
 are the only model that is actively maintained by the Backend. Pods are identified by a container specific ID and are always associated with a Setup.
-
 
 
