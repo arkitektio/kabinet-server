@@ -1,17 +1,17 @@
 from pydantic import BaseModel, Field, validator
-from typing import List, Optional
+from typing import Dict, List, Optional
 from typing import Any
 import datetime
 import semver
 from bridge.repo.selectors import Selector
 import uuid
-from rekuest_core.inputs.models import DefinitionInputModel
+from rekuest_core.inputs.models import DefinitionInputModel, TemplateInputModel
 
 
 class Manifest(BaseModel):
     identifier: str
     version: str
-    author: str
+    author: str = "unknown"
     logo: Optional[str]
     scopes: List[str]
     created_at: datetime.datetime = Field(default_factory=datetime.datetime.now)
@@ -23,7 +23,7 @@ class Manifest(BaseModel):
             try:
                 semver.VersionInfo.parse(v)
             except ValueError:
-                raise ValueError("Version must be a valid semver version")
+                raise ValueError(f"Version must be a valid semver version is {v}")
         return str(v)
 
     def to_console_string(self) -> str:
@@ -36,6 +36,8 @@ class Manifest(BaseModel):
 class Inspection(BaseModel):
     size: int
     definitions: List[DefinitionInputModel]
+
+
 
 
 class Deployment(BaseModel):
@@ -64,9 +66,7 @@ class Deployment(BaseModel):
         description="The flavour that was used to build this deployment",
         default="vanilla",
     )
-    build_id: str = Field(
-        description="The build_id of the build that was deployed. Is referenced in the build.yaml file."
-    )
+    templates: Dict[str, TemplateInputModel] = Field(default_factory=dict, description="The templates")
     image: str = Field(
         description="The docker image that was built for this deployment"
     )
@@ -74,13 +74,9 @@ class Deployment(BaseModel):
         default_factory=datetime.datetime.now,
         description="The timestamp of the deployment",
     )
-    inspection: Optional[Inspection] = Field(
-        description="The inspection of the deployment",
-        default=None,
-    )
 
 
-class DeploymentsConfigFile(BaseModel):
+class KabinetConfigFile(BaseModel):
     """The ConfigFile is a pydantic model that represents the deployments.yaml file
 
 

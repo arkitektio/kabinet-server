@@ -11,9 +11,14 @@ async def create_deployment(
 
     flavour = await models.Flavour.objects.aget(id=input.flavour)
 
-    deployment = await models.Deployment.objects.acreate(
+    deployment, _ = await models.Deployment.objects.aupdate_or_create(
         flavour=flavour,
         backend=backend,
+        local_id=input.local_id,
+        defaults={
+            "secret_params": input.secret_params or {}
+        }
+
     )
 
     return deployment

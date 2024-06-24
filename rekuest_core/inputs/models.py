@@ -1,12 +1,14 @@
 from typing import Any, Optional
 from rekuest_core import enums
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, root_validator
+from typing_extensions import Self
 
 
 class BindsInputModel(BaseModel):
     templates: Optional[list[str]]
     clients: Optional[list[str]]
     desired_instances: int = 1
+    minimum_instances: int = 1
 
 
 class EffectDependencyInputModel(BaseModel):
@@ -25,6 +27,12 @@ class ChoiceInputModel(BaseModel):
     label: str
     description: str | None
 
+
+class ValidatorInputModel(BaseModel):
+    function: str
+    dependencies: list[str] | None = []
+    label: str | None = None
+    error_message: str | None = None
 
 class AssignWidgetInputModel(BaseModel):
     kind: enums.AssignWidgetKind
@@ -51,34 +59,46 @@ class ReturnWidgetInputModel(BaseModel):
 
 
 class ChildPortInputModel(BaseModel):
+    key: str 
     label: str | None
     kind: enums.PortKind
     scope: enums.PortScope
     description: str | None = None
-    child: Optional["ChildPortInputModel"] = None
     identifier: str | None = None
     nullable: bool
-    variants: list["ChildPortInputModel"] | None = None
+    children: list["ChildPortInputModel"] | None = None
     effects: list[EffectInputModel] | None = None
     assign_widget: Optional["AssignWidgetInputModel"] = None
     return_widget: Optional["ReturnWidgetInputModel"] = None
 
 
+
 class PortInputModel(BaseModel):
+    validators: list[ValidatorInputModel] | None
     key: str
     scope: enums.PortScope
     label: str | None = None
     kind: enums.PortKind
     description: str | None = None
     identifier: str | None = None
-    nullable: bool
+    nullable: bool = False
     effects: list[EffectInputModel] | None
     default: Any | None = None
-    child: ChildPortInputModel | None = None
-    variants: list["ChildPortInputModel"] | None
+    children: list["ChildPortInputModel"] | None
     assign_widget: Optional["AssignWidgetInputModel"] = None
     return_widget: Optional["ReturnWidgetInputModel"] = None
     groups: list[str] | None
+
+    @root_validator
+    def check_children_for_port(cls, values) -> Self:
+        kind = values.get("kind")
+        children = values.get("children")
+
+        if kind == enums.PortKind.LIST and (children is None or len(children) != 1):
+            raise ValueError("Port of kind LIST must have exactly on children")
+        return values
+
+
 
 
 class PortGroupInputModel(BaseModel):
@@ -98,3 +118,25 @@ class DefinitionInputModel(BaseModel):
     kind: enums.NodeKind
     is_test_for: list[str] = Field(default_factory=list)
     interfaces: list[str] = Field(default_factory=list)
+
+
+class DependencyInputModel(BaseModel):
+    hash: str
+    reference: str | None
+    binds: BindsInputModel | None
+    optional: bool = False
+    viable_instances: int | None
+
+
+
+class TemplateInputModel(BaseModel):
+    definition: DefinitionInputModel
+    dependencies: list[DependencyInputModel]
+    interface: str
+    extension: str
+    params: dict[str, Any] | None = None
+    instance_id: str | None = None
+    dynamic: bool = False
+    logo: str | None = None
+
+

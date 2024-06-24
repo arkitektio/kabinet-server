@@ -14,3 +14,7 @@ class HistoryAdmin(SimpleHistoryAdmin):  # type: ignore
 
 
 admin.site.register(models.Repo, HistoryAdmin)
+admin.site.register(models.Definition)
+admin.site.register(models.Release)
+admin.site.register(models.Deployment)
+admin.site.register(models.Pod)

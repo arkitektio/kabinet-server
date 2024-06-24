@@ -3,19 +3,22 @@ from bridge import types, inputs, models
 import logging
 from typing import List
 
-from bridge.utils import get_backend_for_info
+from bridge.utils import aget_backend_for_info
 
 async def create_pod(info: Info, input: inputs.CreatePodInput) -> types.Pod:
     """Create a new dask cluster on a bridge server"""
 
-    backend = get_backend_for_info(info, input.instance_id)
+    backend = await aget_backend_for_info(info, input.instance_id)
 
 
-    flavour = models.Deployment.objects.get(id=input.deployment)
+    deployment = await models.Deployment.objects.aget(id=input.deployment)
 
-    pod = await models.Pod.objects.acreate(
+    pod, _ = await models.Pod.objects.aupdate_or_create(
         backend=backend,
-        flavour=flavour,
+        pod_id=input.local_id,
+        defaults=dict(
+        deployment=deployment,
+        )
     )
 
     return pod
@@ -24,11 +27,25 @@ async def create_pod(info: Info, input: inputs.CreatePodInput) -> types.Pod:
 async def update_pod(info: Info, input: inputs.UpdatePodInput) -> types.Pod:
     """Create a new dask cluster on a bridge server"""
 
-    pod = await models.Pod.objects.get(id=input.id)
+    backend = await aget_backend_for_info(info, input.instance_id)
+
+    if not input.pod and not input.local_id:
+        raise ValueError("Either pod or local_id must be set")
+
+    if input.local_id:
+        pod = await models.Pod.objects.aget(
+            backend=backend,
+            pod_id=input.local_id,
+        )
+    
+    if input.pod:
+        pod = await models.Pod.objects.aget(
+            id=input.pod
+        )
+
 
     pod.status = input.status
-
-    await pod.save()
+    await pod.asave()
 
     return pod
 

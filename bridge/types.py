@@ -7,7 +7,7 @@ import strawberry_django
 from django.contrib.auth import get_user_model
 from strawberry import auto
 from typing import List
-from bridge import models, types, enums, filters
+from bridge import models, types, enums, filters, scalars
 from bridge.repo import selectors
 from kante.types import Info
 from rekuest_core import enums as rkenums
@@ -15,6 +15,7 @@ from rekuest_core import scalars as rkscalars
 from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
 from authentikate.models import App as Client
+
 
 @strawberry_django.type(
     Client, description="A user of the bridge server. Maps to an authentikate user"
@@ -102,10 +103,9 @@ class Release:
 class Deployment:
     id: auto
     flavour: "Flavour"
-    installer: User
     api_token: str
     backend: "Backend"
-
+    local_id: strawberry.ID
 
 @strawberry.experimental.pydantic.interface(
     selectors.BaseSelector, description=" A selector is a way to select a release"
@@ -150,6 +150,7 @@ class Flavour:
     image: str
     release: Release
     deployments: List[Deployment]
+    definitions: List["Definition"]
 
     @strawberry_django.field()
     def selectors(self, info: Info) -> List[types.Selector]:
@@ -223,7 +224,6 @@ class Backend:
 )
 class Pod:
     id: auto
-    flavour: Flavour
     backend: Backend
     deployment: Deployment
     latest_log_dump: LogDump

@@ -4,7 +4,9 @@ from .repos import github_repo
 from .me import me
 from .definition import definition
 from .release import release
-from .flavour import flavour, best_flavour
+from .flavour import flavour, match_flavour
+from .pod import pod
+from .deployment import deployment
 
 __all__ = [
     "github_repo",
@@ -12,6 +14,7 @@ __all__ = [
     "definition",
     "release",
     "flavour",
-    "best_flavour",
-
+    "match_flavour",
+    "pod",
+    "deployment"
 ]

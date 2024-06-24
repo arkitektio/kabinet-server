@@ -4,7 +4,7 @@ import logging
 import aiohttp
 import yaml
 from bridge.repo.db import parse_config
-from bridge.repo.models import DeploymentsConfigFile
+from bridge.repo.models import KabinetConfigFile
 from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
 
@@ -22,16 +22,16 @@ async def adownload_logo(url: str) -> File:
     return File(img_tmp)
 
 
-async def aget_deployment(deployments_url: str) -> DeploymentsConfigFile:
+async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
     async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}) as session:
-        async with session.get(deployments_url) as response:
+        async with session.get(kabinet_url) as response:
             z = await response.text()
 
     z = yaml.safe_load(z)
     if not isinstance(z, dict):
-        raise Exception("Invalid deployments.yml")
+        raise Exception("Invalid kabinet.yml")
 
-    config = DeploymentsConfigFile(**z)
+    config = KabinetConfigFile(**z)
     return config
 
 
@@ -39,7 +39,7 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     """Create a new dask cluster on a bridge server"""
     repo = await models.GithubRepo.objects.aget(id=input.id)
 
-    config = await aget_deployment(repo.deployments_url)
+    config = await aget_kabinet_config(repo.kabinet_url)
 
     try:
         await parse_config(config, repo)
@@ -53,26 +53,29 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
 async def create_github_repo(
     info: Info, input: inputs.CreateGithupRepoInput
 ) -> types.GithubRepo:
-    dep_url = models.GithubRepo.build_deployments_url(
+    dep_url = models.GithubRepo.build_kabinet_url(
         input.user, input.repo, input.branch
     )
 
-    config = await aget_deployment(dep_url)
+    config = await aget_kabinet_config(dep_url)
 
-    repo = await models.GithubRepo.objects.acreate(
-        name=input.name,
+    repo, _ = await models.GithubRepo.objects.aget_or_create(
         user=input.user,
         branch=input.branch,
         repo=input.repo,
-        creator=info.context.request.user,
+        defaults=dict(
+            name=input.name,
+            creator=info.context.request.user,
+        )
+
     )
 
-    if input.auto_scan:
-        try:
-            await parse_config(config, repo)
-        except KeyError as e:
-            logger.error(e, exc_info=True)
-            pass
+    try:
+        await parse_config(config, repo)
+    except KeyError as e:
+        logger.error(e, exc_info=True)
+        pass
+        raise e
 
     return repo
 
@@ -81,7 +84,7 @@ async def rescan_repos(info: Info) -> list[types.GithubRepo]:
     repos = models.GithubRepo.objects.all()
 
     async for repo in repos:
-        config = await aget_deployment(repo.deployments_url)
+        config = await aget_kabinet_config(repo.kabinet_url)
 
         try:
             await parse_config(config, repo)

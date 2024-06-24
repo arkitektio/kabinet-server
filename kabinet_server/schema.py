@@ -28,18 +28,28 @@ class Query:
     flavour: types.Flavour = strawberry_django.field(
         resolver=queries.flavour, description="Return all dask clusters"
     )
+    deployment: types.Deployment = strawberry_django.field(
+        resolver=queries.deployment, description="Return all dask clusters"
+    )
+    pod: types.Pod = strawberry_django.field(
+        resolver=queries.pod, description="Return all dask clusters"
+    )
     me: types.User = strawberry_django.field(
         resolver=queries.me, description="Return the currently logged in user"
     )
-    best_flavour: types.Flavour = strawberry_django.field(
-        resolver=queries.best_flavour,
+    match_flavour: types.Flavour = strawberry_django.field(
+        resolver=queries.match_flavour,
         description="Return the currently logged in user",
     )
     flavours: List[types.Flavour] = strawberry_django.field()
     releases: List[types.Release] = strawberry_django.field()
+    deployments: List[types.Deployment] = strawberry_django.field()
     github_repos: List[types.GithubRepo] = strawberry_django.field()
     definitions: List[types.Definition] = strawberry_django.field()
     pods: List[types.Pod] = strawberry_django.field()
+
+
+
 
 
 @strawberry.type

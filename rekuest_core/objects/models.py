@@ -5,7 +5,7 @@ from strawberry.experimental import pydantic
 from typing import Literal, Union
 import datetime
 from rekuest_core import enums
-
+from typing import Any
 
 class ChoiceModel(BaseModel):
     label: str
@@ -94,15 +94,15 @@ EffectModelUnion = Union[MessageEffectModel, CustomEffectModel]
 
 
 class ChildPortModel(BaseModel):
+    key: str 
     label: str | None
     scope: str
     kind: str
-    child: Optional["ChildPortModel"] = None
     description: str | None
     identifier: str | None
     nullable: bool
     default: str | None
-    variants: list["ChildPortModel"] | None
+    children: list["ChildPortModel"] | None
     assign_widget: AssignWidgetModelUnion | None
     return_widget: ReturnWidgetModelUnion | None
 
@@ -125,6 +125,13 @@ class PortGroup:
     hidden: bool
 
 
+class ValidatorModel(BaseModel):
+    function: str
+    dependencies: list[str] | None = []
+    label: str | None = None
+    error_message: str | None = None
+
+
 class PortModel(BaseModel):
     key: str
     scope: str
@@ -134,12 +141,12 @@ class PortModel(BaseModel):
     identifier: str | None = None
     nullable: bool
     effects: list[EffectModelUnion] | None
-    default: str | None
-    variants: list[ChildPortModel] | None
+    default: Any | None = None
+    children: list[ChildPortModel] | None
     assign_widget: AssignWidgetModelUnion | None
     return_widget: ReturnWidgetModelUnion | None
-    child: Optional[ChildPortModel] = None
     groups: list[str] | None
+    validators: list[ValidatorModel] | None
 
 
 class DefinitionModel(BaseModel):

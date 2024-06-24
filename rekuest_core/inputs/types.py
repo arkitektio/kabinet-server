@@ -36,7 +36,7 @@ class EffectInput:
 
 
     """
-
+    kind: enums.EffectKind
     dependencies: list[EffectDependencyInput]
     label: str
     description: str | None
@@ -120,21 +120,31 @@ class ChildPortInput:
     is of kind integer.
 
     """
-
+    key: str 
     label: str | None
     kind: enums.PortKind
     scope: enums.PortScope
     description: str | None = None
-    child: Optional[LazyType["ChildPortInput", __name__]] = None
     identifier: scalars.Identifier | None = None
     nullable: bool
     default: scalars.AnyDefault | None = None
-    variants: list[LazyType["ChildPortInput", __name__]] | None = strawberry.field(
+    children: list[LazyType["ChildPortInput", __name__]] | None = strawberry.field(
         default_factory=list
     )
     effects: list[EffectInput] | None = strawberry.field(default_factory=list)
     assign_widget: Optional["AssignWidgetInput"] = None
     return_widget: Optional["ReturnWidgetInput"] = None
+
+
+
+
+
+@pydantic.input(models.ValidatorInputModel)
+class ValidatorInput:
+    function: scalars.ValidatorFunction
+    dependencies: list[str] | None = strawberry.field(default_factory=list)
+    label: str | None = None
+    error_message: str | None = None
 
 
 @pydantic.input(models.PortInputModel)
@@ -157,7 +167,7 @@ class PortInput:
 
 
     """
-
+    validators: list[ValidatorInput] | None = strawberry.field(default_factory=list)
     key: str
     scope: enums.PortScope
     label: str | None = None
@@ -167,8 +177,7 @@ class PortInput:
     nullable: bool
     effects: list[EffectInput] | None = strawberry.field(default_factory=list)
     default: scalars.AnyDefault | None = None
-    child: Optional[LazyType["ChildPortInput", __name__]] = None
-    variants: list[LazyType["ChildPortInput", __name__]] | None = strawberry.field(
+    children: list[LazyType["ChildPortInput", __name__]] | None = strawberry.field(
         default_factory=list
     )
     assign_widget: Optional["AssignWidgetInput"] = None
@@ -180,6 +189,12 @@ class PortInput:
 class PortGroupInput:
     key: str
     hidden: bool
+
+@pydantic.input(models.BindsInputModel)
+class BindsInput:
+    templates: Optional[list[str]]
+    clients: Optional[list[str]]
+    desired_instances: int = 1
 
 
 @strawberry.input()
@@ -200,11 +215,37 @@ class DefinitionInput:
     """
 
     description: str | None = None
-    collections: list[str] | None = strawberry.field(default_factory=list)
+    collections: list[str] = strawberry.field(default_factory=list)
     name: str
-    port_groups: list[PortGroupInput] | None = strawberry.field(default_factory=list)
-    args: list[PortInput] | None = strawberry.field(default_factory=list)
-    returns: list[PortInput] | None = strawberry.field(default_factory=list)
+    port_groups: list[PortGroupInput] = strawberry.field(default_factory=list)
+    args: list[PortInput] = strawberry.field(default_factory=list)
+    returns: list[PortInput] = strawberry.field(default_factory=list)
     kind: enums.NodeKind
-    is_test_for: list[str] | None = strawberry.field(default_factory=list)
-    interfaces: list[str] | None = strawberry.field(default_factory=list)
+    is_test_for: list[str] = strawberry.field(default_factory=list)
+    interfaces: list[str] = strawberry.field(default_factory=list)
+
+
+@pydantic.input(models.DependencyInputModel)
+class DependencyInput:
+    """A dependency for a template. By defining dependencies, you can
+    create a dependency graph for your templates and nodes"""
+
+    hash: scalars.NodeHash | None = None
+    reference: str | None = (
+        None  # How to reference this dependency (e.g. if it corresponds to a node_id in a flow)
+    )
+    binds: BindsInput | None = None
+    optional: bool = False
+    viable_instances: int | None = None
+
+
+
+@pydantic.input(models.TemplateInputModel)
+class TemplateInput:
+    definition: DefinitionInput
+    dependencies: list[DependencyInput] = strawberry.field(default_factory=list)
+    interface: str
+    extension: str
+    params: scalars.AnyDefault | None = None
+    dynamic: bool = False
+    logo: str | None = None

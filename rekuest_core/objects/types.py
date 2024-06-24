@@ -81,7 +81,7 @@ class EffectDependency:
 
 @pydantic.interface(models.EffectModel)
 class Effect:
-    kind: str
+    kind: enums.EffectKind
     dependencies: list[EffectDependency]
     pass
 
@@ -106,18 +106,17 @@ class Binds:
 
 @pydantic.type(models.ChildPortModel)
 class ChildPort:
+    key: str 
     label: strawberry.auto
     identifier: scalars.Identifier | None
     default: scalars.AnyDefault | None
     scope: enums.PortScope
     kind: enums.PortKind
+    description: str | None
     nullable: bool
-    child: Optional[
+    children: Optional[list[
         LazyType["ChildPort", __name__]
-    ] = None  # this took me a while to figure out should be more obvious
-    variants: Optional[
-        list[LazyType["ChildPort", __name__]]
-    ] = None  # this took me a while to figure out should be more obvious
+    ]] = None  # this took me a while to figure out should be more obvious
     assign_widget: AssignWidget | None
     return_widget: ReturnWidget | None
 
@@ -126,6 +125,14 @@ class ChildPort:
 class PortGroup:
     key: str
     hidden: bool
+
+
+@pydantic.type(models.ValidatorModel)
+class Validator:
+    function: scalars.ValidatorFunction
+    dependencies: list[str] | None
+    label: str | None
+    error_message: str | None = None
 
 
 @pydantic.type(models.PortModel)
@@ -139,11 +146,11 @@ class Port:
     label: str | None
     description: str | None
     effects: list[Effect] | None
-    child: Optional[ChildPort] = None
-    variants: list[ChildPort] | None = None
+    children: list[ChildPort] | None = None
     assign_widget: AssignWidget | None
     return_widget: ReturnWidget | None
     groups: list[str] | None
+    validators: list[Validator] | None
 
 
 @pydantic.type(models.DefinitionModel)

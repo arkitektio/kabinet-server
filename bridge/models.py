@@ -39,12 +39,19 @@ class GithubRepo(Repo):
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt/manifest.yaml"
 
     @property
-    def deployments_url(self) -> str:
-        return self.build_deployments_url(self.user, self.repo, self.branch)
+    def kabinet_url(self) -> str:
+        return self.build_kabinet_url(self.user, self.repo, self.branch)
 
     @classmethod
-    def build_deployments_url(cls, user: str, repo: str, branch: str) -> str:
-        return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt/deployments.yaml"
+    def build_kabinet_url(cls, user: str, repo: str, branch: str) -> str:
+        return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt/kabinet.yaml"
+    
+    class Config:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["repo", "user", "branch"], name="Unique repo for url"
+            )
+        ]
 
 
 class App(models.Model):
@@ -77,7 +84,6 @@ class Flavour(models.Model):
     )
     name = models.CharField(max_length=400)
     deployment_id = models.CharField(max_length=400, unique=True, default=uuid.uuid4)
-    build_id = models.CharField(max_length=400, default=uuid.uuid4)
     flavour = models.CharField(max_length=400, default="vanilla")
     selectors = models.JSONField(default=list)
     repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="flavours")
@@ -218,9 +224,10 @@ class Deployment(models.Model):
     )
     backend = models.ForeignKey(Backend, on_delete=models.CASCADE)
     pulled = models.BooleanField(default=False)
-    api_token = models.CharField(max_length=1000)
-
+    secret_params = models.JSONField(default=dict)
+    untyped_params = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now=True)
+    local_id = models.CharField(max_length=2000, default="unset")
 
 
 class Pod(models.Model):

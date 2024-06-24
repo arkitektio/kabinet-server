@@ -42,7 +42,7 @@ class RAMSelector(BaseSelector):
     compute node. It contains the node_id, the selector and the flavour_id.
     """
 
-    type: Literal["ram"]
+    kind: Literal["ram"]
     min: int
 
 
@@ -51,8 +51,8 @@ class CPUSelector(BaseSelector):
     compute node. It contains the node_id, the selector and the flavour_id.
     """
 
-    type: Literal["cpu"]
-    min: int
+    kind: Literal["cpu"]
+    min_count: Optional[int] 
     frequency: Optional[int] = None
 
 
@@ -61,7 +61,7 @@ class CudaSelector(BaseSelector):
     compute node. It contains the node_id, the selector and the flavour_id.
     """
 
-    type: Literal["cuda"]
+    kind: Literal["cuda"]
     frequency: Optional[int] = Field(default=None, description="The frequency in MHz")
     memory: Optional[int] = Field(default=None, description="The memory in MB")
     architecture: Optional[str] = Field(
@@ -95,7 +95,7 @@ class RocmSelector(BaseSelector):
     compute node. It contains the node_id, the selector and the flavour_id.
     """
 
-    type: Literal["rocm"]
+    kind: Literal["rocm"]
     min: int
     frequency: Optional[int] = None
     memory: Optional[int] = None
@@ -123,7 +123,7 @@ class LabelSelector(BaseSelector):
     compute node. It contains the node_id, the selector and the flavour_id.
     """
 
-    type: Literal["label"]
+    kind: Literal["label"]
     key: str
     value: str
 
@@ -133,7 +133,7 @@ class ServiceSelector(BaseSelector):
     service. It contains the service_id,
     """
 
-    type: Literal["service"]
+    kind: Literal["service"]
 
 
 Selector = Union[
