@@ -2,7 +2,7 @@
 
 ## Develompent
 
-Kabinet is a GraphQL API that allows you to visualize containers that are running connected container backend (actings as a standard
+Kabinet is a GraphQL API that allows you to retrieve and save containers
 Arkitekt App). It is designed to be
 used with Arkitekt Apps that are running in these containers, but can be used for any containerized application 
 
