@@ -118,14 +118,17 @@ class DefinitionInputModel(BaseModel):
     kind: enums.NodeKind
     is_test_for: list[str] = Field(default_factory=list)
     interfaces: list[str] = Field(default_factory=list)
+    is_dev: bool = False
 
 
 class DependencyInputModel(BaseModel):
+    node: str
     hash: str
     reference: str | None
     binds: BindsInputModel | None
     optional: bool = False
     viable_instances: int | None
+    
 
 
 
@@ -133,7 +136,6 @@ class TemplateInputModel(BaseModel):
     definition: DefinitionInputModel
     dependencies: list[DependencyInputModel]
     interface: str
-    extension: str
     params: dict[str, Any] | None = None
     instance_id: str | None = None
     dynamic: bool = False

@@ -1,20 +1,19 @@
 import datetime
-from typing import Optional
+from typing import List, Optional
 
 import strawberry
 import strawberry.django
 import strawberry_django
-from django.contrib.auth import get_user_model
-from strawberry import auto
-from typing import List
-from bridge import models, types, enums, filters, scalars
+from authentikate.models import App as Client
+from bridge import enums, filters, models, scalars, types
 from bridge.repo import selectors
+from django.contrib.auth import get_user_model
 from kante.types import Info
 from rekuest_core import enums as rkenums
 from rekuest_core import scalars as rkscalars
 from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
-from authentikate.models import App as Client
+from strawberry import auto
 
 
 @strawberry_django.type(
@@ -82,7 +81,7 @@ class Release:
             self.flavours.filter(setups__installer=info.context.request.user).first()
             is not None
         )
-    
+
     @strawberry_django.field(description="Is this release deployed")
     def deployments(self, info: Info) -> List["Deployment"]:
         return models.Deployment.objects.filter(flavour__release=self).all()
@@ -106,6 +105,7 @@ class Deployment:
     api_token: str
     backend: "Backend"
     local_id: strawberry.ID
+
 
 @strawberry.experimental.pydantic.interface(
     selectors.BaseSelector, description=" A selector is a way to select a release"
@@ -139,6 +139,8 @@ class CPUSelector(Selector):
 @strawberry_django.type(
     models.Flavour,
     description="A user of the bridge server. Maps to an authentikate user",
+    filters=filters.FlavourFilter,
+    pagination=True,
 )
 class Flavour:
     id: auto
@@ -178,7 +180,11 @@ class Protocol:
     description: str
 
 
-@strawberry_django.type(models.Definition, pagination=True)
+@strawberry_django.type(
+    models.Definition,
+    filters=filters.GithubRepoFilter,
+    pagination=True,
+)
 class Definition:
     id: strawberry.ID
     hash: rkscalars.NodeHash
@@ -209,14 +215,15 @@ class LogDump:
     logs: str
     created_at: datetime.datetime
 
+
 @strawberry_django.type(
-    models.Backend, description="A user of the bridge server. Maps to an authentikate user"
+    models.Backend,
+    description="A user of the bridge server. Maps to an authentikate user",
 )
 class Backend:
     id: auto
     user: User
     client: Client
-
 
 
 @strawberry_django.type(
@@ -229,5 +236,3 @@ class Pod:
     latest_log_dump: LogDump
     pod_id: str
     status: enums.PodStatus
-
-

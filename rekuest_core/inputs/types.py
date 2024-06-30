@@ -223,7 +223,7 @@ class DefinitionInput:
     kind: enums.NodeKind
     is_test_for: list[str] = strawberry.field(default_factory=list)
     interfaces: list[str] = strawberry.field(default_factory=list)
-
+    is_dev: bool = False
 
 @pydantic.input(models.DependencyInputModel)
 class DependencyInput:
@@ -245,7 +245,6 @@ class TemplateInput:
     definition: DefinitionInput
     dependencies: list[DependencyInput] = strawberry.field(default_factory=list)
     interface: str
-    extension: str
     params: scalars.AnyDefault | None = None
     dynamic: bool = False
     logo: str | None = None
