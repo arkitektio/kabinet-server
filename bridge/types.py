@@ -77,10 +77,7 @@ class Release:
 
     @strawberry_django.field(description="Is this release deployed")
     def installed(self, info: Info) -> bool:
-        return (
-            self.flavours.filter(setups__installer=info.context.request.user).first()
-            is not None
-        )
+        return True
 
     @strawberry_django.field(description="Is this release deployed")
     def deployments(self, info: Info) -> List["Deployment"]:
