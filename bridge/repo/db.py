@@ -55,11 +55,15 @@ async def parse_config(
                     selectors=[d.dict() for d in deployment.selectors],
                     repo=repo,
                     image=deployment.image,
+                    manifest=deployment.manifest.dict(),
+                    requirements=deployment.inspection.dict()["requirements"],
                 ),
             )
 
-            if deployment.templates:
-                for key, template in deployment.templates.items():
+            inspection = deployment.inspection
+
+            if inspection:
+                for template in inspection.templates:
                     def_model, _ = await models.Definition.objects.aupdate_or_create(
                         hash=hash_definition(template.definition),
                         defaults=dict(

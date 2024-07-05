@@ -14,6 +14,7 @@ from rekuest_core import scalars as rkscalars
 from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
 from strawberry import auto
+from strawberry.experimental import pydantic
 
 
 @strawberry_django.type(
@@ -59,6 +60,13 @@ class GithubRepo:
 class App:
     id: auto
     identifier: str
+
+
+
+
+
+
+
 
 
 @strawberry_django.type(
@@ -150,6 +158,9 @@ class Flavour:
     release: Release
     deployments: List[Deployment]
     definitions: List["Definition"]
+
+    manifest: scalars.UntypedParams
+    requirements: scalars.UntypedParams
 
     @strawberry_django.field()
     def selectors(self, info: Info) -> List[types.Selector]:

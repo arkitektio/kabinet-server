@@ -8,13 +8,27 @@ import uuid
 from rekuest_core.inputs.models import DefinitionInputModel, TemplateInputModel
 
 
+class Requirement(BaseModel):
+    service: str
+    """ The service is the service that will be used to fill the key, it will be used to find the correct instance. It needs to fullfill
+    the reverse domain naming scheme"""
+    optional: bool = False 
+    """ The optional flag indicates if the requirement is optional or not. Users should be able to use the client even if the requirement is not met. """
+    description: Optional[str] = None
+    """ The description is a human readable description of the requirement. Will be show to the user when asking for the requirement."""
+
+
+
+
 class Manifest(BaseModel):
     identifier: str
     version: str
     author: str = "unknown"
     logo: Optional[str]
     scopes: List[str]
-    created_at: datetime.datetime = Field(default_factory=datetime.datetime.now)
+    """ The requirements are a list of requirements that the client needs to run on (e.g. needs GPU)"""
+
+
 
     @validator("version", pre=True)
     def version_must_be_semver(cls, v: Any) -> str:
@@ -35,9 +49,8 @@ class Manifest(BaseModel):
 
 class Inspection(BaseModel):
     size: int
-    definitions: List[DefinitionInputModel]
-
-
+    templates: List[TemplateInputModel]
+    requirements: Dict[str, Requirement] = Field(default_factory=dict)
 
 
 class Deployment(BaseModel):
@@ -66,7 +79,10 @@ class Deployment(BaseModel):
         description="The flavour that was used to build this deployment",
         default="vanilla",
     )
-    templates: Dict[str, TemplateInputModel] = Field(default_factory=dict, description="The templates")
+    inspection: Inspection = Field(
+        description="The inspection of the docker image that was built"
+    )
+    
     image: str = Field(
         description="The docker image that was built for this deployment"
     )

@@ -36,7 +36,7 @@ class GithubRepo(Repo):
 
     @property
     def manifest_url(self) -> str:
-        return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt/manifest.yaml"
+        return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt-next/manifest.yaml"
 
     @property
     def kabinet_url(self) -> str:
@@ -44,7 +44,7 @@ class GithubRepo(Repo):
 
     @classmethod
     def build_kabinet_url(cls, user: str, repo: str, branch: str) -> str:
-        return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt/kabinet.yaml"
+        return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt_next/deployments.yaml"
     
     class Config:
         constraints = [
@@ -92,6 +92,8 @@ class Flavour(models.Model):
     inspection = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now=True)
     deployed_at = models.DateTimeField(null=True)
+    manifest = models.JSONField(default=dict)
+    requirements = models.JSONField(default=dict)
 
     class Meta:
         constraints = [
