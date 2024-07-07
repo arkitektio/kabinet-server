@@ -220,3 +220,33 @@ class UpdateDeploymentInput:
 
     deployment: strawberry.ID
     status: PodStatus
+
+
+class DumpLogsInputModel(BaseModel):
+    """Create a new Github repository input model"""
+
+    pod: str
+    logs: str
+
+@pydantic.input(DumpLogsInputModel, description="Create a new Github repository input")
+class DumpLogsInput:
+    """Create a new Github repository input"""
+
+    pod: strawberry.ID
+    logs: str
+
+
+class DeclareBackendInputModel(BaseModel):
+    """Create a new Github repository input model"""
+
+    name: str
+    kind: str
+
+    
+@pydantic.input(DeclareBackendInputModel, description="Create a new Github repository input")
+class DeclareBackendInput:
+    """Create a new Github repository input"""
+
+    instance_id: str
+    name: str
+    kind: str

@@ -50,3 +50,15 @@ async def update_pod(info: Info, input: inputs.UpdatePodInput) -> types.Pod:
     return pod
 
 
+def dump_logs(info: Info, input: inputs.DumpLogsInput) -> types.LogDump:
+    """Create a new dask cluster on a bridge server"""
+
+    pod = models.Pod.objects.get(id=input.pod)
+
+    log_dump = models.LogDump.objects.create(
+        pod=pod,
+        logs=input.logs,
+    )
+
+    return log_dump
+

@@ -232,6 +232,8 @@ class Backend:
     id: auto
     user: User
     client: Client
+    name: str
+    kind: str
 
 
 @strawberry_django.type(
@@ -241,6 +243,6 @@ class Pod:
     id: auto
     backend: Backend
     deployment: Deployment
-    latest_log_dump: LogDump
+    latest_log_dump: LogDump | None
     pod_id: str
     status: enums.PodStatus

@@ -216,6 +216,8 @@ class Backend(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     instance_id = models.CharField(max_length=1000)
     last_heartbeat = models.DateTimeField(auto_now=True)
+    kind = models.CharField(max_length=1000, default="unknown")
+    name = models.CharField(max_length=1000, default="unset")
 
 
 class Deployment(models.Model):
@@ -236,13 +238,12 @@ class Pod(models.Model):
     backend = models.ForeignKey(Backend, on_delete=models.CASCADE)
     pod_id = models.CharField(max_length=1000)
 
-    backend = models.CharField(max_length=2000)
     deployment = models.ForeignKey(
         Deployment,
         on_delete=models.CASCADE,
         related_name="pods",
     )
-    status = models.CharField(max_length=1000, default="pending")
+    status = models.CharField(max_length=1000, default="PENDING")
 
     created_at = models.DateTimeField(auto_now=True)
 
@@ -253,6 +254,9 @@ class Pod(models.Model):
             )
         ]
         ordering = ["-created_at"]
+
+    def latest_log_dump(self):
+        return self.log_dumps.order_by("-created_at").first()
 
 
 class LogDump(models.Model):

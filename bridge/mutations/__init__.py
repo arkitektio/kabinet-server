@@ -2,7 +2,8 @@
 from .repo import scan_repo, create_github_repo, rescan_repos
 from .flavour import match_flavours
 from .deployment import create_deployment, update_deployment
-from .pod import create_pod, update_pod
+from .pod import create_pod, update_pod, dump_logs
+from .backend import declare_backend
 
 __all__ = [
     "scan_repo",
@@ -13,4 +14,6 @@ __all__ = [
     "create_pod",
     "update_pod",
     "rescan_repos",
+    "dump_logs",
+    "declare_backend"
 ]
