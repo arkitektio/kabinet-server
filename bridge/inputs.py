@@ -23,11 +23,11 @@ class ScanRepoInput:
 
 class CreateGithupRepoInputModel(BaseModel):
     """Create a new Github repository input model"""
-
-    name: str
-    user: str
-    branch: str
-    repo: str
+    name: str  | None = None
+    user: str | None = None
+    branch: str | None = None
+    repo: str | None = None
+    identifier: str | None = None
     auto_scan: bool = True
 
 
@@ -37,11 +37,15 @@ class CreateGithupRepoInputModel(BaseModel):
 class CreateGithupRepoInput:
     """Create a new Github repository input"""
 
-    name: str
-    user: str
-    branch: str
-    repo: str
+    name: str | None = None
+    user: str | None = None
+    branch: str | None = None
+    repo: str | None = None
+    identifier: str | None = None
     auto_scan: bool | None = True
+
+
+    
 
 
 class PullFlavourInputModel(BaseModel):

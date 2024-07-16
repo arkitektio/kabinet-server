@@ -23,7 +23,6 @@ lok:
       sub: 1
       client: kkk
 
-
 minio:
   access_key: crappygreysetter
   buckets:
@@ -37,3 +36,5 @@ minio:
 redis:
   host: redis
   port: 6379
+default_repos:
+  base: jhnnsrs/final:main

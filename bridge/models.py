@@ -11,7 +11,7 @@ from authentikate.models import App as Client
 
 class Repo(models.Model):
     name = models.CharField(max_length=400)
-    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:

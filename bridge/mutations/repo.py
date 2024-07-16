@@ -52,22 +52,62 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     return repo
 
 
-async def create_github_repo(
-    info: Info, input: inputs.CreateGithupRepoInput
-) -> types.GithubRepo:
+def infer_repo_info(input: inputs.CreateGithupRepoInput) -> tuple[str, str, str, str]:
+    if input.identifier:
+        assert "/" in input.identifier, "Invalid github repo"
+        user, repo = input.identifier.split("/")
+        if ":" in repo:
+            repo, branch = repo.split(":")
+        else:
+            branch = "main"
+
+        if input.name:
+            name = input.name
+        else:
+            name = input.identifier
+
+        return user, repo, branch, name
+    
+    else:
+        assert input.user and input.repo, "Invalid github repo"
+
+        if input.branch:
+            branch = input.branch
+        else:
+            branch = "main"
+
+
+        if input.name:
+            name = input.name 
+        else:
+            name = f"{input.user}/{input.repo}:{branch}"
+
+        return input.user, input.repo, branch, name
+
+
+
+
+async def _create_github_repo(
+    input: inputs.CreateGithupRepoInput, creator
+) -> models.GithubRepo:
+    
+    user, repo, branch, name = infer_repo_info(input)
+
+    print(user, repo, branch, name)
+
     dep_url = models.GithubRepo.build_kabinet_url(
-        input.user, input.repo, input.branch
+        user, repo, branch
     )
 
     config = await aget_kabinet_config(dep_url)
 
     repo, _ = await models.GithubRepo.objects.aget_or_create(
-        user=input.user,
-        branch=input.branch,
-        repo=input.repo,
+        user=user,
+        branch=branch,
+        repo=repo,
         defaults=dict(
-            name=input.name,
-            creator=info.context.request.user,
+            name=name,
+            creator=creator,
         )
 
     )
@@ -80,6 +120,16 @@ async def create_github_repo(
         raise e
 
     return repo
+
+
+async def create_github_repo(
+    info: Info, input: inputs.CreateGithupRepoInput
+) -> types.GithubRepo:
+    
+
+    return await _create_github_repo(input, info.context.request.user)
+
+    
 
 
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:
