@@ -9,13 +9,16 @@ from asgiref.sync import async_to_sync
 
 async def create_github_repos(repos: dict):
 
-    for key, repo_identifier in repos.items():
+    for repo_identifier in repos:
         input = inputs.CreateGithupRepoInput(
             identifier=repo_identifier,
-            name=key
+            name=repo_identifier
         )
 
-        await _create_github_repo(input, None)
+        try:
+            await _create_github_repo(input, None)
+        except Exception as e:
+            print(f"Error creating repo {repo_identifier}: {e}")
 
 
 class Command(BaseCommand):

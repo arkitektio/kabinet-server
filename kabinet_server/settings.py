@@ -113,7 +113,7 @@ WSGI_APPLICATION = "kabinet_server.wsgi.application"
 ASGI_APPLICATION = "kabinet_server.asgi.application"
 
 
-ENSURED_REPOS = conf.get("ensured_repos", {})
+ENSURED_REPOS = conf.get("ensured_repos", [])
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases

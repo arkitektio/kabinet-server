@@ -22,7 +22,7 @@ from django.urls import re_path  # noqa
 from django.core.asgi import get_asgi_application  # noqa
 from kante.consumers import KanteHTTPConsumer, KanteWsConsumer  # noqa
 from kante.cors import CorsMiddleware  # noqa
-
+from .basepath import re_basepath  # noqa
 # Initialize Django ASGI application early to ensure the AppRegistry
 # is populated before importing code that may import ORM models.
 django_asgi_app = get_asgi_application()
@@ -38,16 +38,16 @@ gql_ws_consumer = KanteWsConsumer.as_asgi(schema=schema)
 
 
 websocket_urlpatterns = [
-    re_path(r"graphql", gql_ws_consumer),
+    re_basepath(r"graphql", gql_ws_consumer),
 ]
 
 application = ProtocolTypeRouter(
     {
         "http": URLRouter(
             [
-                re_path("^graphql", gql_http_consumer),
+                re_basepath("graphql", gql_http_consumer),
                 re_path(
-                    "^", django_asgi_app  # type: ignore
+                    "", django_asgi_app  # type: ignore
                 ),  # This might be another endpoint in your app
             ]
         ),
