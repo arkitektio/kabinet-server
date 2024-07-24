@@ -17,9 +17,7 @@ from strawberry import auto
 from strawberry.experimental import pydantic
 
 
-@strawberry_django.type(
-    Client, description="A user of the bridge server. Maps to an authentikate user"
-)
+@strawberry_django.type(Client, description="A user of the bridge server. Maps to an authentikate user")
 class Client:
     id: auto
     identifier: str
@@ -54,19 +52,10 @@ class GithubRepo:
     flavours: List["Flavour"]
 
 
-@strawberry_django.type(
-    models.App, description="A user of the bridge server. Maps to an authentikate user"
-)
+@strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")
 class App:
     id: auto
     identifier: str
-
-
-
-
-
-
-
 
 
 @strawberry_django.type(
@@ -112,9 +101,7 @@ class Deployment:
     local_id: strawberry.ID
 
 
-@strawberry.experimental.pydantic.interface(
-    selectors.BaseSelector, description=" A selector is a way to select a release"
-)
+@strawberry.experimental.pydantic.interface(selectors.BaseSelector, description=" A selector is a way to select a release")
 class Selector:
     """A selector is a way to select a release"""
 
@@ -122,18 +109,14 @@ class Selector:
     required: bool
 
 
-@strawberry.experimental.pydantic.type(
-    selectors.CudaSelector, description=" A selector is a way to select a release"
-)
+@strawberry.experimental.pydantic.type(selectors.CudaSelector, description=" A selector is a way to select a release")
 class CudaSelector(Selector):
     """A selector is a way to select a release"""
 
     compute_capability: str
 
 
-@strawberry.experimental.pydantic.type(
-    selectors.CPUSelector, description=" A selector is a way to select a release"
-)
+@strawberry.experimental.pydantic.type(selectors.CPUSelector, description=" A selector is a way to select a release")
 class CPUSelector(Selector):
     """A selector is a way to select a release"""
 
@@ -190,7 +173,8 @@ class Protocol:
 
 @strawberry_django.type(
     models.Definition,
-    filters=filters.GithubRepoFilter,
+    filters=filters.DefinitionFilter,
+    order=filters.DefinitionOrder,
     pagination=True,
 )
 class Definition:
@@ -236,9 +220,7 @@ class Backend:
     kind: str
 
 
-@strawberry_django.type(
-    models.Pod, description="A user of the bridge server. Maps to an authentikate user"
-)
+@strawberry_django.type(models.Pod, description="A user of the bridge server. Maps to an authentikate user")
 class Pod:
     id: auto
     backend: Backend

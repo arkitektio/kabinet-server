@@ -4,8 +4,11 @@ from strawberry.experimental import pydantic
 from .enums import PodStatus, ContainerType
 import strawberry
 from rekuest_core.scalars import NodeHash
+from rekuest_core import enums as renums
 from typing import Dict, Optional
 from bridge import scalars
+from strawberry import LazyType
+from bridge import enums
 
 
 class ScanRepoInputModel(BaseModel):
@@ -23,7 +26,8 @@ class ScanRepoInput:
 
 class CreateGithupRepoInputModel(BaseModel):
     """Create a new Github repository input model"""
-    name: str  | None = None
+
+    name: str | None = None
     user: str | None = None
     branch: str | None = None
     repo: str | None = None
@@ -31,9 +35,7 @@ class CreateGithupRepoInputModel(BaseModel):
     auto_scan: bool = True
 
 
-@pydantic.input(
-    CreateGithupRepoInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(CreateGithupRepoInputModel, description="Create a new Github repository input")
 class CreateGithupRepoInput:
     """Create a new Github repository input"""
 
@@ -45,18 +47,13 @@ class CreateGithupRepoInput:
     auto_scan: bool | None = True
 
 
-    
-
-
 class PullFlavourInputModel(BaseModel):
     """Create a new Github repository input model"""
 
     id: str
 
 
-@pydantic.input(
-    PullFlavourInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(PullFlavourInputModel, description="Create a new Github repository input")
 class PullFlavourInput:
     """Create a new Github repository input"""
 
@@ -74,9 +71,7 @@ class CreateSetupInputModel(BaseModel):
     auto_pull: bool = True
 
 
-@pydantic.input(
-    CreateSetupInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(CreateSetupInputModel, description="Create a new Github repository input")
 class CreateSetupInput:
     """Create a new Github repository input"""
 
@@ -94,16 +89,11 @@ class DeploySetupInputModel(BaseModel):
     setup: str
 
 
-@pydantic.input(
-    DeploySetupInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(DeploySetupInputModel, description="Create a new Github repository input")
 class DeploySetupInput:
     """Create a new Github repository input"""
 
     setup: strawberry.ID
-
-
-
 
 
 class DeviceFeatureModel(BaseModel):
@@ -113,7 +103,7 @@ class DeviceFeatureModel(BaseModel):
 
 class EnvironmentInputModel(BaseModel):
     container_type: ContainerType
-    nodes: Optional[list[str]] 
+    nodes: Optional[list[str]]
     release: Optional[str] = None
     fits: list[DeviceFeatureModel]
 
@@ -123,9 +113,8 @@ class DeviceFeature:
     kind: str
     cpu_count: str
 
-@pydantic.input(
-    EnvironmentInputModel, description="Which environment do you want to match against?"
-)
+
+@pydantic.input(EnvironmentInputModel, description="Which environment do you want to match against?")
 class EnvironmentInput:
     """Which environment do you want to match against?"""
 
@@ -141,9 +130,7 @@ class MatchFlavoursInputModel(BaseModel):
     nodes: Optional[list[str]]
 
 
-@pydantic.input(
-    MatchFlavoursInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(MatchFlavoursInputModel, description="Create a new Github repository input")
 class MatchFlavoursInput:
     """Create a new Github repository input"""
 
@@ -176,7 +163,6 @@ class UpdatePodInputModel(BaseModel):
     instance_id: str
 
 
-
 @pydantic.input(UpdatePodInputModel, description="Create a new Github repository input")
 class UpdatePodInput:
     """Create a new Github repository input"""
@@ -187,21 +173,20 @@ class UpdatePodInput:
     instance_id: str
 
 
-
 class CreateDeploymentInputModel(BaseModel):
     """Create a new Github repository input model"""
+
     instance_id: str
     local_id: str
-    flavour:  str
+    flavour: str
     last_pulled: datetime.datetime | None = None
     secret_params: Dict[str, str] | None
 
 
-@pydantic.input(
-    CreateDeploymentInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(CreateDeploymentInputModel, description="Create a new Github repository input")
 class CreateDeploymentInput:
     """Create a new Github repository input"""
+
     instance_id: str
     local_id: strawberry.ID
     flavour: strawberry.ID
@@ -216,9 +201,7 @@ class UpdateDeploymentInputModel(BaseModel):
     status: str
 
 
-@pydantic.input(
-    UpdateDeploymentInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(UpdateDeploymentInputModel, description="Create a new Github repository input")
 class UpdateDeploymentInput:
     """Create a new Github repository input"""
 
@@ -231,6 +214,7 @@ class DumpLogsInputModel(BaseModel):
 
     pod: str
     logs: str
+
 
 @pydantic.input(DumpLogsInputModel, description="Create a new Github repository input")
 class DumpLogsInput:
@@ -246,7 +230,7 @@ class DeclareBackendInputModel(BaseModel):
     name: str
     kind: str
 
-    
+
 @pydantic.input(DeclareBackendInputModel, description="Create a new Github repository input")
 class DeclareBackendInput:
     """Create a new Github repository input"""
@@ -254,3 +238,21 @@ class DeclareBackendInput:
     instance_id: str
     name: str
     kind: str
+
+
+@strawberry.input
+class PortMatchInput:
+    at: int | None = None
+    key: str | None = None
+    kind: renums.PortKind | None = None
+    identifier: str | None = None
+    nullable: bool | None = None
+    children: Optional[list[LazyType["PortMatchInput", __name__]]] = None
+
+
+@strawberry.input
+class PortDemandInput:
+    kind: enums.DemandKind
+    matches: list[PortMatchInput] | None = None
+    force_length: int | None = None
+    force_non_nullable_length: int | None = None

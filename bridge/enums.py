@@ -14,6 +14,12 @@ class PodStatus(str, Enum):
     UNKOWN = "UNKOWN"
 
 
+@strawberry.enum
+class DemandKind(str, Enum):
+    ARGS = "args"
+    RETURNS = "returns"
+
+
 @strawberry.enum(description="The state of a dask cluster")
 class ContainerType(str, Enum):
     APPTAINER = "APPTAINER"
