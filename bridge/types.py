@@ -210,6 +210,8 @@ class LogDump:
 
 @strawberry_django.type(
     models.Backend,
+    filters=filters.BackendFilter,
+    pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
 class Backend:
@@ -220,7 +222,7 @@ class Backend:
     kind: str
 
 
-@strawberry_django.type(models.Pod, description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(models.Pod, filters=filters.PodFilter, pagination=True, description="A user of the bridge server. Maps to an authentikate user")
 class Pod:
     id: auto
     backend: Backend

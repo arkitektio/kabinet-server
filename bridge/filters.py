@@ -10,7 +10,7 @@ class DefinitionOrder:
     defined_at: strawberry.auto
 
 
-@strawberry.input(description="Filter for Dask Clusters")
+@strawberry_django.filter(models.GithubRepo, description="Filter for Dask Clusters")
 class GithubRepoFilter:
     """Filter for Dask Clusters"""
 
@@ -62,7 +62,7 @@ class DefinitionFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry.input(description="Filter for Dask Clusters")
+@strawberry_django.filter(models.Flavour, description="Filter for Dask Clusters")
 class FlavourFilter:
     """Filter for Dask Clusters"""
 
@@ -73,5 +73,29 @@ class FlavourFilter:
     def filter_search(self, queryset, search):
         return queryset.filter(name__icontains=search)
 
+    def filter_ids(self, queryset, ids):
+        return queryset.filter(id__in=ids)
+
+
+@strawberry_django.filter(models.Backend, description="Filter for Dask Clusters")
+class BackendFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset, search):
+        return queryset.filter(name__icontains=search)
+    
+    def filter_ids(self, queryset, ids):
+        return queryset.filter(id__in=ids)
+    
+
+@strawberry_django.filter(models.Pod, description="Filter for Dask Clusters")
+class PodFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset, search):
+        return queryset.filter(name__icontains=search)
+    
     def filter_ids(self, queryset, ids):
         return queryset.filter(id__in=ids)
