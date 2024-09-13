@@ -60,6 +60,8 @@ class App:
 
 @strawberry_django.type(
     models.Release,
+    filters=filters.ReleaseFilter,
+    pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
 class Release:
@@ -87,10 +89,16 @@ class Release:
     @strawberry_django.field(description="Is this release deployed")
     def colour(self, info: Info) -> str:
         return "#254d11"
+    
+    @strawberry_django.field(description="Is this release deployed")
+    def name(self, info: Info) -> str:
+        return self.app.identifier + ":" + self.version
 
 
 @strawberry_django.type(
     models.Deployment,
+    filters=filters.DeploymentFilter,
+    pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
 class Deployment:
@@ -99,6 +107,11 @@ class Deployment:
     api_token: str
     backend: "Backend"
     local_id: strawberry.ID
+
+    @strawberry_django.field()
+    def name(self) -> str:
+        return self.backend.name + "-" + self.flavour.name
+
 
 
 @strawberry.experimental.pydantic.interface(selectors.BaseSelector, description=" A selector is a way to select a release")
@@ -220,6 +233,7 @@ class Backend:
     client: Client
     name: str
     kind: str
+    pods: List["Pod"]
 
 
 @strawberry_django.type(models.Pod, filters=filters.PodFilter, pagination=True, description="A user of the bridge server. Maps to an authentikate user")
@@ -230,3 +244,7 @@ class Pod:
     latest_log_dump: LogDump | None
     pod_id: str
     status: enums.PodStatus
+    
+    @strawberry_django.field()
+    def name(self) -> str:
+        return self.pod_id + "-" + self.deployment.flavour.name

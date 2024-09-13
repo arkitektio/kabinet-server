@@ -93,6 +93,10 @@ class Mutation:
         resolver=mutations.declare_backend,
         description="Create a new dask cluster on a bridge server",
     )
+    delete_pod: strawberry.ID = strawberry_django.mutation(
+        resolver=mutations.delete_pod,
+        description="Create a new dask cluster on a bridge server",
+    )
 
 
 @strawberry.type

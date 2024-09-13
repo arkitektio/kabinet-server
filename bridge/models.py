@@ -235,7 +235,7 @@ class Deployment(models.Model):
 
 
 class Pod(models.Model):
-    backend = models.ForeignKey(Backend, on_delete=models.CASCADE)
+    backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="pods")
     pod_id = models.CharField(max_length=1000)
 
     deployment = models.ForeignKey(

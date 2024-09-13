@@ -2,6 +2,7 @@ from koherent.types import Info
 from bridge import types, inputs, models
 import logging
 from typing import List
+import strawberry
 
 from bridge.utils import aget_backend_for_info
 
@@ -62,3 +63,15 @@ def dump_logs(info: Info, input: inputs.DumpLogsInput) -> types.LogDump:
 
     return log_dump
 
+
+
+async def delete_pod(info: Info, input: inputs.DeletePodInput) -> strawberry.ID:
+    """Create a new dask cluster on a bridge server"""
+
+
+    pod = await models.Pod.objects.aget(id=input.id
+    )
+
+    await pod.adelete()
+
+    return pod

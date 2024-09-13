@@ -256,3 +256,8 @@ class PortDemandInput:
     matches: list[PortMatchInput] | None = None
     force_length: int | None = None
     force_non_nullable_length: int | None = None
+
+
+@strawberry.input
+class DeletePodInput:
+    id: strawberry.ID

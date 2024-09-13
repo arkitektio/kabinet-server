@@ -82,20 +82,60 @@ class BackendFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
 
-    def filter_search(self, queryset, search):
-        return queryset.filter(name__icontains=search)
+    def filter_search(self, queryset):
+        if self.search is None:
+            return queryset
+        return queryset.filter(name__icontains=self.search)
     
-    def filter_ids(self, queryset, ids):
-        return queryset.filter(id__in=ids)
+    def filter_ids(self, queryset):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
     
 
 @strawberry_django.filter(models.Pod, description="Filter for Dask Clusters")
 class PodFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
+    backend: strawberry.ID | None = None
 
-    def filter_search(self, queryset, search):
-        return queryset.filter(name__icontains=search)
+    def filter_search(self, queryset):
+        if self.search is None:
+            return queryset
+        return queryset.filter(backend__name=self.search)
     
-    def filter_ids(self, queryset, ids):
-        return queryset.filter(id__in=ids)
+    def filter_ids(self, queryset):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
+    
+
+@strawberry_django.filter(models.Deployment, description="Filter for Dask Clusters")
+class DeploymentFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset):
+        if self.search is None:
+            return queryset
+        return queryset.filter(name__icontains=self.search)
+    
+    def filter_ids(self, queryset):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
+
+@strawberry_django.filter(models.Release, description="Filter for Dask Clusters")
+class ReleaseFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset):
+        if self.search is None:
+            return queryset
+        return queryset.filter(name__icontains=self.search)
+    
+    def filter_ids(self, queryset):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
