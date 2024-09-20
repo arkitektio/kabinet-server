@@ -234,10 +234,39 @@ class Deployment(models.Model):
     local_id = models.CharField(max_length=2000, default="unset")
 
 
+
+
+
+
+class Resource(models.Model):
+    backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="resources")
+    resource_id = models.CharField(max_length=1000)
+    name = models.CharField(max_length=1000, default="unset")
+    qualifiers = models.JSONField( null=True, blank=True)
+    created_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["backend", "resource_id"], name="Unique resource for backend "
+            )
+        ]
+
+
+
+
+
+
+
+
+
+
+
 class Pod(models.Model):
     backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="pods")
+    resource = models.ForeignKey(Resource,on_delete=models.SET_NULL, related_name="pods", null=True, blank=True)
     pod_id = models.CharField(max_length=1000)
-
+    client_id = models.CharField(max_length=1000, null=True, blank=True)
     deployment = models.ForeignKey(
         Deployment,
         on_delete=models.CASCADE,

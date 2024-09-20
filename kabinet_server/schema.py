@@ -25,6 +25,9 @@ class Query:
     release: types.Release = strawberry_django.field(
         resolver=queries.release, description="Return all dask clusters"
     )
+    resource: types.Resource = strawberry_django.field(
+        resolver=queries.resource, description="Return all dask clusters"
+    )
     flavour: types.Flavour = strawberry_django.field(
         resolver=queries.flavour, description="Return all dask clusters"
     )
@@ -46,6 +49,7 @@ class Query:
     )
     flavours: List[types.Flavour] = strawberry_django.field()
     releases: List[types.Release] = strawberry_django.field()
+    resources: List[types.Resource] = strawberry_django.field()
     deployments: List[types.Deployment] = strawberry_django.field()
     github_repos: List[types.GithubRepo] = strawberry_django.field()
     definitions: List[types.Definition] = strawberry_django.field()
@@ -93,6 +97,13 @@ class Mutation:
         resolver=mutations.declare_backend,
         description="Create a new dask cluster on a bridge server",
     )
+    declare_resource: types.Resource = strawberry_django.mutation(
+        resolver=mutations.declare_resource,
+        description="Create a new resource for your backend",
+    )
+
+
+
     delete_pod: strawberry.ID = strawberry_django.mutation(
         resolver=mutations.delete_pod,
         description="Create a new dask cluster on a bridge server",

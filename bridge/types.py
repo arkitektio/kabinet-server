@@ -234,15 +234,35 @@ class Backend:
     name: str
     kind: str
     pods: List["Pod"]
+    resources: List["Resource"]
+
+
+
+@strawberry_django.type(
+    models.Resource,
+    filters=filters.ResourceFilter,
+    pagination=True,
+    description="A resource on a backend. Resource define allocated resources on a backend. E.g a computational node",
+)
+class Resource:
+    id: auto
+    backend: Backend
+    resource_id: str
+    name: str
+    pods: List["Pod"]
+    qualifiers: scalars.UntypedParams | None
+
 
 
 @strawberry_django.type(models.Pod, filters=filters.PodFilter, pagination=True, description="A user of the bridge server. Maps to an authentikate user")
 class Pod:
     id: auto
+    resource: Resource | None
     backend: Backend
     deployment: Deployment
     latest_log_dump: LogDump | None
     pod_id: str
+    client_id: str | None
     status: enums.PodStatus
     
     @strawberry_django.field()

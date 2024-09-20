@@ -4,6 +4,7 @@ from .flavour import match_flavours
 from .deployment import create_deployment, update_deployment
 from .pod import create_pod, update_pod, dump_logs, delete_pod
 from .backend import declare_backend
+from .resource import declare_resource
 
 __all__ = [
     "scan_repo",

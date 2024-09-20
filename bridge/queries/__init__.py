@@ -8,6 +8,7 @@ from .flavour import flavour, match_flavour
 from .pod import pod
 from .deployment import deployment
 from .backend import backend
+from .resource import resource
 
 __all__ = [
     "github_repo",

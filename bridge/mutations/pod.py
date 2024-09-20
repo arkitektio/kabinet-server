@@ -14,11 +14,18 @@ async def create_pod(info: Info, input: inputs.CreatePodInput) -> types.Pod:
 
     deployment = await models.Deployment.objects.aget(id=input.deployment)
 
+    if input.resource:
+        resource = await models.Resource.objects.aget(id=input.resource)
+    else:
+        resource = None
+
     pod, _ = await models.Pod.objects.aupdate_or_create(
         backend=backend,
         pod_id=input.local_id,
         defaults=dict(
-        deployment=deployment,
+            deployment=deployment,
+            resource=resource,
+            client_id=input.client_id,
         )
     )
 

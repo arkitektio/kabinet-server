@@ -4,7 +4,7 @@ from bridge.utils import aget_backend_for_info
 
 async def declare_backend(
     info: Info, input: inputs.DeclareBackendInput
-) -> types.Deployment:
+) -> types.Backend:
     """Create a new dask cluster on a bridge server"""
 
     backend = await aget_backend_for_info(info, input.instance_id)

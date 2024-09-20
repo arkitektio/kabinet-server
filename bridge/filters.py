@@ -77,7 +77,22 @@ class FlavourFilter:
         return queryset.filter(id__in=ids)
 
 
-@strawberry_django.filter(models.Backend, description="Filter for Dask Clusters")
+@strawberry_django.filter(models.Resource, description="Filter for Resources")
+class ResourceFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset):
+        if self.search is None:
+            return queryset
+        return queryset.filter(name__icontains=self.search)
+    
+    def filter_ids(self, queryset):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
+    
+@strawberry_django.filter(models.Backend, description="Filter for Resources")
 class BackendFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -92,6 +107,7 @@ class BackendFilter:
             return queryset
         return queryset.filter(id__in=self.ids)
     
+
 
 @strawberry_django.filter(models.Pod, description="Filter for Dask Clusters")
 class PodFilter:

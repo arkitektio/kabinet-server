@@ -5,7 +5,7 @@ from .enums import PodStatus, ContainerType
 import strawberry
 from rekuest_core.scalars import NodeHash
 from rekuest_core import enums as renums
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from bridge import scalars
 from strawberry import LazyType
 from bridge import enums
@@ -142,7 +142,9 @@ class MatchFlavoursInput:
 class CreatePodInputModel(BaseModel):
     deployment: strawberry.ID
     local_id: strawberry.ID
+    resource: strawberry.ID | None = None
     instance_id: str
+    client_id: str | None = None
 
 
 @pydantic.input(CreatePodInputModel, description="Create a new Github repository input")
@@ -151,7 +153,9 @@ class CreatePodInput:
 
     deployment: strawberry.ID
     local_id: strawberry.ID
+    resource: strawberry.ID | None = None
     instance_id: str
+    client_id: str | None = None
 
 
 class UpdatePodInputModel(BaseModel):
@@ -231,6 +235,9 @@ class DeclareBackendInputModel(BaseModel):
     kind: str
 
 
+
+
+
 @pydantic.input(DeclareBackendInputModel, description="Create a new Github repository input")
 class DeclareBackendInput:
     """Create a new Github repository input"""
@@ -238,6 +245,25 @@ class DeclareBackendInput:
     instance_id: str
     name: str
     kind: str
+
+
+
+class DeclareResourceInputModel(BaseModel):
+    """Create a new Github repository input model"""
+
+    name: str
+    resource_id: str
+    qualifiers: Optional[List[Dict[str, str]]] = None
+
+
+@pydantic.input(DeclareResourceInputModel, description="Create a resource")
+class DeclareResourceInput:
+    """Create a new Github repository input"""
+    instance_id: str
+    resource_id: str
+    name: str
+    qualifiers: scalars.UntypedParams | None = None
+ 
 
 
 @strawberry.input
