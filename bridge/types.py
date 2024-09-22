@@ -235,6 +235,11 @@ class Backend:
     kind: str
     pods: List["Pod"]
     resources: List["Resource"]
+    instance_id: str
+
+    @strawberry_django.field()
+    def client_id(self) -> str:
+        return self.client.client_id
 
 
 

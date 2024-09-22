@@ -40,6 +40,9 @@ class Query:
     pod: types.Pod = strawberry_django.field(
         resolver=queries.pod, description="Return all dask clusters"
     )
+    pod_for_agent = strawberry_django.field(
+        resolver=queries.pod_for_agent, description="Return the pod for an agent"
+    )
     me: types.User = strawberry_django.field(
         resolver=queries.me, description="Return the currently logged in user"
     )

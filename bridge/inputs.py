@@ -250,7 +250,7 @@ class DeclareBackendInput:
 
 class DeclareResourceInputModel(BaseModel):
     """Create a new Github repository input model"""
-
+    instance_id: str
     name: str
     resource_id: str
     qualifiers: Optional[List[Dict[str, str]]] = None
