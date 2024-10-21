@@ -7,6 +7,8 @@ from bridge.repo.db import parse_config
 from bridge.repo.models import KabinetConfigFile
 from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
+import re
+
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +29,14 @@ async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
         async with session.get(kabinet_url) as response:
             z = await response.text()
 
+    
+
     z = yaml.safe_load(z)
     if not isinstance(z, dict):
         raise Exception("Invalid kabinet.yml")
     
-    print(z)
+    if not "deployments" in z:
+        raise Exception("Invalid kabinet.yml. Is this a kabinet repo?")
 
     config = KabinetConfigFile(**z)
     return config
@@ -52,21 +57,29 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     return repo
 
 
+
+
+
+
 def infer_repo_info(input: inputs.CreateGithupRepoInput) -> tuple[str, str, str, str]:
     if input.identifier:
-        assert "/" in input.identifier, "Invalid github repo"
-        user, repo = input.identifier.split("/")
-        if ":" in repo:
-            repo, branch = repo.split(":")
+        # Check if the identifier is a full GitHub URL
+        url_pattern = r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+))?"
+        match = re.match(url_pattern, input.identifier)
+        
+        if match:
+            # Extract user, repo, and optionally branch from the URL
+            user, repo, branch = match.groups()
+            branch = branch or "main"
         else:
-            branch = "main"
+            # Fallback if it's not a full URL
+            assert "/" in input.identifier, "Invalid GitHub identifier"
+            user, repo = input.identifier.split("/")
+            if ":" in repo:
+                repo, branch = repo.split(":")
+            else:
+                branch = "main"
 
-        if input.name:
-            name = input.name
-        else:
-            name = input.identifier
-
-        return user, repo, branch, name
     
     else:
         assert input.user and input.repo, "Invalid github repo"
@@ -77,12 +90,12 @@ def infer_repo_info(input: inputs.CreateGithupRepoInput) -> tuple[str, str, str,
             branch = "main"
 
 
-        if input.name:
-            name = input.name 
-        else:
-            name = f"{input.user}/{input.repo}:{branch}"
+    if input.name:
+        name = input.name 
+    else:
+        name = f"{input.user}/{input.repo}:{branch}"
 
-        return input.user, input.repo, branch, name
+    return input.user, input.repo, branch, name
 
 
 
