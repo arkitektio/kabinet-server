@@ -72,6 +72,12 @@ class Mutation:
         resolver=mutations.scan_repo,
         description="Create a new dask cluster on a bridge server",
     )
+    rescan_repos: List[types.GithubRepo] = strawberry_django.mutation(
+        resolver=mutations.rescan_repos,
+        description="Rescan all repos",
+    )
+
+
     create_github_repo: types.GithubRepo = strawberry_django.mutation(
         resolver=mutations.create_github_repo,
         description="Create a new Github repository on a bridge server",
