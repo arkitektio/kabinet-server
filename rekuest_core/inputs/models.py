@@ -38,12 +38,16 @@ class AssignWidgetInputModel(BaseModel):
     kind: enums.AssignWidgetKind
     query: str | None = None
     choices: list[ChoiceInputModel] | None = None
+    state_choices: str | None = None
+    follow_value: str | None = None
     min: int | None = None
     max: int | None = None
     step: int | None = None
     placeholder: str | None = None
     hook: str | None = None
     ward: str | None = None
+    fallback: Optional["AssignWidgetInputModel"] = None
+    filters: list["ChildPortInputModel"] | None
 
 
 class ReturnWidgetInputModel(BaseModel):
@@ -112,11 +116,12 @@ class DefinitionInputModel(BaseModel):
     description: str = "No description provided"
     collections: list[str] = Field(default_factory=list)
     name: str
+    stateful: bool = False
     port_groups: list[PortGroupInputModel] = Field(default_factory=list)
     args: list[PortInputModel] = Field(default_factory=list)
     returns: list[PortInputModel] = Field(default_factory=list)
     kind: enums.NodeKind
-    is_test_for: list[str] = Field(default_factory=list)
+    is_test_for: list["str"] = Field(default_factory=list)
     interfaces: list[str] = Field(default_factory=list)
     is_dev: bool = False
 
@@ -142,3 +147,5 @@ class TemplateInputModel(BaseModel):
     logo: str | None = None
 
 
+
+AssignWidgetInputModel.update_forward_refs()

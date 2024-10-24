@@ -25,8 +25,15 @@ async def adownload_logo(url: str) -> File:
 
 
 async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
+
+
+
     async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}) as session:
         async with session.get(kabinet_url) as response:
+
+            assert response.status == 200, f"Failed to fetch kabinet.yml from {kabinet_url}"
+
+
             z = await response.text()
 
     
@@ -72,13 +79,28 @@ def infer_repo_info(input: inputs.CreateGithupRepoInput) -> tuple[str, str, str,
             user, repo, branch = match.groups()
             branch = branch or "main"
         else:
-            # Fallback if it's not a full URL
-            assert "/" in input.identifier, "Invalid GitHub identifier"
-            user, repo = input.identifier.split("/")
-            if ":" in repo:
-                repo, branch = repo.split(":")
-            else:
+            # Check if the identifier is a full GitHub URL without /tree/
+            url_pattern_no_tree = r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)"
+            match = re.match(url_pattern_no_tree, input.identifier)
+            if match:
+                user, repo = match.groups()
                 branch = "main"
+            else:
+                try:
+                    assert "/" in input.identifier, "Invalid GitHub identifier"
+                    user, repo = input.identifier.split("/")
+                    if ":" in repo:
+                        repo, branch = repo.split(":")
+                    else:
+                        branch = "main"
+
+
+                except AssertionError as e:
+                    raise Exception("Invalid GitHub identifier")
+            
+
+        name = f"{input.user}/{input.repo}:{branch}"
+        return user, repo, branch, input.identifier
 
     
     else:
@@ -90,12 +112,9 @@ def infer_repo_info(input: inputs.CreateGithupRepoInput) -> tuple[str, str, str,
             branch = "main"
 
 
-    if input.name:
-        name = input.name 
-    else:
         name = f"{input.user}/{input.repo}:{branch}"
 
-    return input.user, input.repo, branch, name
+        return input.user, input.repo, branch, name
 
 
 

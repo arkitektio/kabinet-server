@@ -15,6 +15,7 @@ class ChoiceModel(BaseModel):
 
 class AssignWidgetModel(BaseModel):
     kind: str
+    follow_value: str | None
 
 
 class SliderAssignWidgetModel(AssignWidgetModel):
@@ -38,6 +39,12 @@ class SearchAssignWidgetModel(AssignWidgetModel):
     kind: Literal["SEARCH"]
     query: str  # TODO: Validators
     ward: str
+    filters: list["ChildPortModel"] | None = None
+
+
+class StateChoiceAssignWidgetModel(AssignWidgetModel):
+    kind: Literal["STATE_CHOICE"]
+    state_choices: str
 
 
 class StringWidgetModel(AssignWidgetModel):
@@ -47,7 +54,7 @@ class StringWidgetModel(AssignWidgetModel):
 
 
 AssignWidgetModelUnion = Union[
-    SliderAssignWidgetModel, ChoiceAssignWidgetModel, SearchAssignWidgetModel
+    SliderAssignWidgetModel, ChoiceAssignWidgetModel, SearchAssignWidgetModel, StateChoiceAssignWidgetModel, StringWidgetModel, CustomAssignWidgetModel
 ]
 
 
@@ -163,3 +170,6 @@ class DefinitionModel(BaseModel):
     protocols: list[str]
     defined_at: datetime.datetime
     is_dev: bool = False
+
+
+SearchAssignWidgetModel.update_forward_refs()

@@ -43,7 +43,7 @@ class RAMSelector(BaseSelector):
     """
 
     kind: Literal["ram"]
-    min: int
+    min: Optional[int] = None
 
 
 class CPUSelector(BaseSelector):
@@ -52,7 +52,7 @@ class CPUSelector(BaseSelector):
     """
 
     kind: Literal["cpu"]
-    min_count: Optional[int] 
+    min_count: Optional[int] = None
     frequency: Optional[int] = None
 
 
@@ -96,7 +96,7 @@ class RocmSelector(BaseSelector):
     """
 
     kind: Literal["rocm"]
-    min: int
+    min: Optional[int] = None
     frequency: Optional[int] = None
     memory: Optional[int] = None
     architecture: Optional[str] = None
@@ -124,8 +124,8 @@ class LabelSelector(BaseSelector):
     """
 
     kind: Literal["label"]
-    key: str
-    value: str
+    key: Optional[str] = None
+    value: Optional[str] = None
 
 
 class ServiceSelector(BaseSelector):

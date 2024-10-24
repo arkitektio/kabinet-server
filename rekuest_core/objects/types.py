@@ -25,6 +25,7 @@ class Choice:
 @pydantic.interface(models.AssignWidgetModel)
 class AssignWidget:
     kind: enums.AssignWidgetKind
+    follow_value: str | None
 
 
 @pydantic.type(models.SliderAssignWidgetModel)
@@ -48,6 +49,16 @@ class CustomAssignWidget(AssignWidget):
 class SearchAssignWidget(AssignWidget):
     query: str
     ward: str
+    filters: Optional[list[
+        LazyType["ChildPort", __name__]
+    ]] = None  
+    
+    
+    # this took me a while to figure out should be more obvious
+@pydantic.type(models.StateChoiceAssignWidgetModel)
+class StateChoiceAssignWidget(AssignWidget):
+    state_choices: str
+
 
 
 @pydantic.type(models.StringWidgetModel)
@@ -157,6 +168,7 @@ class Port:
 class Definition:
     hash: scalars.NodeHash
     name: str
+    stateful: bool
     kind: enums.NodeKind
     description: str | None
     port_groups: list[PortGroup]
