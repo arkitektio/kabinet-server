@@ -6,9 +6,10 @@ import semver
 from bridge.repo.selectors import Selector
 import uuid
 from rekuest_core.inputs.models import DefinitionInputModel, TemplateInputModel
+from typing import Literal, Union
 
-
-class Requirement(BaseModel):
+class RequirementInputModel(BaseModel):
+    key: str
     service: str
     """ The service is the service that will be used to fill the key, it will be used to find the correct instance. It needs to fullfill
     the reverse domain naming scheme"""
@@ -18,9 +19,27 @@ class Requirement(BaseModel):
     """ The description is a human readable description of the requirement. Will be show to the user when asking for the requirement."""
 
 
+class RocmSelectorInputModel(BaseModel):
+    kind: Literal["rocm"] 
+    api_version: str
+    api_thing: str
 
 
-class Manifest(BaseModel):
+class CudaSelectorInputModel(BaseModel):
+    kind: Literal["cuda"] 
+    cuda_version: str
+    cuda_cores: int
+
+
+SelectorInputModel = Union[
+    CudaSelectorInputModel,
+    RocmSelectorInputModel
+]
+
+
+
+
+class ManifestInputModel(BaseModel):
     identifier: str
     version: str
     author: str = "unknown"
@@ -29,17 +48,6 @@ class Manifest(BaseModel):
     """ The requirements are a list of requirements that the client needs to run on (e.g. needs GPU)"""
 
 
-
-    @validator("version", pre=True)
-    def version_must_be_semver(cls, v: Any) -> str:
-        """Checks that the version is a valid semver version"""
-        if isinstance(v, str):
-            try:
-                semver.VersionInfo.parse(v)
-            except ValueError:
-                raise ValueError(f"Version must be a valid semver version is {v}")
-        return str(v)
-
     def to_console_string(self) -> str:
         return f"📦 {self.identifier} ({self.version}) by {self.author}"
 
@@ -47,13 +55,19 @@ class Manifest(BaseModel):
         validate_assignment = True
 
 
-class Inspection(BaseModel):
+class InspectionInputModel(BaseModel):
     size: int
     templates: List[TemplateInputModel]
-    requirements: Dict[str, Requirement] = Field(default_factory=dict)
+    requirements: List[RequirementInputModel]
 
 
-class Deployment(BaseModel):
+class DockerImageModel(BaseModel):
+    image_string: str  = Field(alias="imageString")
+    build_at: datetime.datetime | None = Field(alias="buildAt")
+
+
+
+class AppImageInputModel(BaseModel):
     """A deployment is a Release of a Build.
     It contains the build_id, the manifest, the builder, the definitions, the image and the deployed_at timestamp.
 
@@ -61,35 +75,15 @@ class Deployment(BaseModel):
 
     """
 
-    deployment_run: str = Field(
-        default_factory=lambda: str(uuid.uuid4()),
-        description="The unique identifier of the deployment run",
-    )
+    flavour_name: str | None  = Field(alias="flavourName")
+    manifest: ManifestInputModel
+    selectors: list[SelectorInputModel] 
+    app_image_id: str = Field(alias="appImageId")
+    inspection: InspectionInputModel 
+    image: DockerImageModel
 
-    deployment_id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()),
-        description="The unique identifier of the deployment",
-    )
-    manifest: Manifest = Field(description="The manifest of the app that was deployed")
-    selectors: List[Selector] = Field(
-        description="The selectors are used to place this image on the nodes",
-        default_factory=list,
-    )
-    flavour: str = Field(
-        description="The flavour that was used to build this deployment",
-        default="vanilla",
-    )
-    inspection: Inspection = Field(
-        description="The inspection of the docker image that was built"
-    )
-    
-    image: str = Field(
-        description="The docker image that was built for this deployment"
-    )
-    deployed_at: datetime.datetime = Field(
-        default_factory=datetime.datetime.now,
-        description="The timestamp of the deployment",
-    )
+
+
 
 
 class KabinetConfigFile(BaseModel):
@@ -102,5 +96,5 @@ class KabinetConfigFile(BaseModel):
         _description_
     """
 
-    deployments: List[Deployment] = []
-    latest_deployment_run: Optional[str] = None
+    app_images: List[AppImageInputModel] = []
+    latest_app_image: Optional[str] = None

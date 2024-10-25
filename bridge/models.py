@@ -78,6 +78,14 @@ class Release(models.Model):
         ]
 
 
+
+class DockerImage(models.Model):
+    image_string = models.CharField(max_length=4000)
+    build_at = models.DateTimeField(null=True, blank=True)
+
+
+
+
 class Flavour(models.Model):
     release = models.ForeignKey(
         Release, on_delete=models.CASCADE, related_name="flavours"
@@ -87,7 +95,7 @@ class Flavour(models.Model):
     flavour = models.CharField(max_length=400, default="vanilla")
     selectors = models.JSONField(default=list)
     repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="flavours")
-    image = models.CharField(max_length=400, default="jhnnsrs/fake:latest")
+    image = models.ForeignKey(DockerImage, on_delete=models.CASCADE, related_name="flavours")
     builder = models.CharField(max_length=400)
     inspection = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now=True)

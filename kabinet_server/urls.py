@@ -20,9 +20,16 @@ from strawberry.django.views import AsyncGraphQLView
 from django.urls import include
 from .schema import schema
 from .basepath import basepath
+from django.http import HttpResponse
+
+
+def graphql_schema(request):
+    return HttpResponse(content=schema.as_str(), content_type="text/plain")
+
 
 urlpatterns = [
     basepath("admin/", admin.site.urls),
+    basepath("schema", graphql_schema),
     basepath("graphql", AsyncGraphQLView.as_view(schema=schema)),
     basepath("api/", include("bridge.urls")),
 ]

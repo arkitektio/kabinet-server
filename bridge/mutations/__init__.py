@@ -5,6 +5,7 @@ from .deployment import create_deployment, update_deployment
 from .pod import create_pod, update_pod, dump_logs, delete_pod
 from .backend import declare_backend
 from .resource import declare_resource
+from .app_image import create_app_image
 
 __all__ = [
     "scan_repo",
@@ -18,4 +19,5 @@ __all__ = [
     "dump_logs",
     "declare_backend"
     "delete_pod",
+    "create_app_image",
 ]

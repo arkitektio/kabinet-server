@@ -41,9 +41,6 @@ async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
     z = yaml.safe_load(z)
     if not isinstance(z, dict):
         raise Exception("Invalid kabinet.yml")
-    
-    if not "deployments" in z:
-        raise Exception("Invalid kabinet.yml. Is this a kabinet repo?")
 
     config = KabinetConfigFile(**z)
     return config

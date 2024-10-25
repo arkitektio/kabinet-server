@@ -25,7 +25,7 @@ async def parse_config(
 
     deps = []
     try:
-        for deployment in config.deployments:
+        for deployment in config.app_images:
             print(deployment)
             manifest = deployment.manifest
 
@@ -46,15 +46,23 @@ async def parse_config(
                 release.logo.save(f"logo{release.id}.png", logo_file)
                 await release.asave()
 
+
+            x , _ = await models.DockerImage.objects.aupdate_or_create(
+                image_string=deployment.image.image_string,
+                defaults=dict(build_at=deployment.image.build_at)
+            )
+
+
+
             flavour, _ = await models.Flavour.objects.aupdate_or_create(
                 release=release,
-                name=deployment.flavour,
+                name=deployment.flavour_name,
                 defaults=dict(
-                    deployment_id=deployment.deployment_id,
-                    flavour=deployment.flavour,
+                    deployment_id=deployment.app_image_id,
+                    flavour=deployment.app_image_id,
                     selectors=[d.dict() for d in deployment.selectors],
                     repo=repo,
-                    image=deployment.image,
+                    image=x,
                     manifest=deployment.manifest.dict(),
                     requirements=deployment.inspection.dict()["requirements"],
                 ),
@@ -76,6 +84,7 @@ async def parse_config(
                     await def_model.flavours.aadd(flavour)
 
             deps.append(flavour)
+            print("Created", flavour)
     except Exception as e:
         raise DBError("Could not create models from deployments") from e
 

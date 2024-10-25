@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "authentikate",
     "koherent",
     "kante",
+    "strawberry_django",
     "channels",
     "django_probes",
     "bridge",
@@ -114,7 +115,7 @@ ASGI_APPLICATION = "kabinet_server.asgi.application"
 
 
 ENSURED_REPOS = conf.get("ensured_repos", [])
-
+FORCE_SCRIPT_NAME = conf.get("force_script_name", "")
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 

@@ -1,6 +1,7 @@
 import strawberry
 from strawberry_django.optimizer import DjangoOptimizerExtension
 from kante.directives import upper, replace, relation
+from bridge.directives import unionElementOf
 from bridge import types
 from bridge import mutations
 from bridge import subscriptions
@@ -10,6 +11,7 @@ import strawberry_django
 from koherent.strawberry.extension import KoherentExtension
 from typing import List
 from rekuest_core.constants import interface_types
+from bridge.repo.types import selector_types
 
 
 @strawberry.type
@@ -77,6 +79,11 @@ class Mutation:
         description="Rescan all repos",
     )
 
+    create_app_image: types.Release = strawberry_django.mutation(
+        resolver=mutations.create_app_image,
+        description="Create a new release",
+    )
+
 
     create_github_repo: types.GithubRepo = strawberry_django.mutation(
         resolver=mutations.create_github_repo,
@@ -138,6 +145,8 @@ schema = strawberry.Schema(
     mutation=Mutation,
     subscription=Subscription,
     directives=[upper, replace, relation],
+    schema_directives=[unionElementOf],
     extensions=[DjangoOptimizerExtension, KoherentExtension],
-    types=[types.Selector, types.CudaSelector, types.CPUSelector] + interface_types,
+    types=[types.Selector, types.CudaSelector, types.CPUSelector] + interface_types + selector_types,
 )
+

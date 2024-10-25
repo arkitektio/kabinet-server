@@ -137,6 +137,22 @@ class CPUSelector(Selector):
     frequency: Optional[int] = None
 
 
+
+@strawberry.type(description="A requirement")
+class Requirement:
+    key: str
+    service: str
+    description: str | None = None
+    optional: bool = False
+
+
+@strawberry_django.type(models.DockerImage, description="A docker image descriptor")
+class DockerImage:
+    image_string: str
+    build_at: datetime.datetime
+
+
+
 @strawberry_django.type(
     models.Flavour,
     description="A user of the bridge server. Maps to an authentikate user",
@@ -148,19 +164,23 @@ class Flavour:
     name: str
     description: str
     logo: Optional[str]
+    image: DockerImage
     original_logo: Optional[str]
-    entrypoint: str
-    image: str
+    entrypoint: CudaSelector
     release: Release
     deployments: List[Deployment]
     definitions: List["Definition"]
 
     manifest: scalars.UntypedParams
-    requirements: scalars.UntypedParams
 
     @strawberry_django.field()
     def selectors(self, info: Info) -> List[types.Selector]:
         return self.get_selectors()
+    
+    @strawberry_django.field()
+    def requirements(self) -> List[Requirement]:
+        return [Requirement(**i) for i in self.requirements]
+    
 
 
 @strawberry_django.type(
