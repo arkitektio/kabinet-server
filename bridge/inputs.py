@@ -247,22 +247,33 @@ class DeclareBackendInput:
     kind: str
 
 
+class QualifierInputModel(BaseModel):
+    """A qualifier that describes some property of the node"""
+    key: str
+    value: str
 
 class DeclareResourceInputModel(BaseModel):
     """Create a new Github repository input model"""
-    instance_id: str
+    backend: str
     name: str
-    resource_id: str
-    qualifiers: Optional[List[Dict[str, str]]] = None
+    local_id: str
+    qualifiers: Optional[List[QualifierInputModel]] = None
+
+
+@pydantic.input(QualifierInputModel, description="A qualifier that describes some property of the node")
+class QualifierInput:
+    """A qualifier that describes some property of the node"""
+    key: str
+    value: str
 
 
 @pydantic.input(DeclareResourceInputModel, description="Create a resource")
 class DeclareResourceInput:
     """Create a new Github repository input"""
-    instance_id: str
-    resource_id: str
-    name: str
-    qualifiers: scalars.UntypedParams | None = None
+    backend: strawberry.ID
+    local_id: str
+    name: str | None = None
+    qualifiers: list[QualifierInput] | None = None
  
 
 

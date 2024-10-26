@@ -7,12 +7,12 @@ async def declare_resource(
 ) -> types.Resource:
     """Create a new dask cluster on a bridge server"""
 
-    backend = await aget_backend_for_info(info, input.instance_id)
+    backend = await models.Backend.objects.aget(id=input.backend)
 
 
     resource, _ = await models.Resource.objects.aupdate_or_create(
         backend=backend,
-        resource_id=input.resource_id,
+        resource_id=input.local_id,
         defaults={
             "qualifiers": input.qualifiers,
             "name": input.name,
