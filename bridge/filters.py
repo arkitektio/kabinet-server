@@ -70,11 +70,15 @@ class FlavourFilter:
     search: str | None = None
     pass
 
-    def filter_search(self, queryset, search):
-        return queryset.filter(name__icontains=search)
+    def filter_search(self, queryset):
+        if self.search is None:
+            return queryset
+        return queryset.filter(name__icontains=self.search)
 
-    def filter_ids(self, queryset, ids):
-        return queryset.filter(id__in=ids)
+    def filter_ids(self, queryset):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
 
 
 @strawberry_django.filter(models.Resource, description="Filter for Resources")
