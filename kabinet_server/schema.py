@@ -147,6 +147,6 @@ schema = strawberry.Schema(
     directives=[upper, replace, relation],
     schema_directives=[unionElementOf],
     extensions=[DjangoOptimizerExtension, KoherentExtension],
-    types=[types.Selector, types.CudaSelector, types.CPUSelector] + interface_types + selector_types,
+    types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector] + interface_types + selector_types,
 )
 

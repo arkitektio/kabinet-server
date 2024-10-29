@@ -12,29 +12,8 @@ class BaseSelector(BaseModel):
 
     class Config:
         extra = "forbid"
+        allow_population_by_field_name = True
 
-    def build_docker_params(self) -> List[str]:
-        """Builds the docker params for this selector
-
-        Should return a list of strings that can be used as docker params
-        If the selector is not required, it should return an empty list
-
-        Returns
-        -------
-        List[str]
-            The docker params for this selector
-        """
-        return []
-
-    def build_arkitekt_params(self) -> List[str]:
-        """Builds the arkitekt params for this selector
-
-        Returns
-        -------
-        List[str]
-            The docker params for this selector
-        """
-        return []
 
 
 class RAMSelector(BaseSelector):
@@ -62,32 +41,10 @@ class CudaSelector(BaseSelector):
     """
 
     kind: Literal["cuda"]
-    frequency: Optional[int] = Field(default=None, description="The frequency in MHz")
-    memory: Optional[int] = Field(default=None, description="The memory in MB")
-    architecture: Optional[str] = Field(
-        default=None, description="The architecture of the GPU"
-    )
-    compute_capability: str = Field(
-        default="3.5", description="The minimum compute capability"
-    )
-    cuda_cores: Optional[int] = None
-    cuda_version: str = Field(default="10.2", description="The minimum cuda version")
+    cuda_cores: Optional[int] = Field(default=None, description="The number of cuda cores", alias="cudaCores")
+    cuda_version: str = Field(default="10.2", description="The minimum cuda version", alias="cudaVersion")
 
-    def build_docker_params(self) -> List[str]:
-        """Builds the docker params for this selector
-
-        Should return a list of strings that can be used as docker params
-        If the selector is not required, it should return an empty list
-
-        Returns
-        -------
-        List[str]
-            The docker params for this selector
-        """
-        return [
-            "--gpus",
-            "all",
-        ]
+   
 
 
 class RocmSelector(BaseSelector):
@@ -96,27 +53,10 @@ class RocmSelector(BaseSelector):
     """
 
     kind: Literal["rocm"]
-    min: Optional[int] = None
-    frequency: Optional[int] = None
-    memory: Optional[int] = None
-    architecture: Optional[str] = None
-    compute_capability: Optional[str] = None
-    cuda_cores: Optional[int] = None
-    cuda_version: Optional[str] = None
+    api_thing: Optional[str] = Field(alias="apiThing")
+    api_version: Optional[str] = Field(alias="apiVersion")
 
-    def build_docker_params(self) -> List[str]:
-        """Builds the docker params for this selector"""
-
-        return [
-            "--device=/dev/kfd",
-            "--device=/dev/dri",
-            "--group-add",
-            "video",
-            "--cap-add=SYS_PTRACE",
-            "--security-opt",
-            "seccomp=unconfined",
-        ]
-
+    
 
 class LabelSelector(BaseSelector):
     """A selector is a way to describe a flavours preference for a

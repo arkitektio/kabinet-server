@@ -21,14 +21,20 @@ class RequirementInputModel(BaseModel):
 
 class RocmSelectorInputModel(BaseModel):
     kind: Literal["rocm"] 
-    api_version: str
-    api_thing: str
+    api_version: str = Field(alias="apiVersion")
+    api_thing: str = Field(alias="apiThing")
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 class CudaSelectorInputModel(BaseModel):
     kind: Literal["cuda"] 
-    cuda_version: str
-    cuda_cores: int
+    cuda_version: str = Field(alias="cudaVersion")
+    cuda_cores: int = Field(alias="cudaCores")
+
+    class Config:
+        allow_population_by_field_name = True
 
 
 SelectorInputModel = Union[

@@ -117,16 +117,22 @@ class Deployment:
 @strawberry.experimental.pydantic.interface(selectors.BaseSelector, description=" A selector is a way to select a release")
 class Selector:
     """A selector is a way to select a release"""
-
-    type: str
+    kind: str
     required: bool
 
 
 @strawberry.experimental.pydantic.type(selectors.CudaSelector, description=" A selector is a way to select a release")
 class CudaSelector(Selector):
     """A selector is a way to select a release"""
-
     compute_capability: str
+    cuda_version: str
+    cuda_cores: int
+
+@strawberry.experimental.pydantic.type(selectors.RocmSelector, description=" A selector is a way to select a release")
+class RocmSelector(Selector):
+    """A selector is a way to select a release"""
+    api_version: str
+    api_thing: int
 
 
 @strawberry.experimental.pydantic.type(selectors.CPUSelector, description=" A selector is a way to select a release")
