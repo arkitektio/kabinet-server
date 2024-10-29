@@ -9,33 +9,35 @@ from ..directives import unionElementOf
 
 @strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="rocm")])
 class RocmSelectorInput:
-    api_version: str = strawberry.field(description="The api version of the selector")
-    api_thing: str = strawberry.field(description="The api thing of the selector")
+    api_version: str | None = strawberry.field(default=None, description="The api version of the selector")
+    api_thing: str | None  = strawberry.field(default=None,  description="The api thing of the selector")
 
 
 @strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cuda")])
 class CudaSelectorInput:
-    cuda_version: str = strawberry.field(description="The minimum cuda version")
-    cuda_cores: int = strawberry.field(description="The cuda cores")
+    cuda_version: str | None = strawberry.field(default=None, description="The minimum cuda version")
+    cuda_cores: int | None = strawberry.field(default=None, description="The cuda cores")
 
 
 
 @strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cpu")])
-class CpuSelector:
-    frequency: int = strawberry.field(description="The frequency in MHz")
-    memory: int = strawberry.field(description="The memory in MB")
+class CpuSelectorInput:
+    frequency: int | None = strawberry.field(description="The frequency in MHz")
+    memory: int | None = strawberry.field(description="The memory in MB")
 
 @strawberry.input(directives=[])
 class SelectorInput:
     kind: str = strawberry.field(description="The kind of the selector")
-    api_version: str = strawberry.field(description="The api version of the selector")
-    api_thing: str = strawberry.field(description="The api thing of the selector")
-    cuda_cores: int = strawberry.field(description="The cuda cores")
+    api_version: str | None = strawberry.field(default=None,description="The api version of the selector")
+    api_thing: str  | None = strawberry.field(default=None,description="The api thing of the selector")
+    cuda_cores: int  | None  = strawberry.field(default=None,description="The cuda cores")
+    frequency: int | None = strawberry.field(default=None,description="The frequency in MHz")
+    memory: int | None = strawberry.field(default=None,description="The memory in MB")
 
 
 
 
-selector_types = [CudaSelectorInput, RocmSelectorInput, CpuSelector]
+selector_types = [CudaSelectorInput, RocmSelectorInput, CpuSelectorInput]
 
 
 

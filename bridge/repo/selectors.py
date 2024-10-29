@@ -32,7 +32,7 @@ class CPUSelector(BaseSelector):
 
     kind: Literal["cpu"]
     min_count: Optional[int] = None
-    frequency: Optional[int] = None
+    frequency: Optional[float] = None
 
 
 class CudaSelector(BaseSelector):
@@ -42,7 +42,7 @@ class CudaSelector(BaseSelector):
 
     kind: Literal["cuda"]
     cuda_cores: Optional[int] = Field(default=None, description="The number of cuda cores", alias="cudaCores")
-    cuda_version: str = Field(default="10.2", description="The minimum cuda version", alias="cudaVersion")
+    cuda_version: Optional[str] = Field(default=None, description="The minimum cuda version", alias="cudaVersion")
 
    
 

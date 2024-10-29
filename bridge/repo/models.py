@@ -21,8 +21,8 @@ class RequirementInputModel(BaseModel):
 
 class RocmSelectorInputModel(BaseModel):
     kind: Literal["rocm"] 
-    api_version: str = Field(alias="apiVersion")
-    api_thing: str = Field(alias="apiThing")
+    api_version: Optional[str] = Field(default=None, alias="apiVersion")
+    api_thing:  Optional[str] = Field(default=None, alias="apiThing")
 
     class Config:
         allow_population_by_field_name = True
@@ -30,8 +30,8 @@ class RocmSelectorInputModel(BaseModel):
 
 class CudaSelectorInputModel(BaseModel):
     kind: Literal["cuda"] 
-    cuda_version: str = Field(alias="cudaVersion")
-    cuda_cores: int = Field(alias="cudaCores")
+    cuda_version:  Optional[str] = Field(default=None,alias="cudaVersion")
+    cuda_cores:  Optional[int] =Field(default=None, alias="cudaCores")
 
     class Config:
         allow_population_by_field_name = True
