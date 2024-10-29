@@ -132,7 +132,7 @@ class CudaSelector(Selector):
 class RocmSelector(Selector):
     """A selector is a way to select a release"""
     api_version: str
-    api_thing: int
+    api_thing: str
 
 
 @strawberry.experimental.pydantic.type(selectors.CPUSelector, description=" A selector is a way to select a release")
