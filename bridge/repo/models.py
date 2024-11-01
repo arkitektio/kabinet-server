@@ -37,9 +37,18 @@ class CudaSelectorInputModel(BaseModel):
         allow_population_by_field_name = True
 
 
+class OneApiSelectorInputModel(BaseModel):
+    kind: Literal["oneapi"] 
+    oneapi_version:  Optional[str] = Field(default=None,alias="oneapiVersion")
+
+    class Config:
+        allow_population_by_field_name = True
+
+
 SelectorInputModel = Union[
     CudaSelectorInputModel,
-    RocmSelectorInputModel
+    RocmSelectorInputModel,
+    OneApiSelectorInputModel
 ]
 
 

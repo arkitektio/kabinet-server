@@ -19,17 +19,24 @@ class CudaSelectorInput:
     cuda_cores: int | None = strawberry.field(default=None, description="The cuda cores")
 
 
-
 @strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cpu")])
 class CpuSelectorInput:
     frequency: int | None = strawberry.field(description="The frequency in MHz")
     memory: int | None = strawberry.field(description="The memory in MB")
+
+
+
+@strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="oneapi")])
+class OneApiSelectorInput:
+    oneapi_version: str | None = strawberry.field(default=None, description="The api versison of the selector")
+
 
 @strawberry.input(directives=[])
 class SelectorInput:
     kind: str = strawberry.field(description="The kind of the selector")
     api_version: str | None = strawberry.field(default=None,description="The api version of the selector")
     api_thing: str  | None = strawberry.field(default=None,description="The api thing of the selector")
+    oneapi_version: str | None = strawberry.field(default=None,description="The api version of the selector")
     cuda_cores: int  | None  = strawberry.field(default=None,description="The cuda cores")
     frequency: int | None = strawberry.field(default=None,description="The frequency in MHz")
     memory: int | None = strawberry.field(default=None,description="The memory in MB")
@@ -37,7 +44,7 @@ class SelectorInput:
 
 
 
-selector_types = [CudaSelectorInput, RocmSelectorInput, CpuSelectorInput]
+selector_types = [CudaSelectorInput, RocmSelectorInput, CpuSelectorInput, OneApiSelectorInput]
 
 
 
