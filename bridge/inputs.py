@@ -24,7 +24,7 @@ class ScanRepoInput:
     id: str
 
 
-class CreateGithupRepoInputModel(BaseModel):
+class CreateGithubRepoInput(BaseModel):
     """Create a new Github repository input model"""
 
     name: str | None = None
@@ -35,8 +35,8 @@ class CreateGithupRepoInputModel(BaseModel):
     auto_scan: bool = True
 
 
-@pydantic.input(CreateGithupRepoInputModel, description="Create a new Github repository input")
-class CreateGithupRepoInput:
+@pydantic.input(CreateGithubRepoInput, description="Create a new Github repository input")
+class CreateGithubRepoInput:
     """Create a new Github repository input"""
 
     name: str | None = None

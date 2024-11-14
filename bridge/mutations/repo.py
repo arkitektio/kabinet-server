@@ -65,7 +65,7 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
 
 
 
-def infer_repo_info(input: inputs.CreateGithupRepoInput) -> tuple[str, str, str, str]:
+def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str, str]:
     if input.identifier:
         # Check if the identifier is a full GitHub URL
         url_pattern = r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+))?"
@@ -117,7 +117,7 @@ def infer_repo_info(input: inputs.CreateGithupRepoInput) -> tuple[str, str, str,
 
 
 async def _create_github_repo(
-    input: inputs.CreateGithupRepoInput, creator
+    input: inputs.CreateGithubRepoInput, creator
 ) -> models.GithubRepo:
     
     user, repo, branch, name = infer_repo_info(input)
@@ -152,7 +152,7 @@ async def _create_github_repo(
 
 
 async def create_github_repo(
-    info: Info, input: inputs.CreateGithupRepoInput
+    info: Info, input: inputs.CreateGithubRepoInput
 ) -> types.GithubRepo:
     
 
