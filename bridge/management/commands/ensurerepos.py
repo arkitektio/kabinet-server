@@ -10,7 +10,7 @@ from asgiref.sync import async_to_sync
 async def create_github_repos(repos: dict):
 
     for repo_identifier in repos:
-        input = inputs.CreateGithupRepoInput(
+        input = inputs.CreateGithubRepoInput(
             identifier=repo_identifier,
             name=repo_identifier
         )
