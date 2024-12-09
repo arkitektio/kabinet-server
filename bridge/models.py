@@ -11,7 +11,9 @@ from authentikate.models import App as Client
 
 class Repo(models.Model):
     name = models.CharField(max_length=400)
-    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
+    creator = models.ForeignKey(
+        get_user_model(), on_delete=models.CASCADE, null=True, blank=True
+    )
     created_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
@@ -45,7 +47,7 @@ class GithubRepo(Repo):
     @classmethod
     def build_kabinet_url(cls, user: str, repo: str, branch: str) -> str:
         return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt_next/deployments.yaml"
-    
+
     class Config:
         constraints = [
             models.UniqueConstraint(
@@ -78,12 +80,9 @@ class Release(models.Model):
         ]
 
 
-
 class DockerImage(models.Model):
     image_string = models.CharField(max_length=4000)
     build_at = models.DateTimeField(null=True, blank=True)
-
-
 
 
 class Flavour(models.Model):
@@ -95,7 +94,9 @@ class Flavour(models.Model):
     flavour = models.CharField(max_length=400, default="vanilla")
     selectors = models.JSONField(default=list)
     repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="flavours")
-    image = models.ForeignKey(DockerImage, on_delete=models.CASCADE, related_name="flavours")
+    image = models.ForeignKey(
+        DockerImage, on_delete=models.CASCADE, related_name="flavours"
+    )
     builder = models.CharField(max_length=400)
     inspection = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now=True)
@@ -242,15 +243,13 @@ class Deployment(models.Model):
     local_id = models.CharField(max_length=2000, default="unset")
 
 
-
-
-
-
 class Resource(models.Model):
-    backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="resources")
+    backend = models.ForeignKey(
+        Backend, on_delete=models.CASCADE, related_name="resources"
+    )
     resource_id = models.CharField(max_length=1000)
     name = models.CharField(max_length=1000, default="unset")
-    qualifiers = models.JSONField( null=True, blank=True)
+    qualifiers = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -261,18 +260,11 @@ class Resource(models.Model):
         ]
 
 
-
-
-
-
-
-
-
-
-
 class Pod(models.Model):
     backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="pods")
-    resource = models.ForeignKey(Resource,on_delete=models.SET_NULL, related_name="pods", null=True, blank=True)
+    resource = models.ForeignKey(
+        Resource, on_delete=models.SET_NULL, related_name="pods", null=True, blank=True
+    )
     pod_id = models.CharField(max_length=1000)
     client_id = models.CharField(max_length=1000, null=True, blank=True)
     deployment = models.ForeignKey(

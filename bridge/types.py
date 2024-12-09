@@ -17,7 +17,9 @@ from strawberry import auto
 from strawberry.experimental import pydantic
 
 
-@strawberry_django.type(Client, description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(
+    Client, description="A user of the bridge server. Maps to an authentikate user"
+)
 class Client:
     id: auto
     identifier: str
@@ -52,7 +54,9 @@ class GithubRepo:
     flavours: List["Flavour"]
 
 
-@strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(
+    models.App, description="A user of the bridge server. Maps to an authentikate user"
+)
 class App:
     id: auto
     identifier: str
@@ -89,7 +93,7 @@ class Release:
     @strawberry_django.field(description="Is this release deployed")
     def colour(self, info: Info) -> str:
         return "#254d11"
-    
+
     @strawberry_django.field(description="Is this release deployed")
     def name(self, info: Info) -> str:
         return self.app.identifier + ":" + self.version
@@ -113,34 +117,44 @@ class Deployment:
         return self.backend.name + "-" + self.flavour.name
 
 
-
-@strawberry.experimental.pydantic.interface(selectors.BaseSelector, description=" A selector is a way to select a release")
+@strawberry.experimental.pydantic.interface(
+    selectors.BaseSelector, description=" A selector is a way to select a release"
+)
 class Selector:
     """A selector is a way to select a release"""
+
     kind: str
     required: bool
 
 
-@strawberry.experimental.pydantic.type(selectors.CudaSelector, description=" A selector is a way to select a release")
+@strawberry.experimental.pydantic.type(
+    selectors.CudaSelector, description=" A selector is a way to select a release"
+)
 class CudaSelector(Selector):
     """A selector is a way to select a release"""
+
     cuda_version: str | None = None
     cuda_cores: int | None = None
 
-@strawberry.experimental.pydantic.type(selectors.RocmSelector, description=" A selector is a way to select a release")
+
+@strawberry.experimental.pydantic.type(
+    selectors.RocmSelector, description=" A selector is a way to select a release"
+)
 class RocmSelector(Selector):
     """A selector is a way to select a release"""
+
     api_version: str | None = None
     api_thing: str | None = None
 
 
-@strawberry.experimental.pydantic.type(selectors.CPUSelector, description=" A selector is a way to select a release")
+@strawberry.experimental.pydantic.type(
+    selectors.CPUSelector, description=" A selector is a way to select a release"
+)
 class CPUSelector(Selector):
     """A selector is a way to select a release"""
 
     min: int | None = None
     frequency: float | None = None
-
 
 
 @strawberry.type(description="A requirement")
@@ -155,7 +169,6 @@ class Requirement:
 class DockerImage:
     image_string: str
     build_at: datetime.datetime
-
 
 
 @strawberry_django.type(
@@ -181,11 +194,10 @@ class Flavour:
     @strawberry_django.field()
     def selectors(self, info: Info) -> List[types.Selector]:
         return self.get_selectors()
-    
+
     @strawberry_django.field()
     def requirements(self) -> List[Requirement]:
         return [Requirement(**i) for i in self.requirements]
-    
 
 
 @strawberry_django.type(
@@ -267,7 +279,6 @@ class Backend:
         return self.client.client_id
 
 
-
 @strawberry_django.type(
     models.Resource,
     filters=filters.ResourceFilter,
@@ -283,8 +294,12 @@ class Resource:
     qualifiers: scalars.UntypedParams | None
 
 
-
-@strawberry_django.type(models.Pod, filters=filters.PodFilter, pagination=True, description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(
+    models.Pod,
+    filters=filters.PodFilter,
+    pagination=True,
+    description="A user of the bridge server. Maps to an authentikate user",
+)
 class Pod:
     id: auto
     resource: Resource | None
@@ -294,7 +309,7 @@ class Pod:
     pod_id: str
     client_id: str | None
     status: enums.PodStatus
-    
+
     @strawberry_django.field()
     def name(self) -> str:
         return self.pod_id + "-" + self.deployment.flavour.name

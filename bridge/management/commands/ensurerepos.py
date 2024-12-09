@@ -11,8 +11,7 @@ async def create_github_repos(repos: dict):
 
     for repo_identifier in repos:
         input = inputs.CreateGithubRepoInput(
-            identifier=repo_identifier,
-            name=repo_identifier
+            identifier=repo_identifier, name=repo_identifier
         )
 
         try:

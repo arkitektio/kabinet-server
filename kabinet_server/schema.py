@@ -60,10 +60,7 @@ class Query:
     definitions: List[types.Definition] = strawberry_django.field()
     pods: List[types.Pod] = strawberry_django.field()
 
-    backends: List[types.Backend]= strawberry_django.field()
-
-
-
+    backends: List[types.Backend] = strawberry_django.field()
 
 
 @strawberry.type
@@ -83,7 +80,6 @@ class Mutation:
         resolver=mutations.create_app_image,
         description="Create a new release",
     )
-
 
     create_github_repo: types.GithubRepo = strawberry_django.mutation(
         resolver=mutations.create_github_repo,
@@ -118,8 +114,6 @@ class Mutation:
         description="Create a new resource for your backend",
     )
 
-
-
     delete_pod: strawberry.ID = strawberry_django.mutation(
         resolver=mutations.delete_pod,
         description="Create a new dask cluster on a bridge server",
@@ -147,6 +141,7 @@ schema = strawberry.Schema(
     directives=[upper, replace, relation],
     schema_directives=[unionElementOf],
     extensions=[DjangoOptimizerExtension, KoherentExtension],
-    types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector] + interface_types + selector_types,
+    types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector]
+    + interface_types
+    + selector_types,
 )
-

@@ -2,6 +2,7 @@ from koherent.types import Info
 from bridge import types, inputs, models
 from bridge.utils import aget_backend_for_info
 
+
 async def create_deployment(
     info: Info, input: inputs.CreateDeploymentInput
 ) -> types.Deployment:
@@ -15,10 +16,7 @@ async def create_deployment(
         flavour=flavour,
         backend=backend,
         local_id=input.local_id,
-        defaults={
-            "secret_params": input.secret_params or {}
-        }
-
+        defaults={"secret_params": input.secret_params or {}},
     )
 
     return deployment

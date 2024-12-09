@@ -35,7 +35,9 @@ class CreateGithubRepoInput(BaseModel):
     auto_scan: bool = True
 
 
-@pydantic.input(CreateGithubRepoInput, description="Create a new Github repository input")
+@pydantic.input(
+    CreateGithubRepoInput, description="Create a new Github repository input"
+)
 class CreateGithubRepoInput:
     """Create a new Github repository input"""
 
@@ -53,7 +55,9 @@ class PullFlavourInputModel(BaseModel):
     id: str
 
 
-@pydantic.input(PullFlavourInputModel, description="Create a new Github repository input")
+@pydantic.input(
+    PullFlavourInputModel, description="Create a new Github repository input"
+)
 class PullFlavourInput:
     """Create a new Github repository input"""
 
@@ -71,7 +75,9 @@ class CreateSetupInputModel(BaseModel):
     auto_pull: bool = True
 
 
-@pydantic.input(CreateSetupInputModel, description="Create a new Github repository input")
+@pydantic.input(
+    CreateSetupInputModel, description="Create a new Github repository input"
+)
 class CreateSetupInput:
     """Create a new Github repository input"""
 
@@ -89,7 +95,9 @@ class DeploySetupInputModel(BaseModel):
     setup: str
 
 
-@pydantic.input(DeploySetupInputModel, description="Create a new Github repository input")
+@pydantic.input(
+    DeploySetupInputModel, description="Create a new Github repository input"
+)
 class DeploySetupInput:
     """Create a new Github repository input"""
 
@@ -114,7 +122,9 @@ class DeviceFeature:
     cpu_count: str
 
 
-@pydantic.input(EnvironmentInputModel, description="Which environment do you want to match against?")
+@pydantic.input(
+    EnvironmentInputModel, description="Which environment do you want to match against?"
+)
 class EnvironmentInput:
     """Which environment do you want to match against?"""
 
@@ -130,7 +140,9 @@ class MatchFlavoursInputModel(BaseModel):
     nodes: Optional[list[str]]
 
 
-@pydantic.input(MatchFlavoursInputModel, description="Create a new Github repository input")
+@pydantic.input(
+    MatchFlavoursInputModel, description="Create a new Github repository input"
+)
 class MatchFlavoursInput:
     """Create a new Github repository input"""
 
@@ -187,7 +199,9 @@ class CreateDeploymentInputModel(BaseModel):
     secret_params: Dict[str, str] | None
 
 
-@pydantic.input(CreateDeploymentInputModel, description="Create a new Github repository input")
+@pydantic.input(
+    CreateDeploymentInputModel, description="Create a new Github repository input"
+)
 class CreateDeploymentInput:
     """Create a new Github repository input"""
 
@@ -205,7 +219,9 @@ class UpdateDeploymentInputModel(BaseModel):
     status: str
 
 
-@pydantic.input(UpdateDeploymentInputModel, description="Create a new Github repository input")
+@pydantic.input(
+    UpdateDeploymentInputModel, description="Create a new Github repository input"
+)
 class UpdateDeploymentInput:
     """Create a new Github repository input"""
 
@@ -235,10 +251,9 @@ class DeclareBackendInputModel(BaseModel):
     kind: str
 
 
-
-
-
-@pydantic.input(DeclareBackendInputModel, description="Create a new Github repository input")
+@pydantic.input(
+    DeclareBackendInputModel, description="Create a new Github repository input"
+)
 class DeclareBackendInput:
     """Create a new Github repository input"""
 
@@ -249,20 +264,27 @@ class DeclareBackendInput:
 
 class QualifierInputModel(BaseModel):
     """A qualifier that describes some property of the node"""
+
     key: str
     value: str
 
+
 class DeclareResourceInputModel(BaseModel):
     """Create a new Github repository input model"""
+
     backend: str
     name: str
     local_id: str
     qualifiers: Optional[List[QualifierInputModel]] = None
 
 
-@pydantic.input(QualifierInputModel, description="A qualifier that describes some property of the node")
+@pydantic.input(
+    QualifierInputModel,
+    description="A qualifier that describes some property of the node",
+)
 class QualifierInput:
     """A qualifier that describes some property of the node"""
+
     key: str
     value: str
 
@@ -270,11 +292,11 @@ class QualifierInput:
 @pydantic.input(DeclareResourceInputModel, description="Create a resource")
 class DeclareResourceInput:
     """Create a new Github repository input"""
+
     backend: strawberry.ID
     local_id: str
     name: str | None = None
     qualifiers: list[QualifierInput] | None = None
- 
 
 
 @strawberry.input

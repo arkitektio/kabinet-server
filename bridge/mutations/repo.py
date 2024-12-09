@@ -26,17 +26,14 @@ async def adownload_logo(url: str) -> File:
 
 async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
 
-
-
     async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}) as session:
         async with session.get(kabinet_url) as response:
 
-            assert response.status == 200, f"Failed to fetch kabinet.yml from {kabinet_url}"
-
+            assert (
+                response.status == 200
+            ), f"Failed to fetch kabinet.yml from {kabinet_url}"
 
             z = await response.text()
-
-    
 
     z = yaml.safe_load(z)
     if not isinstance(z, dict):
@@ -61,16 +58,12 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     return repo
 
 
-
-
-
-
 def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str, str]:
     if input.identifier:
         # Check if the identifier is a full GitHub URL
         url_pattern = r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+))?"
         match = re.match(url_pattern, input.identifier)
-        
+
         if match:
             # Extract user, repo, and optionally branch from the URL
             user, repo, branch = match.groups()
@@ -91,15 +84,12 @@ def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str,
                     else:
                         branch = "main"
 
-
                 except AssertionError as e:
                     raise Exception("Invalid GitHub identifier")
-            
 
         name = f"{input.user}/{input.repo}:{branch}"
         return user, repo, branch, input.identifier
 
-    
     else:
         assert input.user and input.repo, "Invalid github repo"
 
@@ -108,25 +98,20 @@ def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str,
         else:
             branch = "main"
 
-
         name = f"{input.user}/{input.repo}:{branch}"
 
         return input.user, input.repo, branch, name
 
 
-
-
 async def _create_github_repo(
     input: inputs.CreateGithubRepoInput, creator
 ) -> models.GithubRepo:
-    
+
     user, repo, branch, name = infer_repo_info(input)
 
     print(user, repo, branch, name)
 
-    dep_url = models.GithubRepo.build_kabinet_url(
-        user, repo, branch
-    )
+    dep_url = models.GithubRepo.build_kabinet_url(user, repo, branch)
 
     config = await aget_kabinet_config(dep_url)
 
@@ -137,8 +122,7 @@ async def _create_github_repo(
         defaults=dict(
             name=name,
             creator=creator,
-        )
-
+        ),
     )
 
     try:
@@ -154,11 +138,8 @@ async def _create_github_repo(
 async def create_github_repo(
     info: Info, input: inputs.CreateGithubRepoInput
 ) -> types.GithubRepo:
-    
 
     return await _create_github_repo(input, info.context.request.user)
-
-    
 
 
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:

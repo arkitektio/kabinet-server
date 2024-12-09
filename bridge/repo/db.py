@@ -46,13 +46,10 @@ async def parse_config(
                 release.logo.save(f"logo{release.id}.png", logo_file)
                 await release.asave()
 
-
-            x , _ = await models.DockerImage.objects.aupdate_or_create(
+            x, _ = await models.DockerImage.objects.aupdate_or_create(
                 image_string=deployment.image.image_string,
-                defaults=dict(build_at=deployment.image.build_at)
+                defaults=dict(build_at=deployment.image.build_at),
             )
-
-
 
             flavour, _ = await models.Flavour.objects.aupdate_or_create(
                 release=release,

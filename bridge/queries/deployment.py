@@ -6,7 +6,7 @@ from rekuest_core.scalars import NodeHash
 async def deployment(id: strawberry.ID) -> types.Deployment:
     print("HALALALLALALA")
     """Return a dask cluster by id"""
-    z =  await models.Deployment.objects.aget(id=id)
+    z = await models.Deployment.objects.aget(id=id)
 
     print(z, "GOT THE SHIT")
     return z

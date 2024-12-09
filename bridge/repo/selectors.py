@@ -15,7 +15,6 @@ class BaseSelector(BaseModel):
         allow_population_by_field_name = True
 
 
-
 class RAMSelector(BaseSelector):
     """A selector is a way to describe a flavours preference for a
     compute node. It contains the node_id, the selector and the flavour_id.
@@ -41,10 +40,12 @@ class CudaSelector(BaseSelector):
     """
 
     kind: Literal["cuda"]
-    cuda_cores: Optional[int] = Field(default=None, description="The number of cuda cores", alias="cudaCores")
-    cuda_version: Optional[str] = Field(default=None, description="The minimum cuda version", alias="cudaVersion")
-
-   
+    cuda_cores: Optional[int] = Field(
+        default=None, description="The number of cuda cores", alias="cudaCores"
+    )
+    cuda_version: Optional[str] = Field(
+        default=None, description="The minimum cuda version", alias="cudaVersion"
+    )
 
 
 class RocmSelector(BaseSelector):
@@ -56,7 +57,6 @@ class RocmSelector(BaseSelector):
     api_thing: Optional[str] = Field(alias="apiThing")
     api_version: Optional[str] = Field(alias="apiVersion")
 
-    
 
 class LabelSelector(BaseSelector):
     """A selector is a way to describe a flavours preference for a

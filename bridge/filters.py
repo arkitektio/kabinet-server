@@ -90,12 +90,13 @@ class ResourceFilter:
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
-    
+
     def filter_ids(self, queryset):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
-    
+
+
 @strawberry_django.filter(models.Backend, description="Filter for Resources")
 class BackendFilter:
     ids: list[strawberry.ID] | None = None
@@ -105,12 +106,11 @@ class BackendFilter:
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
-    
+
     def filter_ids(self, queryset):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
-    
 
 
 @strawberry_django.filter(models.Pod, description="Filter for Dask Clusters")
@@ -123,12 +123,12 @@ class PodFilter:
         if self.search is None:
             return queryset
         return queryset.filter(backend__name=self.search)
-    
+
     def filter_ids(self, queryset):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
-    
+
 
 @strawberry_django.filter(models.Deployment, description="Filter for Dask Clusters")
 class DeploymentFilter:
@@ -139,11 +139,12 @@ class DeploymentFilter:
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
-    
+
     def filter_ids(self, queryset):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
+
 
 @strawberry_django.filter(models.Release, description="Filter for Dask Clusters")
 class ReleaseFilter:
@@ -154,7 +155,7 @@ class ReleaseFilter:
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
-    
+
     def filter_ids(self, queryset):
         if self.ids is None:
             return queryset

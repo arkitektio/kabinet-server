@@ -5,10 +5,7 @@ import logging
 from typing import List
 
 
-async def create_app_image(
-    info: Info, input: AppImageInput
-) -> types.Release:
+async def create_app_image(info: Info, input: AppImageInput) -> types.Release:
     """Create a new dask cluster on a bridge server"""
-
 
     return None

@@ -7,6 +7,7 @@ import datetime
 from rekuest_core import enums
 from typing import Any
 
+
 class ChoiceModel(BaseModel):
     label: str
     value: str
@@ -54,7 +55,12 @@ class StringWidgetModel(AssignWidgetModel):
 
 
 AssignWidgetModelUnion = Union[
-    SliderAssignWidgetModel, ChoiceAssignWidgetModel, SearchAssignWidgetModel, StateChoiceAssignWidgetModel, StringWidgetModel, CustomAssignWidgetModel
+    SliderAssignWidgetModel,
+    ChoiceAssignWidgetModel,
+    SearchAssignWidgetModel,
+    StateChoiceAssignWidgetModel,
+    StringWidgetModel,
+    CustomAssignWidgetModel,
 ]
 
 
@@ -101,7 +107,7 @@ EffectModelUnion = Union[MessageEffectModel, CustomEffectModel]
 
 
 class ChildPortModel(BaseModel):
-    key: str 
+    key: str
     label: str | None
     scope: str
     kind: str

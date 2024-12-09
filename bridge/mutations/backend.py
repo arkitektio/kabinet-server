@@ -2,6 +2,7 @@ from koherent.types import Info
 from bridge import types, inputs, models
 from bridge.utils import aget_backend_for_info
 
+
 async def declare_backend(
     info: Info, input: inputs.DeclareBackendInput
 ) -> types.Backend:

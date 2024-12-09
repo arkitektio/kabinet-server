@@ -14,5 +14,3 @@ async def match_flavours(
     flavour = models.Flavour.objects.filter(id=input.release)
 
     return flavour
-
-

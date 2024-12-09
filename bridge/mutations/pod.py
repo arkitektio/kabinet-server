@@ -6,11 +6,11 @@ import strawberry
 
 from bridge.utils import aget_backend_for_info
 
+
 async def create_pod(info: Info, input: inputs.CreatePodInput) -> types.Pod:
     """Create a new dask cluster on a bridge server"""
 
     backend = await aget_backend_for_info(info, input.instance_id)
-
 
     deployment = await models.Deployment.objects.aget(id=input.deployment)
 
@@ -26,7 +26,7 @@ async def create_pod(info: Info, input: inputs.CreatePodInput) -> types.Pod:
             deployment=deployment,
             resource=resource,
             client_id=input.client_id,
-        )
+        ),
     )
 
     return pod
@@ -45,12 +45,9 @@ async def update_pod(info: Info, input: inputs.UpdatePodInput) -> types.Pod:
             backend=backend,
             pod_id=input.local_id,
         )
-    
-    if input.pod:
-        pod = await models.Pod.objects.aget(
-            id=input.pod
-        )
 
+    if input.pod:
+        pod = await models.Pod.objects.aget(id=input.pod)
 
     pod.status = input.status
     await pod.asave()
@@ -71,13 +68,10 @@ def dump_logs(info: Info, input: inputs.DumpLogsInput) -> types.LogDump:
     return log_dump
 
 
-
 async def delete_pod(info: Info, input: inputs.DeletePodInput) -> strawberry.ID:
     """Create a new dask cluster on a bridge server"""
 
-
-    pod = await models.Pod.objects.aget(id=input.id
-    )
+    pod = await models.Pod.objects.aget(id=input.id)
 
     await pod.adelete()
 

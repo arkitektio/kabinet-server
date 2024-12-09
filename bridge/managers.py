@@ -22,7 +22,9 @@ def build_child_recursively(item: PortMatchInput, prefix, value_path, parts, par
         params[f"{value_path}_identifier"] = item.identifier
 
     if item.children:
-        build_child_recursively(item.child, prefix + "->'children'", f"{value_path}_child", parts, params)
+        build_child_recursively(
+            item.child, prefix + "->'children'", f"{value_path}_child", parts, params
+        )
 
 
 def build_sql_for_item_recursive(item: PortMatchInput, at_value=None):
@@ -94,7 +96,9 @@ def build_params(
         """
         individual_queries.append(count_condition)
 
-    full_sql = "SELECT id FROM bridge_definition WHERE " + " AND ".join(individual_queries)
+    full_sql = "SELECT id FROM bridge_definition WHERE " + " AND ".join(
+        individual_queries
+    )
     print(full_sql, all_params)
     return full_sql, all_params
 
