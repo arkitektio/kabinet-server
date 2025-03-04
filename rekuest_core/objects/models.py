@@ -11,6 +11,7 @@ from typing import Any
 class ChoiceModel(BaseModel):
     label: str
     value: str
+    image: str | None
     description: str | None
 
 
@@ -21,8 +22,9 @@ class AssignWidgetModel(BaseModel):
 
 class SliderAssignWidgetModel(AssignWidgetModel):
     kind: Literal["SLIDER"]
-    min: int | None
-    max: int | None
+    min: float | None
+    max: float | None
+    step: float | None
 
 
 class ChoiceAssignWidgetModel(AssignWidgetModel):
@@ -41,6 +43,7 @@ class SearchAssignWidgetModel(AssignWidgetModel):
     query: str  # TODO: Validators
     ward: str
     filters: list["ChildPortModel"] | None = None
+    dependencies: list[str] | None = None
 
 
 class StateChoiceAssignWidgetModel(AssignWidgetModel):
@@ -50,8 +53,8 @@ class StateChoiceAssignWidgetModel(AssignWidgetModel):
 
 class StringWidgetModel(AssignWidgetModel):
     kind: Literal["STRING"]
-    placeholder: str
-    as_paragraph: bool
+    placeholder: str | None
+    as_paragraph: bool | None
 
 
 AssignWidgetModelUnion = Union[
@@ -81,15 +84,11 @@ class ChoiceReturnWidgetModel(ReturnWidgetModel):
 ReturnWidgetModelUnion = Union[CustomReturnWidgetModel, ChoiceReturnWidgetModel]
 
 
-class EffectDependencyModel(BaseModel):
-    condition: str
-    key: str
-    value: str
-
-
 class EffectModel(BaseModel):
-    dependencies: list[EffectDependencyModel]
+    dependencies: list[str]
     kind: str
+    function: str 
+    message: str | None
 
 
 class MessageEffectModel(EffectModel):
@@ -97,13 +96,15 @@ class MessageEffectModel(EffectModel):
     message: str
 
 
+class HideEffectModel(EffectModel):
+    kind: Literal["HIDE"]
+
 class CustomEffectModel(EffectModel):
     kind: Literal["CUSTOM"]
     hook: str
     ward: str
 
-
-EffectModelUnion = Union[MessageEffectModel, CustomEffectModel]
+EffectModelUnion = Union[MessageEffectModel, HideEffectModel, CustomEffectModel]
 
 
 class ChildPortModel(BaseModel):
@@ -129,13 +130,11 @@ class BindsModel(BaseModel):
 
 class PortGroupModel(BaseModel):
     key: str
-    hidden: bool
+    title: str | None
+    description: str | None
+    effects: list[EffectModelUnion] | None = None
+    
 
-
-@pydantic.type(PortGroupModel)
-class PortGroup:
-    key: str
-    hidden: bool
 
 
 class ValidatorModel(BaseModel):
@@ -158,7 +157,6 @@ class PortModel(BaseModel):
     children: list[ChildPortModel] | None
     assign_widget: AssignWidgetModelUnion | None
     return_widget: ReturnWidgetModelUnion | None
-    groups: list[str] | None
     validators: list[ValidatorModel] | None
 
 
@@ -168,7 +166,7 @@ class DefinitionModel(BaseModel):
     name: str
     kind: enums.NodeKind
     description: str | None
-    port_groups: list[PortGroup]
+    port_groups: list[PortGroupModel]
     collections: list[str]
     scope: enums.NodeScope
     is_test_for: list[str]
@@ -176,6 +174,8 @@ class DefinitionModel(BaseModel):
     protocols: list[str]
     defined_at: datetime.datetime
     is_dev: bool = False
+    args: list[PortModel]
+    returns: list[PortModel]
 
 
 SearchAssignWidgetModel.update_forward_refs()

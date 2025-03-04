@@ -6,25 +6,6 @@ import strawberry
 from rekuest_core import enums, scalars
 
 
-@pydantic.input(models.EffectDependencyInputModel)
-class EffectDependencyInput:
-    """An effect dependency is a dependency that is used to determine
-    whether or not an effect should be applied to a port. For example,
-    you could have an effect dependency that checks whether or not
-    a port is null, and if it is, then the effect is applied.
-
-    It is composed of a key, a condition, and a value. The key is the
-    name of the port that the effect dependency is checking. The condition
-    is the logical condition that the value should be checked against.
-
-
-
-    """
-
-    key: str
-    condition: enums.LogicalCondition
-    value: scalars.AnyDefault
-
 
 @pydantic.input(models.EffectInputModel)
 class EffectInput:
@@ -38,9 +19,11 @@ class EffectInput:
     """
 
     kind: enums.EffectKind
-    dependencies: list[EffectDependencyInput]
-    label: str
-    description: str | None
+    dependencies: list[str]
+    function: scalars.ValidatorFunction
+    message: str | None
+    hook: str | None
+    ward: str | None
 
 
 @pydantic.input(models.ChoiceInputModel)
@@ -56,6 +39,7 @@ class ChoiceInput:
 
     value: scalars.AnyDefault
     label: str
+    image: str | None
     description: str | None
 
 
@@ -77,9 +61,9 @@ class AssignWidgetInput:
     kind: enums.AssignWidgetKind
     query: scalars.SearchQuery | None = None
     choices: list[ChoiceInput] | None = None
-    min: int | None = None
-    max: int | None = None
-    step: int | None = None
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
     placeholder: str | None = None
     as_paragraph: bool | None = None
     hook: str | None = None
@@ -88,6 +72,7 @@ class AssignWidgetInput:
     follow_value: str | None = None
     state_choices: str | None = None
     filters: Optional[List[LazyType["ChildPortInput", __name__]]] = None
+    dependencies: list[str] | None = None
 
 
 @pydantic.input(models.ReturnWidgetInputModel)
@@ -186,13 +171,15 @@ class PortInput:
     )
     assign_widget: Optional["AssignWidgetInput"] = None
     return_widget: Optional["ReturnWidgetInput"] = None
-    groups: list[str] | None = strawberry.field(default_factory=list)
 
 
 @strawberry.input()
 class PortGroupInput:
     key: str
-    hidden: bool
+    title: str | None
+    description: str | None
+    effects: list[EffectInput] | None = strawberry.field(default_factory=list)
+    ports: list[str] | None = strawberry.field(default_factory=list)
 
 
 @pydantic.input(models.BindsInputModel)

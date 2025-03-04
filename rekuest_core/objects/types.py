@@ -14,10 +14,11 @@ from rekuest_core import enums, scalars
 class ChoiceModel(BaseModel):
     label: str
     value: str
+    image: str | None
     description: str | None
 
 
-@pydantic.type(models.ChoiceModel, fields=["label", "value", "description"])
+@pydantic.type(models.ChoiceModel, fields=["label", "value", "image", "description"])
 class Choice:
     pass
 
@@ -30,8 +31,9 @@ class AssignWidget:
 
 @pydantic.type(models.SliderAssignWidgetModel)
 class SliderAssignWidget(AssignWidget):
-    min: int | None
-    max: int | None
+    min: float | None
+    max: float | None
+    step: float | None
 
 
 @pydantic.type(models.ChoiceAssignWidgetModel)
@@ -50,6 +52,7 @@ class SearchAssignWidget(AssignWidget):
     query: str
     ward: str
     filters: Optional[list[LazyType["ChildPort", __name__]]] = None
+    dependencies: list[str] | None = None
 
     # this took me a while to figure out should be more obvious
 
@@ -81,17 +84,12 @@ class ChoiceReturnWidget(ReturnWidget):
     choices: strawberry.auto
 
 
-@pydantic.type(models.EffectDependencyModel)
-class EffectDependency:
-    condition: enums.LogicalCondition
-    key: str
-    value: str
-
 
 @pydantic.interface(models.EffectModel)
 class Effect:
     kind: enums.EffectKind
-    dependencies: list[EffectDependency]
+    function: scalars.ValidatorFunction
+    dependencies: list[str]
     pass
 
 
@@ -133,7 +131,9 @@ class ChildPort:
 @pydantic.type(models.PortGroupModel)
 class PortGroup:
     key: str
-    hidden: bool
+    title: str | None
+    description: str | None
+    effects: list[Effect] | None
 
 
 @pydantic.type(models.ValidatorModel)
@@ -158,7 +158,6 @@ class Port:
     children: list[ChildPort] | None = None
     assign_widget: AssignWidget | None
     return_widget: ReturnWidget | None
-    groups: list[str] | None
     validators: list[Validator] | None
 
 
