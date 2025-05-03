@@ -51,7 +51,7 @@ class CustomAssignWidget(AssignWidget):
 class SearchAssignWidget(AssignWidget):
     query: str
     ward: str
-    filters: Optional[list[LazyType["ChildPort", __name__]]] = None
+    filters: Optional[list[LazyType["Port", __name__]]] = None
     dependencies: list[str] | None = None
 
     # this took me a while to figure out should be more obvious
@@ -84,7 +84,6 @@ class ChoiceReturnWidget(ReturnWidget):
     choices: strawberry.auto
 
 
-
 @pydantic.interface(models.EffectModel)
 class Effect:
     kind: enums.EffectKind
@@ -106,7 +105,7 @@ class CustomEffect(Effect):
 
 @pydantic.type(models.BindsModel)
 class Binds:
-    templates: list[strawberry.ID]
+    implementations: list[strawberry.ID]
     clients: list[strawberry.ID]
     desired_instances: int
 
@@ -134,6 +133,7 @@ class PortGroup:
     title: str | None
     description: str | None
     effects: list[Effect] | None
+    ports: list[str]
 
 
 @pydantic.type(models.ValidatorModel)
@@ -155,7 +155,7 @@ class Port:
     label: str | None
     description: str | None
     effects: list[Effect] | None
-    children: list[ChildPort] | None = None
+    children: list[LazyType["Port", __name__]] | None = None
     assign_widget: AssignWidget | None
     return_widget: ReturnWidget | None
     validators: list[Validator] | None
@@ -163,14 +163,14 @@ class Port:
 
 @pydantic.type(models.DefinitionModel)
 class Definition:
-    hash: scalars.NodeHash
+    hash: scalars.ActionHash
     name: str
     stateful: bool
-    kind: enums.NodeKind
+    kind: enums.ActionKind
     description: str | None
     port_groups: list[PortGroup]
     collections: list[str]
-    scope: enums.NodeScope
+    scope: enums.ActionScope
     is_test_for: list[str]
     tests: list[str]
     protocols: list[str]

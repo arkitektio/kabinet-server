@@ -22,9 +22,7 @@ def build_child_recursively(item: PortMatchInput, prefix, value_path, parts, par
         params[f"{value_path}_identifier"] = item.identifier
 
     if item.children:
-        build_child_recursively(
-            item.child, prefix + "->'children'", f"{value_path}_child", parts, params
-        )
+        build_child_recursively(item.child, prefix + "->'children'", f"{value_path}_child", parts, params)
 
 
 def build_sql_for_item_recursive(item: PortMatchInput, at_value=None):
@@ -96,14 +94,12 @@ def build_params(
         """
         individual_queries.append(count_condition)
 
-    full_sql = "SELECT id FROM bridge_definition WHERE " + " AND ".join(
-        individual_queries
-    )
+    full_sql = "SELECT id FROM bridge_definition WHERE " + " AND ".join(individual_queries)
     print(full_sql, all_params)
     return full_sql, all_params
 
 
-def filter_nodes_by_demands(
+def filter_actions_by_demands(
     qs: t.Any,
     demands: list[PortMatchInput] = None,
     type: t.Literal["args", "returns"] = "args",
@@ -113,7 +109,7 @@ def filter_nodes_by_demands(
     if type not in ["args", "returns"]:
         raise ValueError("Type must be either 'args' or 'returns'")
 
-    print("filter_nodes")
+    print("filter_actions")
     full_sql, all_params = build_params(
         demands,
         type=type,

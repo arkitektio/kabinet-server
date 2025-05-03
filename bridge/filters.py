@@ -40,7 +40,7 @@ class DefinitionFilter:
             return queryset
 
         for ports_demand in self.demands:
-            queryset = managers.filter_nodes_by_demands(
+            queryset = managers.filter_actions_by_demands(
                 queryset,
                 ports_demand.matches,
                 type=ports_demand.kind,

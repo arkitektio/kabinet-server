@@ -17,9 +17,7 @@ from strawberry import auto
 from strawberry.experimental import pydantic
 
 
-@strawberry_django.type(
-    Client, description="A user of the bridge server. Maps to an authentikate user"
-)
+@strawberry_django.type(Client, description="A user of the bridge server. Maps to an authentikate user")
 class Client:
     id: auto
     identifier: str
@@ -54,9 +52,7 @@ class GithubRepo:
     flavours: List["Flavour"]
 
 
-@strawberry_django.type(
-    models.App, description="A user of the bridge server. Maps to an authentikate user"
-)
+@strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")
 class App:
     id: auto
     identifier: str
@@ -117,9 +113,7 @@ class Deployment:
         return self.backend.name + "-" + self.flavour.name
 
 
-@strawberry.experimental.pydantic.interface(
-    selectors.BaseSelector, description=" A selector is a way to select a release"
-)
+@strawberry.experimental.pydantic.interface(selectors.BaseSelector, description=" A selector is a way to select a release")
 class Selector:
     """A selector is a way to select a release"""
 
@@ -127,9 +121,7 @@ class Selector:
     required: bool
 
 
-@strawberry.experimental.pydantic.type(
-    selectors.CudaSelector, description=" A selector is a way to select a release"
-)
+@strawberry.experimental.pydantic.type(selectors.CudaSelector, description=" A selector is a way to select a release")
 class CudaSelector(Selector):
     """A selector is a way to select a release"""
 
@@ -137,9 +129,7 @@ class CudaSelector(Selector):
     cuda_cores: int | None = None
 
 
-@strawberry.experimental.pydantic.type(
-    selectors.RocmSelector, description=" A selector is a way to select a release"
-)
+@strawberry.experimental.pydantic.type(selectors.RocmSelector, description=" A selector is a way to select a release")
 class RocmSelector(Selector):
     """A selector is a way to select a release"""
 
@@ -147,9 +137,7 @@ class RocmSelector(Selector):
     api_thing: str | None = None
 
 
-@strawberry.experimental.pydantic.type(
-    selectors.CPUSelector, description=" A selector is a way to select a release"
-)
+@strawberry.experimental.pydantic.type(selectors.CPUSelector, description=" A selector is a way to select a release")
 class CPUSelector(Selector):
     """A selector is a way to select a release"""
 
@@ -229,13 +217,13 @@ class Protocol:
 )
 class Definition:
     id: strawberry.ID
-    hash: rkscalars.NodeHash
+    hash: rkscalars.ActionHash
     name: str
-    kind: rkenums.NodeKind
+    kind: rkenums.ActionKind
     description: str | None
     collections: list["Collection"]
     flavours: list["Flavour"]
-    scope: rkenums.NodeScope
+    scope: rkenums.ActionScope
     is_test_for: list["Definition"]
     tests: list["Definition"]
     protocols: list["Protocol"]
@@ -283,7 +271,7 @@ class Backend:
     models.Resource,
     filters=filters.ResourceFilter,
     pagination=True,
-    description="A resource on a backend. Resource define allocated resources on a backend. E.g a computational node",
+    description="A resource on a backend. Resource define allocated resources on a backend. E.g a computational action",
 )
 class Resource:
     id: auto

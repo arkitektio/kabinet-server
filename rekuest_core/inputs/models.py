@@ -2,10 +2,11 @@ from typing import Any, Optional
 from rekuest_core import enums
 from pydantic import BaseModel, Field, root_validator
 from typing_extensions import Self
+from strawberry import LazyType
 
 
 class BindsInputModel(BaseModel):
-    templates: Optional[list[str]]
+    implementations: Optional[list[str]]
     clients: Optional[list[str]]
     desired_instances: int = 1
     minimum_instances: int = 1
@@ -18,7 +19,7 @@ class EffectDependencyInputModel(BaseModel):
 
 
 class EffectInputModel(BaseModel):
-    function: str 
+    function: str
     dependencies: list[str] | None = []
     message: str | None = None
     kind: enums.EffectKind
@@ -53,7 +54,7 @@ class AssignWidgetInputModel(BaseModel):
     hook: str | None = None
     ward: str | None = None
     fallback: Optional["AssignWidgetInputModel"] = None
-    filters: list["ChildPortInputModel"] | None
+    filters: list["PortInputModel"] | None
     dependencies: list[str] | None = None
 
 
@@ -69,20 +70,6 @@ class ReturnWidgetInputModel(BaseModel):
     ward: str | None = None
 
 
-class ChildPortInputModel(BaseModel):
-    key: str
-    label: str | None
-    kind: enums.PortKind
-    scope: enums.PortScope
-    description: str | None = None
-    identifier: str | None = None
-    nullable: bool
-    children: list["ChildPortInputModel"] | None = None
-    effects: list[EffectInputModel] | None = None
-    assign_widget: Optional["AssignWidgetInputModel"] = None
-    return_widget: Optional["ReturnWidgetInputModel"] = None
-
-
 class PortInputModel(BaseModel):
     validators: list[ValidatorInputModel] | None
     key: str
@@ -94,7 +81,7 @@ class PortInputModel(BaseModel):
     nullable: bool = False
     effects: list[EffectInputModel] | None
     default: Any | None = None
-    children: list["ChildPortInputModel"] | None
+    children: list["PortInputModel"] | None
     assign_widget: Optional["AssignWidgetInputModel"] = None
     return_widget: Optional["ReturnWidgetInputModel"] = None
 
@@ -113,11 +100,11 @@ class PortGroupInputModel(BaseModel):
     title: str | None
     description: str | None
     effects: list[EffectInputModel] | None
-    ports: list[str] | None
+    ports: list[str]
 
 
 class DefinitionInputModel(BaseModel):
-    """A definition for a template"""
+    """A definition for a implementation"""
 
     description: str = "No description provided"
     collections: list[str] = Field(default_factory=list)
@@ -126,14 +113,15 @@ class DefinitionInputModel(BaseModel):
     port_groups: list[PortGroupInputModel] = Field(default_factory=list)
     args: list[PortInputModel] = Field(default_factory=list)
     returns: list[PortInputModel] = Field(default_factory=list)
-    kind: enums.NodeKind
+    kind: enums.ActionKind
     is_test_for: list["str"] = Field(default_factory=list)
     interfaces: list[str] = Field(default_factory=list)
     is_dev: bool = False
+    logo: str | None = None
 
 
 class DependencyInputModel(BaseModel):
-    node: str
+    action: str
     hash: str
     reference: str | None
     binds: BindsInputModel | None
@@ -141,7 +129,7 @@ class DependencyInputModel(BaseModel):
     viable_instances: int | None
 
 
-class TemplateInputModel(BaseModel):
+class ImplementationInputModel(BaseModel):
     definition: DefinitionInputModel
     dependencies: list[DependencyInputModel]
     interface: str

@@ -60,7 +60,7 @@ exclude = [
     "buck-out",
     "build",
     "dist",
-    "node_modules",
+    "action_modules",
     "venv",
     "tests",
     "examples",

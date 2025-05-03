@@ -1,11 +1,11 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, root_validator
 from typing import Dict, List, Optional
 from typing import Any
 import datetime
 import semver
 from bridge.repo.selectors import Selector
 import uuid
-from rekuest_core.inputs.models import DefinitionInputModel, TemplateInputModel
+from rekuest_core.inputs.models import DefinitionInputModel, ImplementationInputModel
 from typing import Literal, Union
 
 
@@ -46,9 +46,7 @@ class OneApiSelectorInputModel(BaseModel):
         allow_population_by_field_name = True
 
 
-SelectorInputModel = Union[
-    CudaSelectorInputModel, RocmSelectorInputModel, OneApiSelectorInputModel
-]
+SelectorInputModel = Union[CudaSelectorInputModel, RocmSelectorInputModel, OneApiSelectorInputModel]
 
 
 class ManifestInputModel(BaseModel):
@@ -68,7 +66,7 @@ class ManifestInputModel(BaseModel):
 
 class InspectionInputModel(BaseModel):
     size: int
-    templates: List[TemplateInputModel]
+    implementations: List[ImplementationInputModel] = Field(alias="templates")
     requirements: List[RequirementInputModel]
 
 

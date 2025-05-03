@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 class BaseSelector(BaseModel):
     """A selector is a way to describe a flavours preference for a
-    compute node. It contains the node_id, the selector and the flavour_id.
+    compute action. It contains the action_id, the selector and the flavour_id.
     """
 
     required: bool = True
@@ -17,7 +17,7 @@ class BaseSelector(BaseModel):
 
 class RAMSelector(BaseSelector):
     """A selector is a way to describe a flavours preference for a
-    compute node. It contains the node_id, the selector and the flavour_id.
+    compute action. It contains the action_id, the selector and the flavour_id.
     """
 
     kind: Literal["ram"]
@@ -26,7 +26,7 @@ class RAMSelector(BaseSelector):
 
 class CPUSelector(BaseSelector):
     """A selector is a way to describe a flavours preference for a
-    compute node. It contains the node_id, the selector and the flavour_id.
+    compute action. It contains the action_id, the selector and the flavour_id.
     """
 
     kind: Literal["cpu"]
@@ -36,21 +36,17 @@ class CPUSelector(BaseSelector):
 
 class CudaSelector(BaseSelector):
     """A selector is a way to describe a flavours preference for a
-    compute node. It contains the node_id, the selector and the flavour_id.
+    compute action. It contains the action_id, the selector and the flavour_id.
     """
 
     kind: Literal["cuda"]
-    cuda_cores: Optional[int] = Field(
-        default=None, description="The number of cuda cores", alias="cudaCores"
-    )
-    cuda_version: Optional[str] = Field(
-        default=None, description="The minimum cuda version", alias="cudaVersion"
-    )
+    cuda_cores: Optional[int] = Field(default=None, description="The number of cuda cores", alias="cudaCores")
+    cuda_version: Optional[str] = Field(default=None, description="The minimum cuda version", alias="cudaVersion")
 
 
 class RocmSelector(BaseSelector):
     """A selector is a way to describe a flavours preference for a
-    compute node. It contains the node_id, the selector and the flavour_id.
+    compute action. It contains the action_id, the selector and the flavour_id.
     """
 
     kind: Literal["rocm"]
@@ -60,7 +56,7 @@ class RocmSelector(BaseSelector):
 
 class LabelSelector(BaseSelector):
     """A selector is a way to describe a flavours preference for a
-    compute node. It contains the node_id, the selector and the flavour_id.
+    compute action. It contains the action_id, the selector and the flavour_id.
     """
 
     kind: Literal["label"]
@@ -76,13 +72,11 @@ class ServiceSelector(BaseSelector):
     kind: Literal["service"]
 
 
-Selector = Union[
-    RAMSelector, CPUSelector, CudaSelector, RocmSelector, LabelSelector, ServiceSelector
-]
+Selector = Union[RAMSelector, CPUSelector, CudaSelector, RocmSelector, LabelSelector, ServiceSelector]
 
 
 class SelectorFieldJson(BaseModel):
     selectors: List[Selector] = Field(
-        description="The selectors are used to place this image on the nodes",
+        description="The selectors are used to place this image on the actions",
         default_factory=list,
     )

@@ -18,9 +18,7 @@ async def adownload_logo(url: str) -> File:  # type: ignore
     return File(img_tmp)
 
 
-async def parse_config(
-    config: KabinetConfigFile, repo: models.GithubRepo
-) -> list[models.Flavour]:
+async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo) -> list[models.Flavour]:
     """Parse a deployments config file and create models"""
 
     deps = []
@@ -68,14 +66,14 @@ async def parse_config(
             inspection = deployment.inspection
 
             if inspection:
-                for template in inspection.templates:
+                for implementation in inspection.implementations:
                     def_model, _ = await models.Definition.objects.aupdate_or_create(
-                        hash=hash_definition(template.definition),
+                        hash=hash_definition(implementation.definition),
                         defaults=dict(
-                            description=template.definition.description,
-                            args=[d.dict() for d in template.definition.args],
-                            returns=[d.dict() for d in template.definition.returns],
-                            name=template.definition.name,
+                            description=implementation.definition.description,
+                            args=[d.dict() for d in implementation.definition.args],
+                            returns=[d.dict() for d in implementation.definition.returns],
+                            name=implementation.definition.name,
                         ),
                     )
                     await def_model.flavours.aadd(flavour)

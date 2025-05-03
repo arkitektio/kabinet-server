@@ -15,8 +15,8 @@ def match_flavour(input: inputs.MatchFlavoursInput) -> types.Flavour:
     if input.release:
         flavours = flavours.filter(release_id=input.release)
 
-    if input.nodes:
-        for node_hash in input.nodes:
-            flavours = flavours.filter(definitions__hash=node_hash)
+    if input.actions:
+        for action_hash in input.actions:
+            flavours = flavours.filter(definitions__hash=action_hash)
 
     return flavours.first()

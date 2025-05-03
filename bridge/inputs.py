@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from strawberry.experimental import pydantic
 from .enums import PodStatus, ContainerType
 import strawberry
-from rekuest_core.scalars import NodeHash
+from rekuest_core.scalars import ActionHash
 from rekuest_core import enums as renums
 from typing import Dict, List, Optional
 from bridge import scalars
@@ -35,9 +35,7 @@ class CreateGithubRepoInput(BaseModel):
     auto_scan: bool = True
 
 
-@pydantic.input(
-    CreateGithubRepoInput, description="Create a new Github repository input"
-)
+@pydantic.input(CreateGithubRepoInput, description="Create a new Github repository input")
 class CreateGithubRepoInput:
     """Create a new Github repository input"""
 
@@ -55,9 +53,7 @@ class PullFlavourInputModel(BaseModel):
     id: str
 
 
-@pydantic.input(
-    PullFlavourInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(PullFlavourInputModel, description="Create a new Github repository input")
 class PullFlavourInput:
     """Create a new Github repository input"""
 
@@ -75,9 +71,7 @@ class CreateSetupInputModel(BaseModel):
     auto_pull: bool = True
 
 
-@pydantic.input(
-    CreateSetupInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(CreateSetupInputModel, description="Create a new Github repository input")
 class CreateSetupInput:
     """Create a new Github repository input"""
 
@@ -95,9 +89,7 @@ class DeploySetupInputModel(BaseModel):
     setup: str
 
 
-@pydantic.input(
-    DeploySetupInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(DeploySetupInputModel, description="Create a new Github repository input")
 class DeploySetupInput:
     """Create a new Github repository input"""
 
@@ -111,7 +103,7 @@ class DeviceFeatureModel(BaseModel):
 
 class EnvironmentInputModel(BaseModel):
     container_type: ContainerType
-    nodes: Optional[list[str]]
+    actions: Optional[list[str]]
     release: Optional[str] = None
     fits: list[DeviceFeatureModel]
 
@@ -122,9 +114,7 @@ class DeviceFeature:
     cpu_count: str
 
 
-@pydantic.input(
-    EnvironmentInputModel, description="Which environment do you want to match against?"
-)
+@pydantic.input(EnvironmentInputModel, description="Which environment do you want to match against?")
 class EnvironmentInput:
     """Which environment do you want to match against?"""
 
@@ -137,17 +127,15 @@ class MatchFlavoursInputModel(BaseModel):
 
     environment: EnvironmentInputModel | None = None
     release: strawberry.ID | None = None
-    nodes: Optional[list[str]]
+    actions: Optional[list[str]]
 
 
-@pydantic.input(
-    MatchFlavoursInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(MatchFlavoursInputModel, description="Create a new Github repository input")
 class MatchFlavoursInput:
     """Create a new Github repository input"""
 
     environment: EnvironmentInput | None = None
-    nodes: Optional[list[NodeHash]]
+    actions: Optional[list[ActionHash]]
     release: Optional[strawberry.ID]
 
 
@@ -199,9 +187,7 @@ class CreateDeploymentInputModel(BaseModel):
     secret_params: Dict[str, str] | None
 
 
-@pydantic.input(
-    CreateDeploymentInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(CreateDeploymentInputModel, description="Create a new Github repository input")
 class CreateDeploymentInput:
     """Create a new Github repository input"""
 
@@ -219,9 +205,7 @@ class UpdateDeploymentInputModel(BaseModel):
     status: str
 
 
-@pydantic.input(
-    UpdateDeploymentInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(UpdateDeploymentInputModel, description="Create a new Github repository input")
 class UpdateDeploymentInput:
     """Create a new Github repository input"""
 
@@ -251,9 +235,7 @@ class DeclareBackendInputModel(BaseModel):
     kind: str
 
 
-@pydantic.input(
-    DeclareBackendInputModel, description="Create a new Github repository input"
-)
+@pydantic.input(DeclareBackendInputModel, description="Create a new Github repository input")
 class DeclareBackendInput:
     """Create a new Github repository input"""
 
@@ -263,7 +245,7 @@ class DeclareBackendInput:
 
 
 class QualifierInputModel(BaseModel):
-    """A qualifier that describes some property of the node"""
+    """A qualifier that describes some property of the action"""
 
     key: str
     value: str
@@ -280,10 +262,10 @@ class DeclareResourceInputModel(BaseModel):
 
 @pydantic.input(
     QualifierInputModel,
-    description="A qualifier that describes some property of the node",
+    description="A qualifier that describes some property of the action",
 )
 class QualifierInput:
-    """A qualifier that describes some property of the node"""
+    """A qualifier that describes some property of the action"""
 
     key: str
     value: str
