@@ -168,7 +168,6 @@ class DockerImage:
 class Flavour:
     id: auto
     name: str
-    description: str
     logo: Optional[str]
     image: DockerImage
     original_logo: Optional[str]
@@ -186,6 +185,10 @@ class Flavour:
     @strawberry_django.field()
     def requirements(self) -> List[Requirement]:
         return [Requirement(**i) for i in self.requirements]
+
+    @strawberry_django.field()
+    def description(self) -> str:
+        return " No description provided"
 
 
 @strawberry_django.type(
