@@ -1,5 +1,5 @@
 from typing import List, Union, Optional, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class BaseSelector(BaseModel):
@@ -9,10 +9,11 @@ class BaseSelector(BaseModel):
 
     required: bool = True
     weight: int = 1
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_by_name=True,
+    )
 
-    class Config:
-        extra = "forbid"
-        allow_population_by_field_name = True
 
 
 class RAMSelector(BaseSelector):

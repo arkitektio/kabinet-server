@@ -17,6 +17,6 @@ Including another URLconf
 
 from typing import Any
 
-app_name = "bridge"
+app_name = "brissdge"
 
 urlpatterns: list[Any] = []

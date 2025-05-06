@@ -1,6 +1,5 @@
 import strawberry
 from strawberry_django.optimizer import DjangoOptimizerExtension
-from kante.directives import upper, replace, relation
 from bridge.directives import unionElementOf
 from bridge import types
 from bridge import mutations
@@ -138,7 +137,6 @@ schema = strawberry.Schema(
     query=Query,
     mutation=Mutation,
     subscription=Subscription,
-    directives=[upper, replace, relation],
     schema_directives=[unionElementOf],
     extensions=[DjangoOptimizerExtension, KoherentExtension],
     types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector]

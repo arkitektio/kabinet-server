@@ -1,13 +1,12 @@
 from typing import Any, Optional
 from rekuest_core import enums
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Self
-from strawberry import LazyType
 
 
 class BindsInputModel(BaseModel):
-    implementations: Optional[list[str]]
-    clients: Optional[list[str]]
+    implementations: Optional[list[str]] | None = None
+    clients: Optional[list[str]] | None = None
     desired_instances: int = 1
     minimum_instances: int = 1
 
@@ -71,28 +70,28 @@ class ReturnWidgetInputModel(BaseModel):
 
 
 class PortInputModel(BaseModel):
-    validators: list[ValidatorInputModel] | None
     key: str
     label: str | None = None
     kind: enums.PortKind
     description: str | None = None
     identifier: str | None = None
     nullable: bool = False
-    effects: list[EffectInputModel] | None
+    validators: list[ValidatorInputModel] | None = None
+    effects: list[EffectInputModel] | None = None
     default: Any | None = None
-    children: list["PortInputModel"] | None
+    children: list["PortInputModel"] | None = None
     choices: list[ChoiceInputModel] | None = None
     assign_widget: Optional["AssignWidgetInputModel"] = None
     return_widget: Optional["ReturnWidgetInputModel"] = None
 
-    @root_validator
-    def check_children_for_port(cls, values) -> Self:
-        kind = values.get("kind")
-        children = values.get("children")
+    @model_validator(mode="after")
+    def check_children_for_port(cls, v) -> Self:
+        kind = v.kind
+        children = v.children
 
         if kind == enums.PortKind.LIST and (children is None or len(children) != 1):
             raise ValueError("Port of kind LIST must have exactly on children")
-        return values
+        return v
 
 
 class PortGroupInputModel(BaseModel):
@@ -139,4 +138,4 @@ class ImplementationInputModel(BaseModel):
     logo: str | None = None
 
 
-AssignWidgetInputModel.update_forward_refs()
+AssignWidgetInputModel.model_rebuild()

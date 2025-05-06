@@ -1,21 +1,43 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from bridge import models, gateways, messages
+from bridge import models, channel_signals, channels
 from typing import Type
 
 
+
 @receiver(post_save, sender=models.Pod)
-def my_handler(
+def publish_pod_change(
     sender: Type[models.Pod],
     instance: models.Pod = None,
     created: bool = False,
     **kwargs
 ) -> None:
     """Sends a message to the pod gateway when a pod is updated"""
-    gateways.pod_gateway.abroadcast(
-        messages.PodUpdateMessageModel(
-            id=instance.id,
-            created=created,
-            status=instance.status,
+    if created:
+        channels.pod_channel.broadcast(
+            channel_signals.PodSignal(
+                create=instance.id,
+            )
+        )
+    else:
+        channels.pod_channel.broadcast(
+            channel_signals.PodSignal(
+                update=instance.id,
+            )
+        )
+
+
+
+@receiver(post_delete, sender=models.Pod)
+def publish_pod_del(
+    sender: Type[models.Pod],
+    instance: models.Pod = None,
+    created: bool = False,
+    **kwargs
+) -> None:
+    """Sends a message to the pod gateway when a pod is updated"""
+    channels.pod_channel.broadcast(
+        channel_signals.PodSignal(
+            delete=instance.id,
         )
     )

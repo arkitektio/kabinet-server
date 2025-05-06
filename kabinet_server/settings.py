@@ -41,14 +41,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "corsheaders",
     "channels_redis",
     "guardian",
     "simple_history",
     "authentikate",
     "koherent",
     "kante",
-    "strawberry_django",
     "channels",
     "django_probes",
     "bridge",
@@ -70,6 +68,7 @@ CHANNEL_LAYERS = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+MY_SCRIPT_NAME = conf.get("my_script_name", "kabinet")
 
 STRAWBERRY_DJANGO = {
     "FIELD_DESCRIPTION_FROM_HELP_TEXT": True,
@@ -77,7 +76,6 @@ STRAWBERRY_DJANGO = {
 }
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -114,8 +112,12 @@ WSGI_APPLICATION = "kabinet_server.wsgi.application"
 ASGI_APPLICATION = "kabinet_server.asgi.application"
 
 
+STRAWBERRY_DJANGO = {
+    "USE_DEPRECATED_FILTERS": True,
+}
+
+
 ENSURED_REPOS = conf.get("ensured_repos", [])
-FORCE_SCRIPT_NAME = conf.get("force_script_name", "")
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 

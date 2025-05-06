@@ -4,7 +4,7 @@ from typing import List, Optional
 import strawberry
 import strawberry.django
 import strawberry_django
-from authentikate.models import App as Client
+from authentikate.strawberry.types import Client, User
 from bridge import enums, filters, models, scalars, types
 from bridge.repo import selectors
 from django.contrib.auth import get_user_model
@@ -16,25 +16,6 @@ from rekuest_core.objects import types as rtypes
 from strawberry import auto
 from strawberry.experimental import pydantic
 
-
-@strawberry_django.type(Client, description="A user of the bridge server. Maps to an authentikate user")
-class Client:
-    id: auto
-    identifier: str
-
-
-@strawberry_django.type(
-    get_user_model(),
-    description="A user of the bridge server. Maps to an authentikate user",
-)
-class User:
-    """A user of the bridge server"""
-
-    id: auto
-    sub: str
-    username: str
-    email: str
-    password: str
 
 
 @strawberry_django.type(

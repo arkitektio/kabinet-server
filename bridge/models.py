@@ -1,12 +1,14 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from .storages import PrivateMediaStorage
 import uuid
+from bridge.fields import S3Field
+from bridge.datalayer import Datalayer
+from django.conf import settings
 
 # Create your models here.
 from bridge.repo import selectors as rselectors
 from typing import List
-from authentikate.models import App as Client
+from authentikate.models import Client
 
 
 class Repo(models.Model):
@@ -54,11 +56,56 @@ class App(models.Model):
     identifier = models.CharField(max_length=4000)
 
 
+
+class S3Store(models.Model):
+    path = S3Field(
+        null=True, blank=True, help_text="The store of the image", unique=True
+    )
+    key = models.CharField(max_length=1000)
+    bucket = models.CharField(max_length=1000)
+    populated = models.BooleanField(default=False)
+
+
+
+class MediaStore(S3Store):
+
+    def get_presigned_url(
+        self, info, datalayer: Datalayer, host: str | None = None
+    ) -> str:
+        cache_key = f"presigned_url:{self.bucket}:{self.key}:{host}"
+        # Check if the URL is in the cache
+        url = cache.get(cache_key)
+
+        if not url:
+            # Generate a new presigned URL if not cached
+            s3 = datalayer.s3
+            url = s3.generate_presigned_url(
+                ClientMethod="get_object",
+                Params={
+                    "Bucket": self.bucket,
+                    "Key": self.key,
+                },
+                ExpiresIn=3600,
+            )
+            # Replace the endpoint URL
+            url = url.replace(settings.AWS_S3_ENDPOINT_URL, host or "")
+            # Cache the URL with a timeout of 3600 seconds (same as ExpiresIn)
+            cache.set(cache_key, url, timeout=3600)
+
+        return url
+
+    def put_file(self, datalayer: Datalayer, file: str):
+        s3 = datalayer.s3
+        s3.upload_fileobj(file, self.bucket, self.key)
+        self.save()
+        
+        
+
 class Release(models.Model):
     app = models.ForeignKey(App, on_delete=models.CASCADE, related_name="releases")
     version = models.CharField(max_length=400)
     scopes = models.JSONField(default=list)
-    logo = models.ImageField(max_length=1000, null=True, blank=True, storage=PrivateMediaStorage())
+    logo = models.ForeignKey(MediaStore, on_delete=models.CASCADE, related_name="releases", null=True, blank=True)
     original_logo = models.CharField(max_length=1000, null=True, blank=True, help_text="The original logo url")
     entrypoint = models.CharField(max_length=4000, default="app")
 
@@ -246,3 +293,7 @@ class LogDump(models.Model):
     )
     logs = models.TextField()
     created_at = models.DateTimeField(auto_now=True)
+
+
+
+from .signals import * 

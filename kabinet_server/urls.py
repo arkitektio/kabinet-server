@@ -16,11 +16,9 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
-from strawberry.django.views import AsyncGraphQLView
 from django.urls import include
 from .schema import schema
-from .basepath import basepath
+from kante.path import dynamicpath
 from django.http import HttpResponse
 
 
@@ -29,8 +27,7 @@ def graphql_schema(request):
 
 
 urlpatterns = [
-    basepath("admin/", admin.site.urls),
-    basepath("schema", graphql_schema),
-    basepath("graphql", AsyncGraphQLView.as_view(schema=schema)),
-    basepath("api/", include("bridge.urls")),
+    dynamicpath("admin/", admin.site.urls),
+    dynamicpath("schema", graphql_schema),
+    dynamicpath("api/", include("bridge.urls")),
 ]

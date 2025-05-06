@@ -1,4 +1,4 @@
-from koherent.types import Info
+from kante.types import Info
 from bridge import types, inputs, models
 import logging
 from typing import List

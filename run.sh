@@ -1,20 +1,20 @@
 #!/bin/bash
 echo "=> Waiting for DB to be online"
-python manage.py wait_for_database -s 6
+uv run python manage.py wait_for_database -s 2
 
 echo "=> Performing database migrations..."
-python manage.py migrate
+uv run python manage.py migrate
 
 echo "=> Ensuring Superusers..."
-python manage.py ensureadmin
+uv run python manage.py ensureadmin
 
 echo "=> Ensuring Repositories..."
-python manage.py ensurerepos
+uv run python manage.py ensurerepos
+
 
 echo "=> Collecting Static.."
-python manage.py collectstatic --noinput
-
+uv run python manage.py collectstatic --noinput
 
 # Start the first process
 echo "=> Starting Server"
-daphne -b 0.0.0.0 -p 80 --websocket_timeout -1 port_server.asgi:application 
+uv run daphne -b 0.0.0.0 -p 80 --websocket_timeout -1 kabinet_server.asgi:application 
