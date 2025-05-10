@@ -68,7 +68,7 @@ CHANNEL_LAYERS = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-MY_SCRIPT_NAME = conf.get("my_script_name", "kabinet")
+MY_SCRIPT_NAME = conf.get("my_script_name", "")
 
 STRAWBERRY_DJANGO = {
     "FIELD_DESCRIPTION_FROM_HELP_TEXT": True,
@@ -156,7 +156,8 @@ AUTHENTIKATE = {
         "iss": "lok",
         "kind": "rsa",
         "public_key": conf.lok.get("public_key", None),
-    }]
+    }],
+    "STATIC_TOKENS": conf.lok.get("static_tokens", {}),
 }
 
 
