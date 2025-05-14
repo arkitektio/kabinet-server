@@ -19,16 +19,12 @@ from rekuest_core import enums, scalars
     """,
 )
 class EffectInput:
-    kind: enums.EffectKind = strawberry.field(
-        description="The kind of the effect. Can be either message, hide or custom"
-    )
+    kind: enums.EffectKind = strawberry.field(description="The kind of the effect. Can be either message, hide or custom")
     dependencies: list[str] | None = strawberry.field(
         default_factory=list,
         description="The dependencies of the effect. Use the .. syntax to traverse the tree of ports. For example, if you have a port with the key 'foo' and you want to reference a port with the key 'bar' that is a child of 'foo', you would use 'foo..bar'",
     )
-    function: scalars.ValidatorFunction = strawberry.field(
-        description="The function to run to determine if the effect should be applied"
-    )
+    function: scalars.ValidatorFunction = strawberry.field(description="The function to run to determine if the effect should be applied")
     message: str | None = strawberry.field(
         default=None,
         description="The message to display when the effect is applied (if it is a message effect)",
@@ -56,12 +52,8 @@ that is displayed when the user hovers over the choice.
     """,
 )
 class ChoiceInput:
-    value: scalars.AnyDefault = strawberry.field(
-        description="The value of the choice. This is the value that is returned when the choice is selected"
-    )
-    label: str = strawberry.field(
-        description="The label of the choice. This is the text that is displayed in the UI"
-    )
+    value: scalars.AnyDefault = strawberry.field(description="The value of the choice. This is the value that is returned when the choice is selected")
+    label: str = strawberry.field(description="The label of the choice. This is the text that is displayed in the UI")
     image: str | None = strawberry.field(
         default=None,
         description="The image of the choice. This is the image that is displayed in the UI (must be a URL)",
@@ -87,9 +79,7 @@ class AssignWidgetInput:
 
     """
 
-    kind: enums.AssignWidgetKind = strawberry.field(
-        description="The kind of the assign widget. Can be either dropdown, text, slider, checkbox, radio or custom"
-    )
+    kind: enums.AssignWidgetKind = strawberry.field(description="The kind of the assign widget. Can be either dropdown, text, slider, checkbox, radio or custom")
     query: scalars.SearchQuery | None = strawberry.field(
         default=None,
         description="The query to run when searching for choices. This is used for dropdowns and text inputs",
@@ -157,9 +147,7 @@ class AssignWidgetInput:
     """,
 )
 class ReturnWidgetInput:
-    kind: enums.ReturnWidgetKind = strawberry.field(
-        description="The kind of the return widget. Can be either dropdown, text, slider, checkbox, radio or custom"
-    )
+    kind: enums.ReturnWidgetKind = strawberry.field(description="The kind of the return widget. Can be either dropdown, text, slider, checkbox, radio or custom")
     query: scalars.SearchQuery | None = strawberry.field(
         default=None,
         description="The query to run when searching for choices. This is used for dropdowns and text inputs",
@@ -186,17 +174,13 @@ when transversing the tree of ports.
 """,
 )
 class ValidatorInput:
-    function: scalars.ValidatorFunction = strawberry.field(
-        description="The function to run when validating the port"
-    )
+    function: scalars.ValidatorFunction = strawberry.field(description="The function to run when validating the port")
     dependencies: list[str] | None = strawberry.field(
         default_factory=list,
         description="The dependencies of the function. Use the .. syntax to traverse the tree of ports. For example, if you have a port with the key 'foo' and you want to reference a port with the key 'bar' that is a child of 'foo', you would use 'foo..bar'",
     )
     label: str | None = None
-    error_message: str | None = strawberry.field(
-        description="The error message to display when the validation fails"
-    )
+    error_message: str | None = strawberry.field(description="The error message to display when the validation fails")
 
 
 @pydantic.input(
@@ -221,17 +205,13 @@ class ValidatorInput:
     """,
 )
 class PortInput:
-    validators: list[ValidatorInput] | None = strawberry.field(
-        default_factory=list, description="The validators for the port"
-    )
+    validators: list[ValidatorInput] | None = strawberry.field(default_factory=list, description="The validators for the port")
     key: str = strawberry.field(description="The key of the port")
     label: str | None = strawberry.field(
         default=None,
         description="The label of the port. This is the text that is displayed in the UI",
     )
-    kind: enums.PortKind = strawberry.field(
-        description="The kind of the port. This is the type of the port. Can be either int, string, structure, list, bool, dict, float, date, union or model"
-    )
+    kind: enums.PortKind = strawberry.field(description="The kind of the port. This is the type of the port. Can be either int, string, structure, list, bool, dict, float, date, union or model")
     description: str | None = strawberry.field(
         default=None,
         description="The description of the port. This is the text that is displayed in the UI when the user hovers over the port",
@@ -244,17 +224,13 @@ class PortInput:
         default=False,
         description="Whether the port is nullable or not. If the port is nullable, it can be set to null. If the port is not nullable, it cannot be set to null",
     )
-    effects: list[EffectInput] | None = strawberry.field(
-        default_factory=list, description="The effects of the port"
-    )
+    effects: list[EffectInput] | None = strawberry.field(default_factory=list, description="The effects of the port")
     choices: list[ChoiceInput] | None = strawberry.field(
         default_factory=list,
         description="The options for the port. This is used for dropdowns and text inputs",
     )
     default: scalars.AnyDefault | None = None
-    children: list[LazyType["PortInput", __name__]] | None = strawberry.field(
-        default_factory=list
-    )
+    children: list[LazyType["PortInput", __name__]] | None = strawberry.field(default_factory=list)
     assign_widget: Optional["AssignWidgetInput"] = None
     return_widget: Optional["ReturnWidgetInput"] = None
 
@@ -263,9 +239,7 @@ class PortInput:
     description="A Port Group is a group of ports that are related to each other. It is used to group ports together in the UI and provide a better user experience.",
 )
 class PortGroupInput:
-    key: str = strawberry.field(
-        description="The key of the port group. This is used to uniquely identify the port group"
-    )
+    key: str = strawberry.field(description="The key of the port group. This is used to uniquely identify the port group")
     title: str | None
     description: str | None
     effects: list[EffectInput] | None = strawberry.field(default_factory=list)
@@ -304,9 +278,7 @@ class DefinitionInput:
         default_factory=list,
         description="The collections of the definition. This is used to group definitions together in the UI",
     )
-    name: str = strawberry.field(
-        description="The name of the actions. This is used to uniquely identify the definition"
-    )
+    name: str = strawberry.field(description="The name of the actions. This is used to uniquely identify the definition")
     stateful: bool = strawberry.field(
         default=False,
         description="Whether the definition is stateful or not. If the definition is stateful, it can be used to create a stateful action. If the definition is not stateful, it cannot be used to create a stateful action",
@@ -323,9 +295,7 @@ class DefinitionInput:
         default_factory=list,
         description="The returns of the definition. This is the output ports of the definition",
     )
-    kind: enums.ActionKind = strawberry.field(
-        description="The kind of the definition. This is the type of the definition. Can be either a function or a generator"
-    )
+    kind: enums.ActionKind = strawberry.field(description="The kind of the definition. This is the type of the definition. Can be either a function or a generator")
     is_test_for: list["str"] = strawberry.field(
         default_factory=list,
         description="The tests for the definition. This is used to group definitions together in the UI",
@@ -354,9 +324,7 @@ class DependencyInput:
     """A dependency for a implementation. By defining dependencies, you can
     create a dependency graph for your implementations and actions"""
 
-    hash: scalars.ActionHash | None = strawberry.field(
-        description="The hash of the dependency. This is used to uniquely the required action"
-    )
+    hash: scalars.ActionHash | None = strawberry.field(description="The hash of the dependency. This is used to uniquely the required action")
     reference: str | None = strawberry.field(
         default=None,  # How to reference this dependency (e.g. if it corresponds to a action_id in a flow)
         description="The reference of the dependency. This is used to uniquely identify the dependency according to the implementation that relies on it",
