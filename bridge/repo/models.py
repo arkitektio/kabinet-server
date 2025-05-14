@@ -66,7 +66,7 @@ class ManifestInputModel(BaseModel):
 
 class InspectionInputModel(BaseModel):
     size: int
-    implementations: List[ImplementationInputModel] = Field(alias="templates")
+    implementations: List[ImplementationInputModel] = Field(alias="implementations")
     requirements: List[RequirementInputModel]
 
 

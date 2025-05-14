@@ -75,7 +75,7 @@ class Mutation:
         description="Rescan all repos",
     )
 
-    create_app_image: types.Release = strawberry_django.mutation(
+    create_app_image = strawberry_django.mutation(
         resolver=mutations.create_app_image,
         description="Create a new release",
     )
