@@ -5,8 +5,8 @@ from typing_extensions import Self
 
 
 class BindsInputModel(BaseModel):
-    implementations: Optional[list[str]] | None = None
-    clients: Optional[list[str]] | None = None
+    implementations: Optional[list[str]]
+    clients: Optional[list[str]]
     desired_instances: int = 1
     minimum_instances: int = 1
 
@@ -29,8 +29,8 @@ class EffectInputModel(BaseModel):
 class ChoiceInputModel(BaseModel):
     value: str
     label: str
-    image: str | None
-    description: str | None
+    image: str | None = None
+    description: str | None = None
 
 
 class ValidatorInputModel(BaseModel):
@@ -53,8 +53,8 @@ class AssignWidgetInputModel(BaseModel):
     hook: str | None = None
     ward: str | None = None
     fallback: Optional["AssignWidgetInputModel"] = None
-    filters: list["PortInputModel"] | None
-    dependencies: list[str] | None = None
+    filters: list["PortInputModel"] | None =  None
+    dependencies: list[str] | None = [] 
 
 
 class ReturnWidgetInputModel(BaseModel):
@@ -70,13 +70,13 @@ class ReturnWidgetInputModel(BaseModel):
 
 
 class PortInputModel(BaseModel):
+    validators: list[ValidatorInputModel] | None = None
     key: str
     label: str | None = None
     kind: enums.PortKind
     description: str | None = None
     identifier: str | None = None
     nullable: bool = False
-    validators: list[ValidatorInputModel] | None = None
     effects: list[EffectInputModel] | None = None
     default: Any | None = None
     children: list["PortInputModel"] | None = None
@@ -85,13 +85,11 @@ class PortInputModel(BaseModel):
     return_widget: Optional["ReturnWidgetInputModel"] = None
 
     @model_validator(mode="after")
-    def check_children_for_port(cls, v) -> Self:
-        kind = v.kind
-        children = v.children
+    def check_children_for_port(cls, self) -> Self:
 
-        if kind == enums.PortKind.LIST and (children is None or len(children) != 1):
+        if self.kind == enums.PortKind.LIST and (self.children is None or len(self.children) != 1):
             raise ValueError("Port of kind LIST must have exactly on children")
-        return v
+        return self
 
 
 class PortGroupInputModel(BaseModel):

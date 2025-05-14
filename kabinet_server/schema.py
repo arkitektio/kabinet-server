@@ -8,6 +8,7 @@ from bridge import queries
 from bridge import messages
 import strawberry_django
 from koherent.strawberry.extension import KoherentExtension
+from authentikate.strawberry.extension import AuthentikateExtension
 from typing import List
 from rekuest_core.constants import interface_types
 from bridge.repo.types import selector_types
@@ -138,7 +139,7 @@ schema = strawberry.Schema(
     mutation=Mutation,
     subscription=Subscription,
     schema_directives=[unionElementOf],
-    extensions=[DjangoOptimizerExtension, KoherentExtension],
+    extensions=[DjangoOptimizerExtension,AuthentikateExtension, KoherentExtension],
     types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector]
     + interface_types
     + selector_types,
