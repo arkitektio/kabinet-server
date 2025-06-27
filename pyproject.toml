@@ -25,6 +25,7 @@ dependencies = [
     "boto3>=1.38.9",
     "aiohttp>=3.11.18",
     "semver>=3.0.4",
+    "django-health-check>=3.20.0",
 ]
 
 [dependency-groups]

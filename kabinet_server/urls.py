@@ -20,6 +20,15 @@ from django.urls import include
 from .schema import schema
 from kante.path import dynamicpath
 from django.http import HttpResponse
+from health_check.views import MainView
+from django.views.decorators.csrf import csrf_exempt
+
+def fakts_challenge(request):
+    """
+    Placeholder view for the .well-known/fakts-challenge endpoint.
+    This should be replaced with the actual logic to handle the challenge.
+    """
+    return HttpResponse("Fakts Challenge Endpoint", status=200)
 
 
 def graphql_schema(request):
@@ -30,4 +39,6 @@ urlpatterns = [
     dynamicpath("admin/", admin.site.urls),
     dynamicpath("schema", graphql_schema),
     dynamicpath("api/", include("bridge.urls")),
+    dynamicpath("ht",  csrf_exempt(MainView.as_view()), name="health_check"),
+    dynamicpath(".well-known/fakts-challenge", fakts_challenge, name="fakts-challenge"),
 ]

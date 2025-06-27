@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     "channels",
     "django_probes",
     "bridge",
+    "health_check",
+    "health_check.db",
 ]
 
 
