@@ -3,6 +3,8 @@ from bridge import managers
 from bridge import inputs
 from bridge import models
 import strawberry_django
+from kante.types import Info
+from django.db.models import QuerySet, Count
 
 
 @strawberry_django.order(models.Definition)
@@ -62,20 +64,41 @@ class DefinitionFilter:
         return queryset.filter(id__in=self.ids)
 
 
+@strawberry_django.order_type(models.Flavour)
+class FlavourOrder:
+    """Order for Flavours"""
+
+    @strawberry_django.order_field
+    def released_at(
+        self,
+        info: Info,
+        queryset: QuerySet,
+        value: strawberry_django.Ordering,  # `auto` can be used instead
+        prefix: str,
+    ) -> tuple[QuerySet, list[str]] | list[str]:
+        ordering = value.resolve(f"{prefix}release__released_at")
+        return queryset, [ordering]
+
+
 @strawberry_django.filter(models.Flavour, description="Filter for Dask Clusters")
 class FlavourFilter:
     """Filter for Dask Clusters"""
 
-    ids: list[strawberry.ID] | None = None
-    search: str | None = None
-    pass
+    ids: list[strawberry.ID] | None
+    search: str | None
+    has_definitions: list[strawberry.ID] | None
 
-    def filter_search(self, queryset):
+    def filter_has_definitions(self, queryset, info):
+        if self.has_definitions is None:
+            return queryset
+        return queryset.filter(definitions__in=self.has_definitions)
+
+    def filter_search(self, queryset, info):
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
 
-    def filter_ids(self, queryset):
+    def filter_ids(self, queryset, info):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
@@ -86,12 +109,12 @@ class ResourceFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
 
-    def filter_search(self, queryset):
+    def filter_search(self, queryset, info):
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
 
-    def filter_ids(self, queryset):
+    def filter_ids(self, queryset, info):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
@@ -102,12 +125,12 @@ class BackendFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
 
-    def filter_search(self, queryset):
+    def filter_search(self, queryset, info):
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
 
-    def filter_ids(self, queryset):
+    def filter_ids(self, queryset, info):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
@@ -119,15 +142,20 @@ class PodFilter:
     search: str | None = None
     backend: strawberry.ID | None = None
 
-    def filter_search(self, queryset):
+    def filter_search(self, queryset, info):
         if self.search is None:
             return queryset
         return queryset.filter(backend__name=self.search)
 
-    def filter_ids(self, queryset):
+    def filter_ids(self, queryset, info):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
+
+    def filter_backend(self, queryset, info):
+        if self.backend is None:
+            return queryset
+        return queryset.filter(backend__id=self.backend)
 
 
 @strawberry_django.filter(models.Deployment, description="Filter for Dask Clusters")
