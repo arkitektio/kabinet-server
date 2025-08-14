@@ -31,7 +31,7 @@ async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
 
             assert (
                 response.status == 200
-            ), f"Failed to fetch kabinet.yml from {kabinet_url}"
+            ), f"This seems to be not an Arkitekt Repository. Failed to fetch kabinet.yml."
 
             z = await response.text()
 

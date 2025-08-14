@@ -25,6 +25,8 @@ class GithubRepo(Repo):
     repo = models.CharField(max_length=4000)
     user = models.CharField(max_length=4000)
     branch = models.CharField(max_length=4000)
+    updated_at = models.DateTimeField(auto_now=True)
+    added_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
         return f"{self.user}/{self.repo}:{self.branch}"

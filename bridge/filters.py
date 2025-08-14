@@ -18,13 +18,34 @@ class GithubRepoFilter:
 
     ids: list[strawberry.ID] | None = None
     search: str | None = None
+    repo: str | None = None
+    user: str | None = None
+    branch: str | None = None
     pass
 
-    def filter_search(self, queryset, search):
-        return queryset.filter(name__icontains=search)
+    def filter_repo(self, queryset, info):
+        if self.repo is None:
+            return queryset
+        return queryset.filter(repo__icontains=self.repo)
+    
+    def filter_user(self, queryset, info):
+        if self.user is None:
+            return queryset
+        return queryset.filter(user__icontains=self.user)
+    
+    def filter_branch(self, queryset, info):
+        if self.branch is None:
+            return queryset
+        return queryset.filter(branch__icontains=self.branch)
+    
+    
+    def filter_search(self, queryset, info):
+        return queryset.filter(name__icontains=self.search) if self.search else queryset
 
-    def filter_ids(self, queryset, ids):
-        return queryset.filter(id__in=ids)
+    def filter_ids(self, queryset, info):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
 
 
 @strawberry_django.filter(models.Definition, description="Filter for Dask Clusters")

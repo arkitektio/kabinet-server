@@ -30,6 +30,8 @@ class GithubRepo:
     branch: str
     user: str
     flavours: List["Flavour"]
+    updated_at: datetime.datetime
+    added_at: datetime.datetime
 
 
 @strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")
