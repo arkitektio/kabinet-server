@@ -57,21 +57,31 @@ class DefinitionFilter:
     demands: list[inputs.PortDemandInput] | None
 
     def filter_demands(self, queryset, info):
-        print("filter_demands")
-
         if self.demands is None:
             return queryset
 
+        filtered_ids = None
+        
+
         for ports_demand in self.demands:
-            queryset = managers.filter_actions_by_demands(
-                queryset,
+            new_ids = managers.get_action_ids_by_demands(
                 ports_demand.matches,
-                type=ports_demand.kind,
+                type=ports_demand.kind.value,
                 force_length=ports_demand.force_length,
                 force_non_nullable_length=ports_demand.force_non_nullable_length,
+                force_structure_length=ports_demand.force_structure_length,
+                model="bridge_definition",
             )
 
-        return queryset
+            if filtered_ids is None:
+                filtered_ids = set(new_ids)
+            else:
+                filtered_ids = filtered_ids.intersection(new_ids)
+                
+        if filtered_ids is None:
+            return queryset
+
+        return queryset.filter(id__in=filtered_ids)
 
     def filter_search(self, queryset, info):
         if self.search is None:

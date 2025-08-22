@@ -281,24 +281,119 @@ class DeclareResourceInput:
     qualifiers: list[QualifierInput] | None = None
 
 
+
+
 @strawberry.input
 class PortMatchInput:
-    at: int | None = None
-    key: str | None = None
-    kind: renums.PortKind | None = None
-    identifier: str | None = None
-    nullable: bool | None = None
-    children: Optional[list[LazyType["PortMatchInput", __name__]]] = None
-
+    at: int | None = strawberry.field(
+        default=None,
+        description="The index of the port to match. ",
+    )
+    key: str | None = strawberry.field(
+        default=None,
+        description="The key of the port to match.",
+    )
+    kind: renums.PortKind | None = strawberry.field(
+        default=None,
+        description="The kind of the port to match. ",
+    )
+    identifier: str | None = strawberry.field(
+        default=None,
+        description="The identifier of the port to match. ",
+    )
+    nullable: bool | None = strawberry.field(
+        default=None,
+        description="Whether the port is nullable. ",
+    )
+    children: Optional[list[LazyType["PortMatchInput", __name__]]] = strawberry.field(
+        default=None,
+        description="The matches for the children of the port to match. ",
+    )
 
 @strawberry.input
 class PortDemandInput:
-    kind: enums.DemandKind
-    matches: list[PortMatchInput] | None = None
-    force_length: int | None = None
-    force_non_nullable_length: int | None = None
+    kind: enums.DemandKind = strawberry.field(
+        description="The kind of the demand. You can ask for args or returns",
+    )
+    matches: list[PortMatchInput] | None = strawberry.field(
+        default=None,
+        description="The matches of the demand. ",
+    )
+    force_length: int | None = strawberry.field(
+        default=None,
+        description="Require that the action has a specific number of ports. This is used to identify the demand in the system.",
+    )
+    force_non_nullable_length: int | None = strawberry.field(
+        default=None,
+        description="Require that the action has a specific number of non-nullable ports. This is used to identify the demand in the system.",
+    )
+    force_structure_length: int | None = strawberry.field(
+        default=None,
+        description="Require that the action has a specific number of structure ports. This is used to identify the demand in the system.",
+    )
 
 
 @strawberry.input
 class DeletePodInput:
     id: strawberry.ID
+
+
+@strawberry.input(description="The input for creating a action demand.")
+class ActionDemandInput:
+    key: str = strawberry.field(
+        default=None,
+        description="The key of the action. This is used to identify the action in the system.",
+    )
+
+    hash: ActionHash | None = strawberry.field(
+        default=None,
+        description="The hash of the action. This is used to identify the action in the system.",
+    )
+    name: str | None = strawberry.field(
+        default=None,
+        description="The name of the action. This is used to identify the action in the system.",
+    )
+    description: str | None = strawberry.field(
+        default=None,
+        description="The description of the action. This can described the action and its purpose.",
+    )
+    arg_matches: list[PortMatchInput] | None = strawberry.field(
+        default=None,
+        description="The demands for the action args and returns. This is used to identify the demand in the system.",
+    )
+    return_matches: list[PortMatchInput] | None = strawberry.field(
+        default=None,
+        description="The demands for the action args and returns. This is used to identify the demand in the system.",
+    )
+    protocols: list[strawberry.ID] | None = strawberry.field(
+        default=None,
+        description="The protocols that the action has to implement. This is used to identify the demand in the system.",
+    )
+    force_arg_length: int | None = strawberry.field(
+        default=None,
+        description="Require that the action has a specific number of args. This is used to identify the demand in the system.",
+    )
+    force_return_length: int | None = strawberry.field(
+        default=None,
+        description="Require that the action has a specific number of returns. This is used to identify the demand in the system.",
+    )
+
+
+@strawberry.input(description="The input for creating a action demand.")
+class SchemaDemandInput:
+    key: str = strawberry.field(
+        default=None,
+        description="The key of the action. This is used to identify the action in the system.",
+    )
+    hash: ActionHash | None = strawberry.field(
+        default=None,
+        description="The hash of the state.",
+    )
+    matches: list[PortMatchInput] | None = strawberry.field(
+        default=None,
+        description="The demands for the action args and returns. This is used to identify the demand in the system.",
+    )
+    protocols: list[strawberry.ID] | None = strawberry.field(
+        default=None,
+        description="The protocols that the action has to implement. This is used to identify the demand in the system.",
+    )
