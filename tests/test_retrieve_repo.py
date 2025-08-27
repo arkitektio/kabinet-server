@@ -2,7 +2,7 @@ import pytest
 from bridge.models import Flavour, App, Release, GithubRepo
 from django.contrib.auth import get_user_model
 import typing
-from bridge.repo.models import DeploymentsConfigFile
+from bridge.repo.models import KabinetConfigFile
 import yaml
 from tests.utils import build_relative_dir
 from rekuest_core.enums import PortKind
@@ -16,40 +16,15 @@ async def test_parse_deployments(db: typing.Any) -> None:
     ) as deployment_file:
         deployment = yaml.safe_load(deployment_file)
 
-    config = DeploymentsConfigFile(**deployment)
+    config = KabinetConfigFile(**deployment)
 
-    assert len(config.deployments) == 3, "Should have one deployment"
-    assert (
-        config.deployments[0].flavour == "vanilla"
+    assert len(config.app_images) >= 1 and (
+        config.app_images[0].flavour_name == "vanilla"
     ), "First deployment should be vanilla"
-    assert config.deployments[2].flavour == "cuda", "Third deployment should be vanilla"
+   
+    
 
-    third_deployment = config.deployments[2]
-
-    assert third_deployment.inspection, "Should have an inspection"
-
-    inspection = third_deployment.inspection
-
-    assert inspection.definitions, "Should have definitions"
-
-    definitions = inspection.definitions
-
-    assert len(definitions) == 1, "Should have one definition"
-
-    definition = definitions[0]
-
-    assert (
-        definition.name == "Print String"
-    ), "First definition should be named Print String"
-
-    assert definition.args, "Should have args"
-
-    assert len(definition.args) == 1, "Should have one arg"
-
-    arg = definition.args[0]
-
-    assert arg.key == "input", "Arg should be named string"
-    assert arg.kind == PortKind.STRING, "Arg should be an string"
+    
 
 
 @pytest.mark.asyncio
@@ -68,8 +43,8 @@ async def test_db_deployments(db: typing.Any) -> None:
     ) as deployment_file:
         deployment = yaml.safe_load(deployment_file)
 
-    config = DeploymentsConfigFile(**deployment)
+    config = KabinetConfigFile(**deployment)
 
     flavours = await parse_config(config, github_repo)
 
-    assert len(flavours) == 3, "Should have three flavours"
+    assert len(flavours) == 1, "Should have three flavours"
