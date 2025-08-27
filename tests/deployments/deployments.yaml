@@ -1,88 +1,105 @@
-deployments:
-- build_id: 0e663dde-7027-42d4-bd81-ebcdc3013969
-  deployed_at: '2024-01-17T16:12:05.578619'
-  deployment_id: 7d7c2d32-057f-4870-8df8-f31faea2a3fb
-  deployment_run: ac6b92ca-9ab7-4f60-b0f1-ee64a193c59f
-  flavour: vanilla
-  image: jhnnsrs/testing:0.0.1-vanilla
-  manifest:
-    author: jhnnsrs
-    created_at: '2024-01-17T16:11:59.996067'
-    entrypoint: app
-    identifier: testing
-    requirements: []
-    scopes:
-    - read
-    version: 0.0.1
-  selectors: []
-- build_id: d381ec90-90f1-4ba0-9516-dffa8d34e037
-  deployed_at: '2024-01-17T16:13:43.661059'
-  deployment_id: 83df05c5-2f5a-480f-9f1a-94fd57872eb7
-  deployment_run: ef0e07d4-83bd-41b4-bc7d-0045988ebfb7
-  flavour: cuda
-  image: jhnnsrs/testing:0.0.1-cuda
-  manifest:
-    author: jhnnsrs
-    created_at: '2024-01-17T16:13:30.177467'
-    entrypoint: app
-    identifier: testing
-    requirements: []
-    scopes:
-    - read
-    version: 0.0.1
-  selectors:
-  - compute_capability: '3.5'
-    cuda_cores: 6000
-    cuda_version: '10.2'
-    required: true
-    type: cuda
-- build_id: ec981a3b-0e64-43a3-8c8b-41accfea5bb2
-  deployed_at: '2024-01-22T10:33:56.827211'
-  deployment_id: ec60879f-5455-46fc-9483-9cf5a2d66131
-  deployment_run: c3a9190d-de9d-4ca7-9da9-3d70d9c1f281
-  flavour: cuda
-  image: jhnnsrs/testing:0.0.2-cuda
+app_images:
+- appImageId: da60d36f7c1d48e69136699f4fcc901e
+  flavourName: vanilla
+  image:
+    buildAt: '2025-08-22T17:55:39.019884'
+    imageString: jhnnsrs/ome:0.1.9-vanilla
   inspection:
-    definitions:
-    - args:
-      - annotations: []
-        description: 'The input string
-
-
-          Returns'
-        key: input
-        kind: STRING
-        label: input
-        nullable: false
-        scope: GLOBAL
-      collections: []
-      description: 'This function prints the input string to
-
-        the console'
-      interfaces: []
-      kind: FUNCTION
-      name: Print String
-      port_groups: []
-      returns:
-      - annotations: []
-        key: return0
-        kind: STRING
-        nullable: false
-        scope: GLOBAL
-    size: 606452033
+    implementations:
+    - definition:
+        args:
+        - assignWidget:
+            kind: SEARCH
+            query: "query SearchFiles($search: String, $values: [ID!], $pagination:\
+              \ OffsetPaginationInput) {\n  options: files(\n    filters: {search:\
+              \ $search, ids: $values}\n    pagination: $pagination\n  ) {\n    value:\
+              \ id\n    label: name\n    __typename\n  }\n}"
+            ward: mikro
+          description: The File to be converted
+          effects: []
+          identifier: '@mikro/file'
+          key: file
+          kind: STRUCTURE
+          label: file
+          nullable: false
+          validators: []
+        - assignWidget:
+            kind: SEARCH
+            query: "query SearchStages($search: String, $values: [ID!], $pagination:\
+              \ OffsetPaginationInput) {\n  options: stages(\n    filters: {search:\
+              \ $search, ids: $values}\n    pagination: $pagination\n  ) {\n    value:\
+              \ id\n    label: name\n    __typename\n  }\n}"
+            ward: mikro
+          description: The Stage in which to put the Image. Defaults to None.
+          effects: []
+          identifier: '@mikro/stage'
+          key: stage
+          kind: STRUCTURE
+          label: stage
+          nullable: true
+          validators: []
+        collections: []
+        description: Converts an Omero File in a set of Mikrodata
+        interfaces: []
+        isDev: false
+        isTestFor: []
+        kind: FUNCTION
+        logo: ome.png
+        name: Convert Omero
+        portGroups: []
+        returns:
+        - children:
+          - assignWidget:
+              kind: SEARCH
+              query: "query SearchImages($search: String, $values: [ID!]) {\n  options:\
+                \ images(\n    filters: {name: {contains: $search}, ids: $values}\n\
+                \    pagination: {limit: 10}\n  ) {\n    value: id\n    label: name\n\
+                \    __typename\n  }\n}"
+              ward: mikro
+            effects: []
+            identifier: '@mikro/image'
+            key: '...'
+            kind: STRUCTURE
+            nullable: false
+            validators: []
+          description: The created series in this file
+          effects: []
+          key: return0
+          kind: LIST
+          label: return0
+          nullable: false
+          validators: []
+        stateful: false
+      dependencies: []
+      dynamic: false
+      interface: convert_omero_file
+      logo: ome.png
+    requirements:
+    - description: An instance of ArkitektNext Datalayer to make requests to the user's
+        data
+      key: datalayer
+      optional: true
+      service: live.arkitekt.s3
+    - description: An instance of ArkitektNext Lok to authenticate the user
+      key: lok
+      optional: false
+      service: live.arkitekt.lok
+    - description: An instance of ArkitektNext Mikro to make requests to the user's
+        data
+      key: mikro
+      optional: true
+      service: live.arkitekt.mikro
+    - description: An instance of ArkitektNext Rekuest to assign to actions
+      key: rekuest
+      optional: false
+      service: live.arkitekt.rekuest
+    size: 1482598149
   manifest:
     author: jhnnsrs
-    created_at: '2024-01-22T10:30:52.268973'
     entrypoint: app
-    identifier: testing
-    requirements: []
+    identifier: ome
     scopes:
     - read
-    version: 0.0.2
-  selectors:
-  - compute_capability: '3.5'
-    cuda_cores: 6000
-    cuda_version: '10.2'
-    required: true
-    type: cuda
-latest_deployment_run: 11f43a7b-7b6c-4612-9580-08fbd0234f9a
+    version: 0.1.9
+  selectors: []
+latest_app_image: da60d36f7c1d48e69136699f4fcc901e

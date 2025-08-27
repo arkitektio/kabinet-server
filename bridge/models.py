@@ -8,13 +8,14 @@ from django.conf import settings
 # Create your models here.
 from bridge.repo import selectors as rselectors
 from typing import List
-from authentikate.models import Client
+from authentikate.models import Client, Organization
 
 
 class Repo(models.Model):
     name = models.CharField(max_length=400)
     creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="repos", null=True, blank=True)
 
     def __str__(self) -> str:
         return self.name
@@ -24,6 +25,8 @@ class GithubRepo(Repo):
     repo = models.CharField(max_length=4000)
     user = models.CharField(max_length=4000)
     branch = models.CharField(max_length=4000)
+    updated_at = models.DateTimeField(auto_now=True)
+    added_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
         return f"{self.user}/{self.repo}:{self.branch}"
@@ -56,22 +59,15 @@ class App(models.Model):
     identifier = models.CharField(max_length=4000)
 
 
-
 class S3Store(models.Model):
-    path = S3Field(
-        null=True, blank=True, help_text="The store of the image", unique=True
-    )
+    path = S3Field(null=True, blank=True, help_text="The store of the image", unique=True)
     key = models.CharField(max_length=1000)
     bucket = models.CharField(max_length=1000)
     populated = models.BooleanField(default=False)
 
 
-
 class MediaStore(S3Store):
-
-    def get_presigned_url(
-        self, info, datalayer: Datalayer, host: str | None = None
-    ) -> str:
+    def get_presigned_url(self, info, datalayer: Datalayer, host: str | None = None) -> str:
         cache_key = f"presigned_url:{self.bucket}:{self.key}:{host}"
         # Check if the URL is in the cache
         url = cache.get(cache_key)
@@ -98,8 +94,7 @@ class MediaStore(S3Store):
         s3 = datalayer.s3
         s3.upload_fileobj(file, self.bucket, self.key)
         self.save()
-        
-        
+
 
 class Release(models.Model):
     app = models.ForeignKey(App, on_delete=models.CASCADE, related_name="releases")
@@ -108,6 +103,8 @@ class Release(models.Model):
     logo = models.ForeignKey(MediaStore, on_delete=models.CASCADE, related_name="releases", null=True, blank=True)
     original_logo = models.CharField(max_length=1000, null=True, blank=True, help_text="The original logo url")
     entrypoint = models.CharField(max_length=4000, default="app")
+    released_at = models.DateTimeField(auto_now_add=True, help_text="When this release was created")
+    created_at = models.DateTimeField(auto_now=True, help_text="When this release was created")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["app", "version"], name="Unique release for version")]
@@ -166,7 +163,6 @@ class Definition(models.Model):
         related_name="definitions",
         help_text="The flavours this Definition belongs to",
     )
-
     definition_version = models.CharField(
         max_length=1000,
         help_text="The version of the Action definition",
@@ -295,5 +291,4 @@ class LogDump(models.Model):
     created_at = models.DateTimeField(auto_now=True)
 
 
-
-from .signals import * 
+from .signals import *

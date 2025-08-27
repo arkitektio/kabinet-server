@@ -17,7 +17,6 @@ from strawberry import auto
 from strawberry.experimental import pydantic
 
 
-
 @strawberry_django.type(
     models.GithubRepo,
     description="A user of the bridge server. Maps to an authentikate user",
@@ -31,6 +30,8 @@ class GithubRepo:
     branch: str
     user: str
     flavours: List["Flavour"]
+    updated_at: datetime.datetime
+    added_at: datetime.datetime
 
 
 @strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")
@@ -144,6 +145,7 @@ class DockerImage:
     models.Flavour,
     description="A user of the bridge server. Maps to an authentikate user",
     filters=filters.FlavourFilter,
+    order=filters.FlavourOrder,
     pagination=True,
 )
 class Flavour:

@@ -3,6 +3,8 @@ from bridge import managers
 from bridge import inputs
 from bridge import models
 import strawberry_django
+from kante.types import Info
+from django.db.models import QuerySet, Count
 
 
 @strawberry_django.order(models.Definition)
@@ -16,13 +18,34 @@ class GithubRepoFilter:
 
     ids: list[strawberry.ID] | None = None
     search: str | None = None
+    repo: str | None = None
+    user: str | None = None
+    branch: str | None = None
     pass
 
-    def filter_search(self, queryset, search):
-        return queryset.filter(name__icontains=search)
+    def filter_repo(self, queryset, info):
+        if self.repo is None:
+            return queryset
+        return queryset.filter(repo__icontains=self.repo)
+    
+    def filter_user(self, queryset, info):
+        if self.user is None:
+            return queryset
+        return queryset.filter(user__icontains=self.user)
+    
+    def filter_branch(self, queryset, info):
+        if self.branch is None:
+            return queryset
+        return queryset.filter(branch__icontains=self.branch)
+    
+    
+    def filter_search(self, queryset, info):
+        return queryset.filter(name__icontains=self.search) if self.search else queryset
 
-    def filter_ids(self, queryset, ids):
-        return queryset.filter(id__in=ids)
+    def filter_ids(self, queryset, info):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
 
 
 @strawberry_django.filter(models.Definition, description="Filter for Dask Clusters")
@@ -34,21 +57,31 @@ class DefinitionFilter:
     demands: list[inputs.PortDemandInput] | None
 
     def filter_demands(self, queryset, info):
-        print("filter_demands")
-
         if self.demands is None:
             return queryset
 
+        filtered_ids = None
+        
+
         for ports_demand in self.demands:
-            queryset = managers.filter_actions_by_demands(
-                queryset,
+            new_ids = managers.get_action_ids_by_demands(
                 ports_demand.matches,
-                type=ports_demand.kind,
+                type=ports_demand.kind.value,
                 force_length=ports_demand.force_length,
                 force_non_nullable_length=ports_demand.force_non_nullable_length,
+                force_structure_length=ports_demand.force_structure_length,
+                model="bridge_definition",
             )
 
-        return queryset
+            if filtered_ids is None:
+                filtered_ids = set(new_ids)
+            else:
+                filtered_ids = filtered_ids.intersection(new_ids)
+                
+        if filtered_ids is None:
+            return queryset
+
+        return queryset.filter(id__in=filtered_ids)
 
     def filter_search(self, queryset, info):
         if self.search is None:
@@ -62,20 +95,41 @@ class DefinitionFilter:
         return queryset.filter(id__in=self.ids)
 
 
+@strawberry_django.order_type(models.Flavour)
+class FlavourOrder:
+    """Order for Flavours"""
+
+    @strawberry_django.order_field
+    def released_at(
+        self,
+        info: Info,
+        queryset: QuerySet,
+        value: strawberry_django.Ordering,  # `auto` can be used instead
+        prefix: str,
+    ) -> tuple[QuerySet, list[str]] | list[str]:
+        ordering = value.resolve(f"{prefix}release__released_at")
+        return queryset, [ordering]
+
+
 @strawberry_django.filter(models.Flavour, description="Filter for Dask Clusters")
 class FlavourFilter:
     """Filter for Dask Clusters"""
 
-    ids: list[strawberry.ID] | None = None
-    search: str | None = None
-    pass
+    ids: list[strawberry.ID] | None
+    search: str | None
+    has_definitions: list[strawberry.ID] | None
 
-    def filter_search(self, queryset):
+    def filter_has_definitions(self, queryset, info):
+        if self.has_definitions is None:
+            return queryset
+        return queryset.filter(definitions__in=self.has_definitions)
+
+    def filter_search(self, queryset, info):
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
 
-    def filter_ids(self, queryset):
+    def filter_ids(self, queryset, info):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
@@ -86,12 +140,12 @@ class ResourceFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
 
-    def filter_search(self, queryset):
+    def filter_search(self, queryset, info):
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
 
-    def filter_ids(self, queryset):
+    def filter_ids(self, queryset, info):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
@@ -102,12 +156,12 @@ class BackendFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
 
-    def filter_search(self, queryset):
+    def filter_search(self, queryset, info):
         if self.search is None:
             return queryset
         return queryset.filter(name__icontains=self.search)
 
-    def filter_ids(self, queryset):
+    def filter_ids(self, queryset, info):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
@@ -119,15 +173,20 @@ class PodFilter:
     search: str | None = None
     backend: strawberry.ID | None = None
 
-    def filter_search(self, queryset):
+    def filter_search(self, queryset, info):
         if self.search is None:
             return queryset
         return queryset.filter(backend__name=self.search)
 
-    def filter_ids(self, queryset):
+    def filter_ids(self, queryset, info):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
+
+    def filter_backend(self, queryset, info):
+        if self.backend is None:
+            return queryset
+        return queryset.filter(backend__id=self.backend)
 
 
 @strawberry_django.filter(models.Deployment, description="Filter for Dask Clusters")
