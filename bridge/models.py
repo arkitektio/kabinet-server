@@ -113,6 +113,8 @@ class Release(models.Model):
 class DockerImage(models.Model):
     image_string = models.CharField(max_length=4000)
     build_at = models.DateTimeField(null=True, blank=True)
+    vetted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now=True)
 
 
 class Flavour(models.Model):
