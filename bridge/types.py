@@ -286,4 +286,4 @@ class Pod:
 
     @strawberry_django.field()
     def name(self) -> str:
-        return self.pod_id + "-" + self.deployment.flavour.name
+        return self.backend.name + "-" + self.deployment.flavour.name + "-" + self.deployment.flavour.release.app.identifier
