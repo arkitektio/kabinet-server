@@ -37,6 +37,10 @@ class EffectInput:
         default=None,
         description="The ward to run when the effect is applied (if it is a custom effect)",
     )
+    fade: bool | None = strawberry.field(
+        default=True,
+        description="Whether to fade out the port when the effect is applied (if it is a hide effect)",
+    )
 
 
 @pydantic.input(
@@ -183,6 +187,12 @@ class ValidatorInput:
     error_message: str | None = strawberry.field(description="The error message to display when the validation fails")
 
 
+@pydantic.input(models.DescriptorInputModel)
+class DescriptorInput:
+    key: str = strawberry.field(description="The key of the descriptor. This is used to uniquely identify the descriptor")
+    value: scalars.Arg = strawberry.field(description="The value of the descriptor. This can be any JSON serializable value")
+
+
 @pydantic.input(
     models.PortInputModel,
     description="""Port
@@ -233,6 +243,9 @@ class PortInput:
     children: list[LazyType["PortInput", __name__]] | None = strawberry.field(default_factory=list)
     assign_widget: Optional["AssignWidgetInput"] = None
     return_widget: Optional["ReturnWidgetInput"] = None
+    descriptors: list[DescriptorInput] | None = strawberry.field(
+        default_factory=list, description="The descriptors for the port. Descriptors are key-value pairs that can be used to add additional metadata to a port. When using rekuest's action search, you can filter actions based on their port descriptors"
+    )
 
 
 @strawberry.input(
@@ -341,6 +354,82 @@ class DependencyInput:
 
 
 @pydantic.input(
+    models.PortMatchInputModel,
+    description="""A dependency for a implementation. By defining dependencies, you can
+    create a dependency graph for your implementations and actions""",
+)
+class PortMatchInput:
+    at: int | None = strawberry.field(
+        default=None,
+        description="The index of the port to match. ",
+    )
+    key: str | None = strawberry.field(
+        default=None,
+        description="The key of the port to match.",
+    )
+    kind: enums.PortKind | None = strawberry.field(
+        default=None,
+        description="The kind of the port to match. ",
+    )
+    identifier: str | None = strawberry.field(
+        default=None,
+        description="The identifier of the port to match. ",
+    )
+    nullable: bool | None = strawberry.field(
+        default=None,
+        description="Whether the port is nullable. ",
+    )
+    children: Optional[list[LazyType["PortMatchInput", __name__]]] = strawberry.field(
+        default=None,
+        description="The matches for the children of the port to match. ",
+    )
+
+
+@pydantic.input(
+    models.ActionDependencyInputModel,
+    description="""A dependency for a implementation. By defining dependencies, you can
+    create a dependency graph for your implementations and actions""",
+)
+class ActionDependencyInput:
+    key: str = strawberry.field(
+        description="The key of the action. This is used to identify the action in the system.",
+    )
+    hash: scalars.ActionHash | None = strawberry.field(
+        default=None,
+        description="The hash of the action. This is used to identify the action in the system.",
+    )
+    name: str | None = strawberry.field(
+        default=None,
+        description="The name of the action. This is used to identify the action in the system.",
+    )
+    description: str | None = strawberry.field(
+        default=None,
+        description="The description of the action. This can described the action and its purpose.",
+    )
+    arg_matches: list[PortMatchInput] | None = strawberry.field(
+        default=None,
+        description="The demands for the action args and returns. This is used to identify the demand in the system.",
+    )
+    return_matches: list[PortMatchInput] | None = strawberry.field(
+        default=None,
+        description="The demands for the action args and returns. This is used to identify the demand in the system.",
+    )
+    protocols: list[strawberry.ID] | None = strawberry.field(
+        default=None,
+        description="The protocols that the action has to implement. This is used to identify the demand in the system.",
+    )
+    force_arg_length: int | None = strawberry.field(
+        default=None,
+        description="Require that the action has a specific number of args. This is used to identify the demand in the system.",
+    )
+    force_return_length: int | None = strawberry.field(
+        default=None,
+        description="Require that the action has a specific number of returns. This is used to identify the demand in the system.",
+    )
+    optional: bool = strawberry.field(default=False, description="Whether the dependency is optional or not. If the dependency is optional, users can choose to not provide it")
+
+
+@pydantic.input(
     models.ImplementationInputModel,
     description="""A implementation is a blueprint for a action. It is composed of a definition, a list of dependencies, and a list of params.""",
 )
@@ -348,7 +437,7 @@ class ImplementationInput:
     definition: DefinitionInput = strawberry.field(
         description="The definition of the implementation. This is used to uniquely identify the implementation",
     )
-    dependencies: list[DependencyInput] = strawberry.field(
+    dependencies: list[ActionDependencyInput] = strawberry.field(
         default_factory=list,
         description="The dependencies of the implementation. This is used to create a dependency graph for the implementation",
     )
@@ -368,3 +457,50 @@ class ImplementationInput:
         default=None,
         description="The logo of the implementation. This is used to display the logo in the UI",
     )
+
+
+
+@pydantic.input(
+    models.StructureInputModel,
+    description="Which structures does the agent act upon in general",
+)
+class StructureInput:
+    key: str 
+    description: str | None = strawberry.field(default=None, description="Describe the structure a bit")
+    default_assign_widget: Optional["AssignWidgetInput"] = strawberry.field(default=None, description="Describe the structure a bit")
+    default_return_widget: Optional["ReturnWidgetInput"] = strawberry.field(default=None, description="Describe the structure a bit")
+    
+    
+    
+    
+@pydantic.input(
+    models.InterfaceInputModel,
+    description="Which interfaces does the agent declare",
+)
+class InterfaceInput:
+    key: str 
+    description: str | None = strawberry.field(default=None, description="Describe the structure a bit")
+    default_assign_widget: Optional["AssignWidgetInput"] = strawberry.field(default=None, description="Describe the structure a bit")
+    default_return_widget: Optional["ReturnWidgetInput"] = strawberry.field(default=None, description="Describe the structure a bit")
+    
+    
+   
+   
+@pydantic.input(models.DescriptorSchemaInputModel, description="A descriptor model")
+class DescriptorSchemaInput:
+    key: str = strawberry.field(description="The key of the descriptor. This is used to uniquely identify the descriptor")
+    description: str | None = strawberry.field(default=None, description="Describe the descriptor a bit")
+    
+
+    
+    
+@pydantic.input(
+    models.StructurePackageInputModel,
+    description="A structure schema model",
+)
+class StructurePackageInput:
+    key: str
+    description: str | None = strawberry.field(default=None, description="Describe the schema")
+    descriptors: list[DescriptorSchemaInput] | None = strawberry.field(default=None, description="The listed descriptors")
+    interfaces: list[InterfaceInput] | None = strawberry.field(default=None, description="The listed interfaces")
+    structures: list[StructureInput] | None = strawberry.field(default=None, description="The listed structures")

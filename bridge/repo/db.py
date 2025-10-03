@@ -18,7 +18,7 @@ async def adownload_logo(url: str) -> File:  # type: ignore
     return File(img_tmp)
 
 
-async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo) -> list[models.Flavour]:
+async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organization: models.Organization) -> list[models.Flavour]:
     """Parse a deployments config file and create models"""
 
     deps = []
@@ -29,6 +29,7 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo) -> li
 
             app, _ = await models.App.objects.aget_or_create(
                 identifier=manifest.identifier,
+                organization=organization,
             )
 
             release, _ = await models.Release.objects.aupdate_or_create(
@@ -47,6 +48,7 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo) -> li
             x, _ = await models.DockerImage.objects.aupdate_or_create(
                 image_string=deployment.image.image_string,
                 defaults=dict(build_at=deployment.image.build_at),
+                organization=organization,
             )
 
             flavour, _ = await models.Flavour.objects.aupdate_or_create(

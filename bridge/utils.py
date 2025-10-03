@@ -9,6 +9,7 @@ async def aget_backend_for_info(info: Info, instance_id: str) -> models.Backend:
         user=info.context.request.user,
         instance_id=instance_id,
         client=info.context.request.client,
+        organization=info.context.request.organization,
     )
 
     return backend
@@ -21,6 +22,7 @@ def get_backend_for_info(info: Info, instance_id: str) -> models.Backend:
         user=info.context.request.user,
         instance_id=instance_id,
         client=info.context.request.client,
+        organization=info.context.request.organization,
     )
 
     return backend

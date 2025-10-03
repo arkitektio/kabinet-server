@@ -22,8 +22,9 @@ class EffectInputModel(BaseModel):
     dependencies: list[str] | None = []
     message: str | None = None
     kind: enums.EffectKind
-    hook: str | None
-    ward: str | None
+    fade: bool = True
+    hook: str | None = None
+    ward: str | None = None
 
 
 class ChoiceInputModel(BaseModel):
@@ -53,8 +54,8 @@ class AssignWidgetInputModel(BaseModel):
     hook: str | None = None
     ward: str | None = None
     fallback: Optional["AssignWidgetInputModel"] = None
-    filters: list["PortInputModel"] | None =  None
-    dependencies: list[str] | None = [] 
+    filters: list["PortInputModel"] | None = None
+    dependencies: list[str] | None = []
 
 
 class ReturnWidgetInputModel(BaseModel):
@@ -68,6 +69,14 @@ class ReturnWidgetInputModel(BaseModel):
     hook: str | None = None
     ward: str | None = None
 
+
+class DescriptorInputModel(BaseModel):
+    key: str
+    value: Any
+
+class DescriptorSchemaInputModel(BaseModel):
+    key: str
+    description: str | None = None
 
 class PortInputModel(BaseModel):
     validators: list[ValidatorInputModel] | None = None
@@ -83,10 +92,10 @@ class PortInputModel(BaseModel):
     choices: list[ChoiceInputModel] | None = None
     assign_widget: Optional["AssignWidgetInputModel"] = None
     return_widget: Optional["ReturnWidgetInputModel"] = None
+    descriptors: list[DescriptorInputModel] | None = None
 
     @model_validator(mode="after")
     def check_children_for_port(cls, self) -> Self:
-
         if self.kind == enums.PortKind.LIST and (self.children is None or len(self.children) != 1):
             raise ValueError("Port of kind LIST must have exactly on children")
         return self
@@ -98,6 +107,28 @@ class PortGroupInputModel(BaseModel):
     description: str | None
     effects: list[EffectInputModel] | None
     ports: list[str]
+
+
+class PortMatchInputModel(BaseModel):
+    at: int | None = None
+    key: str | None = None
+    kind: enums.PortKind | None = None
+    identifier: str | None = None
+    nullable: bool | None = None
+    children: Optional[list["PortMatchInputModel"]] = None
+
+
+class ActionDependencyInputModel(BaseModel):
+    key: str
+    hash: str | None = None
+    name: str | None = None
+    description: str | None = None
+    arg_matches: list[PortMatchInputModel] | None = None
+    return_matches: list[PortMatchInputModel] | None = None
+    protocols: list[str] | None = None
+    force_arg_length: int | None = None
+    force_return_length: int | None = None
+    optional: bool = False
 
 
 class DefinitionInputModel(BaseModel):
@@ -116,6 +147,28 @@ class DefinitionInputModel(BaseModel):
     is_dev: bool = False
     logo: str | None = None
 
+    @model_validator(mode="after")
+    def check_dependencies(cls, self) -> Self:
+        """Ensure that all dependencies in ports are valid."""
+        all_arg_keys = [port.key for port in self.args]
+        all_return_keys = [port.key for port in self.returns]
+
+        for arg in self.args:
+            print("Checking port:", arg.key)
+            for validator in arg.validators or []:
+                if validator.dependencies:
+                    for dep in validator.dependencies:
+                        if dep not in all_arg_keys and dep not in all_return_keys:
+                            raise ValueError(f"Validator {validator.label} in port {arg.key} has invalid dependency: {dep}")
+
+            for effect in arg.effects or []:
+                if effect.dependencies:
+                    for dep in effect.dependencies:
+                        if dep not in all_arg_keys and dep not in all_return_keys:
+                            raise ValueError(f"Effect {effect.function} in port {arg.key} has invalid dependency: {dep}")
+
+        return self
+
 
 class DependencyInputModel(BaseModel):
     action: str
@@ -128,12 +181,48 @@ class DependencyInputModel(BaseModel):
 
 class ImplementationInputModel(BaseModel):
     definition: DefinitionInputModel
-    dependencies: list[DependencyInputModel]
+    dependencies: list[ActionDependencyInputModel]
     interface: str
     params: dict[str, Any] | None = None
     instance_id: str | None = None
     dynamic: bool = False
     logo: str | None = None
+
+
+
+class InterfaceInputModel(BaseModel):
+    key: str
+    description: str | None = None
+    default_widget: Optional[AssignWidgetInputModel] = None
+    default_return_widget: Optional[ReturnWidgetInputModel] = None
+
+
+
+class StructureInputModel(BaseModel):
+    key: str
+    description: str | None  = None
+    implements: list[str] = None
+    descriptors: list[str] = None
+    default_widget: Optional[AssignWidgetInputModel] = None
+    default_return_widget: Optional[ReturnWidgetInputModel] = None
+
+
+class StructurePackageInputModel(BaseModel):
+    key: str 
+    version: str = "0.1.0"
+    description: str | None = None
+    interfaces: list[InterfaceInputModel] | None = None
+    structures: list[StructureInputModel] | None  = None
+    descriptors: list[DescriptorSchemaInputModel] | None = None
+
+
+
+
+
+
+
+
+
 
 
 AssignWidgetInputModel.model_rebuild()

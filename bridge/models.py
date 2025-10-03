@@ -13,20 +13,23 @@ from authentikate.models import Client, Organization
 
 class Repo(models.Model):
     name = models.CharField(max_length=400)
-    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now=True)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="repos", null=True, blank=True)
 
     def __str__(self) -> str:
         return self.name
+    
+    class Config:
+        constraints = [models.UniqueConstraint(fields=["name", "organization"], name="Unique repo for org")]
 
 
 class GithubRepo(Repo):
+    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
     repo = models.CharField(max_length=4000)
     user = models.CharField(max_length=4000)
     branch = models.CharField(max_length=4000)
     updated_at = models.DateTimeField(auto_now=True)
     added_at = models.DateTimeField(auto_now_add=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="repos")
 
     def __str__(self) -> str:
         return f"{self.user}/{self.repo}:{self.branch}"
@@ -52,11 +55,16 @@ class GithubRepo(Repo):
         return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt_next/deployments.yaml"
 
     class Config:
-        constraints = [models.UniqueConstraint(fields=["repo", "user", "branch"], name="Unique repo for url")]
+        constraints = [models.UniqueConstraint(fields=["repo", "user", "branch", "organization"], name="Unique repo for url")]
 
 
 class App(models.Model):
     identifier = models.CharField(max_length=4000)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="apps")
+    
+    
+    class Config:
+        constraints = [models.UniqueConstraint(fields=["identifier", "organization"], name="Unique app for org")]
 
 
 class S3Store(models.Model):
@@ -64,6 +72,7 @@ class S3Store(models.Model):
     key = models.CharField(max_length=1000)
     bucket = models.CharField(max_length=1000)
     populated = models.BooleanField(default=False)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
 
 
 class MediaStore(S3Store):
@@ -115,6 +124,7 @@ class DockerImage(models.Model):
     build_at = models.DateTimeField(null=True, blank=True)
     vetted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
 
 
 class Flavour(models.Model):
@@ -176,7 +186,6 @@ class Definition(models.Model):
         help_text="The hash of the Action (completely unique)",
         unique=True,
     )
-
     collections = models.ManyToManyField(
         Collection,
         related_name="actions",
@@ -219,7 +228,6 @@ class Definition(models.Model):
         unique=True,
     )
     defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
-
     args = models.JSONField(default=list, help_text="Inputs for this Action")
     returns = models.JSONField(default=list, help_text="Outputs for this Action")
 
@@ -228,6 +236,7 @@ class Definition(models.Model):
 
 
 class Backend(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="backends")
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     instance_id = models.CharField(max_length=1000)

@@ -4,7 +4,7 @@ from typing import List, Optional
 import strawberry
 import strawberry.django
 import strawberry_django
-from authentikate.strawberry.types import Client, User
+from authentikate.strawberry.types import Client, User, Organization
 from bridge import enums, filters, models, scalars, types
 from bridge.repo import selectors
 from django.contrib.auth import get_user_model
@@ -15,6 +15,17 @@ from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
 from strawberry import auto
 from strawberry.experimental import pydantic
+
+
+
+def build_prescoped_queryset(info, queryset, field="organization"):
+    print(info)
+    if info.variable_values.get("filters", {}).get("scope") is None:
+        queryset = queryset.filter(**{field: info.context.request.organization})
+        return queryset
+    
+    else:
+        raise Exception("Custom scopes not implemented yet")
 
 
 @strawberry_django.type(
@@ -32,6 +43,11 @@ class GithubRepo:
     flavours: List["Flavour"]
     updated_at: datetime.datetime
     added_at: datetime.datetime
+    organization: Organization
+    
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset, field="organization")
 
 
 @strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")

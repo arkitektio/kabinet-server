@@ -8,6 +8,7 @@ from bridge.repo.models import KabinetConfigFile
 from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
 import re
+from authentikate.models import Organization, User
 
 
 logger = logging.getLogger(__name__)
@@ -104,7 +105,7 @@ def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str,
 
 
 async def _create_github_repo(
-    input: inputs.CreateGithubRepoInput, creator
+    input: inputs.CreateGithubRepoInput, organization: Organization,  creator: User,
 ) -> models.GithubRepo:
 
     user, repo, branch, name = infer_repo_info(input)
@@ -119,6 +120,7 @@ async def _create_github_repo(
         user=user,
         branch=branch,
         repo=repo,
+        organization=organization,
         defaults=dict(
             name=name,
             creator=creator,
@@ -126,7 +128,7 @@ async def _create_github_repo(
     )
 
     try:
-        await parse_config(config, repo)
+        await parse_config(config, repo, organization)
     except KeyError as e:
         logger.error(e, exc_info=True)
         pass
@@ -139,7 +141,7 @@ async def create_github_repo(
     info: Info, input: inputs.CreateGithubRepoInput
 ) -> types.GithubRepo:
 
-    return await _create_github_repo(input, info.context.request.user)
+    return await _create_github_repo(input, info.context.request.organization, info.context.request.user)
 
 
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:
