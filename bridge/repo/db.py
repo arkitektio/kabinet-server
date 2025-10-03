@@ -48,7 +48,7 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organ
             x, _ = await models.DockerImage.objects.aupdate_or_create(
                 image_string=deployment.image.image_string,
                 defaults=dict(build_at=deployment.image.build_at),
-                organization=organization,
+                organization=organization
             )
 
             flavour, _ = await models.Flavour.objects.aupdate_or_create(

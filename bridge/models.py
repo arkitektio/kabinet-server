@@ -130,7 +130,7 @@ class DockerImage(models.Model):
 class Flavour(models.Model):
     release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="flavours")
     name = models.CharField(max_length=400)
-    deployment_id = models.CharField(max_length=400, unique=True, default=uuid.uuid4)
+    deployment_id = models.CharField(max_length=400, default=uuid.uuid4)
     flavour = models.CharField(max_length=400, default="vanilla")
     selectors = models.JSONField(default=list)
     repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="flavours")
