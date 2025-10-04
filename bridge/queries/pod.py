@@ -21,4 +21,4 @@ def pod_for_agent(client_id: strawberry.ID, instance_id: strawberry.ID) -> types
 async def my_pod_at(info: Info, instance_id: strawberry.ID, local_id: strawberry.ID) -> types.Pod:
     backend = await aget_backend_for_info(info, instance_id)
 
-    return await models.Pod.objects.aget(backend=backend, local_id=local_id)
+    return await models.Pod.objects.aget(backend=backend, pod_id=local_id)
