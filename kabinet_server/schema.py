@@ -18,36 +18,16 @@ from bridge.repo.types import selector_types
 class Query:
     """The root query type"""
 
-    github_repo: types.GithubRepo = strawberry_django.field(
-        resolver=queries.github_repo, description="Return all dask clusters"
-    )
-    definition: types.Definition = strawberry_django.field(
-        resolver=queries.definition, description="Return all dask clusters"
-    )
-    release: types.Release = strawberry_django.field(
-        resolver=queries.release, description="Return all dask clusters"
-    )
-    resource: types.Resource = strawberry_django.field(
-        resolver=queries.resource, description="Return all dask clusters"
-    )
-    flavour: types.Flavour = strawberry_django.field(
-        resolver=queries.flavour, description="Return all dask clusters"
-    )
-    deployment: types.Deployment = strawberry_django.field(
-        resolver=queries.deployment, description="Return all dask clusters"
-    )
-    backend: types.Backend = strawberry_django.field(
-        resolver=queries.backend, description="Return all dask clusters"
-    )
-    pod: types.Pod = strawberry_django.field(
-        resolver=queries.pod, description="Return all dask clusters"
-    )
-    pod_for_agent = strawberry_django.field(
-        resolver=queries.pod_for_agent, description="Return the pod for an agent"
-    )
-    me: types.User = strawberry_django.field(
-        resolver=queries.me, description="Return the currently logged in user"
-    )
+    github_repo: types.GithubRepo = strawberry_django.field(resolver=queries.github_repo, description="Return all dask clusters")
+    definition: types.Definition = strawberry_django.field(resolver=queries.definition, description="Return all dask clusters")
+    release: types.Release = strawberry_django.field(resolver=queries.release, description="Return all dask clusters")
+    resource: types.Resource = strawberry_django.field(resolver=queries.resource, description="Return all dask clusters")
+    flavour: types.Flavour = strawberry_django.field(resolver=queries.flavour, description="Return all dask clusters")
+    deployment: types.Deployment = strawberry_django.field(resolver=queries.deployment, description="Return all dask clusters")
+    backend: types.Backend = strawberry_django.field(resolver=queries.backend, description="Return all dask clusters")
+    pod: types.Pod = strawberry_django.field(resolver=queries.pod, description="Return all dask clusters")
+    pod_for_agent = strawberry_django.field(resolver=queries.pod_for_agent, description="Return the pod for an agent")
+    me: types.User = strawberry_django.field(resolver=queries.me, description="Return the currently logged in user")
     match_flavour: types.Flavour = strawberry_django.field(
         resolver=queries.match_flavour,
         description="Return the currently logged in user",
@@ -61,6 +41,8 @@ class Query:
     pods: List[types.Pod] = strawberry_django.field()
 
     backends: List[types.Backend] = strawberry_django.field()
+
+    my_pod_at = strawberry_django.field(resolver=queries.my_pod_at, description="Let a backend discover its own pods")
 
 
 @strawberry.type
@@ -139,8 +121,6 @@ schema = strawberry.Schema(
     mutation=Mutation,
     subscription=Subscription,
     schema_directives=[unionElementOf],
-    extensions=[DjangoOptimizerExtension,AuthentikateExtension, KoherentExtension],
-    types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector]
-    + interface_types
-    + selector_types,
+    extensions=[DjangoOptimizerExtension, AuthentikateExtension, KoherentExtension],
+    types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector] + interface_types + selector_types,
 )
