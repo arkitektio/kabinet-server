@@ -17,13 +17,12 @@ from strawberry import auto
 from strawberry.experimental import pydantic
 
 
-
 def build_prescoped_queryset(info, queryset, field="organization"):
     print(info)
     if info.variable_values.get("filters", {}).get("scope") is None:
         queryset = queryset.filter(**{field: info.context.request.organization})
         return queryset
-    
+
     else:
         raise Exception("Custom scopes not implemented yet")
 
@@ -44,7 +43,7 @@ class GithubRepo:
     updated_at: datetime.datetime
     added_at: datetime.datetime
     organization: Organization
-    
+
     @classmethod
     def get_queryset(cls, queryset, info: Info):
         return build_prescoped_queryset(info, queryset, field="organization")
@@ -258,6 +257,7 @@ class Backend:
     id: auto
     user: User
     client: Client
+    organization: Organization
     name: str
     kind: str
     pods: List["Pod"]
@@ -267,6 +267,10 @@ class Backend:
     @strawberry_django.field()
     def client_id(self) -> str:
         return self.client.client_id
+
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset, field="organization")
 
 
 @strawberry_django.type(
