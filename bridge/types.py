@@ -15,6 +15,7 @@ from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
 from strawberry import auto
 from strawberry.experimental import pydantic
+from .type_gen import create_stats_type
 
 
 def build_prescoped_queryset(info, queryset, field="organization"):
@@ -25,6 +26,13 @@ def build_prescoped_queryset(info, queryset, field="organization"):
 
     else:
         raise Exception("Custom scopes not implemented yet")
+
+
+def build_prescoper(field="organization"):
+    def prescoper(queryset, info):
+        return build_prescoped_queryset(info, queryset, field=field)
+
+    return prescoper
 
 
 @strawberry_django.type(
@@ -47,6 +55,17 @@ class GithubRepo:
     @classmethod
     def get_queryset(cls, queryset, info: Info):
         return build_prescoped_queryset(info, queryset, field="organization")
+
+
+GithubRepoStats, GithubRepoStatsResolver = create_stats_type(
+    model=models.GithubRepo,
+    filters=filters.GithubRepoFilter,
+    allowed_fields={
+        "created_at": "created_at",
+    },
+    allowed_datetime_fields={"created_at": "created_at"},
+    prescope=build_prescoper(field="organization"),
+)
 
 
 @strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")

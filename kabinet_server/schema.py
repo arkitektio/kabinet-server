@@ -44,6 +44,12 @@ class Query:
 
     my_pod_at = strawberry_django.field(resolver=queries.my_pod_at, description="Let a backend discover its own pods")
 
+    # Stats
+    github_repo_stats: types.GithubRepoStats = strawberry_django.field(
+        resolver=types.GithubRepoStatsResolver,
+        description="Stats about github repos",
+    )
+
 
 @strawberry.type
 class Mutation:
