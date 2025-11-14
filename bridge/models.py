@@ -17,7 +17,7 @@ class Repo(models.Model):
 
     def __str__(self) -> str:
         return self.name
-    
+
     class Config:
         constraints = [models.UniqueConstraint(fields=["name", "organization"], name="Unique repo for org")]
 
@@ -47,6 +47,10 @@ class GithubRepo(Repo):
         return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt-next/manifest.yaml"
 
     @property
+    def issue_url(self) -> str:
+        return f"https://github.com/{self.user}/{self.repo}/issues/new"
+
+    @property
     def kabinet_url(self) -> str:
         return self.build_kabinet_url(self.user, self.repo, self.branch)
 
@@ -61,8 +65,7 @@ class GithubRepo(Repo):
 class App(models.Model):
     identifier = models.CharField(max_length=4000)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="apps")
-    
-    
+
     class Config:
         constraints = [models.UniqueConstraint(fields=["identifier", "organization"], name="Unique app for org")]
 

@@ -52,6 +52,14 @@ class GithubRepo:
     added_at: datetime.datetime
     organization: Organization
 
+    @strawberry_django.field()
+    def issue_url(self) -> str:
+        return self.issue_url
+
+    @strawberry_django.field()
+    def url(self) -> str:
+        return f"https://github.com/{self.user}/{self.repo}"
+
     @classmethod
     def get_queryset(cls, queryset, info: Info):
         return build_prescoped_queryset(info, queryset, field="organization")
@@ -192,6 +200,7 @@ class Flavour:
     release: Release
     deployments: List[Deployment]
     definitions: List["Definition"]
+    repo: GithubRepo
 
     manifest: scalars.UntypedParams
 
