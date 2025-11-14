@@ -200,9 +200,11 @@ class Flavour:
     release: Release
     deployments: List[Deployment]
     definitions: List["Definition"]
-    repo: GithubRepo
-
     manifest: scalars.UntypedParams
+
+    @strawberry_django.field
+    def repo(self, info) -> GithubRepo:
+        return self.repo.githubrepo
 
     @strawberry_django.field()
     def selectors(self, info: Info) -> List[types.Selector]:
