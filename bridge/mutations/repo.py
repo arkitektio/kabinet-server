@@ -26,13 +26,9 @@ async def adownload_logo(url: str) -> File:
 
 
 async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
-
     async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}) as session:
         async with session.get(kabinet_url) as response:
-
-            assert (
-                response.status == 200
-            ), f"This seems to be not an Arkitekt Repository. Failed to fetch kabinet.yml."
+            assert response.status == 200, f"This seems to be not an Arkitekt Repository. Failed to fetch kabinet.yml."
 
             z = await response.text()
 
@@ -51,7 +47,7 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     config = await aget_kabinet_config(repo.kabinet_url)
 
     try:
-        await parse_config(config, repo)
+        await parse_config(config, repo, organization=info.context.request.organization)
     except KeyError as e:
         logger.error(e, exc_info=True)
         pass
@@ -105,9 +101,10 @@ def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str,
 
 
 async def _create_github_repo(
-    input: inputs.CreateGithubRepoInput, organization: Organization,  creator: User,
+    input: inputs.CreateGithubRepoInput,
+    organization: Organization,
+    creator: User,
 ) -> models.GithubRepo:
-
     user, repo, branch, name = infer_repo_info(input)
 
     print(user, repo, branch, name)
@@ -137,10 +134,7 @@ async def _create_github_repo(
     return repo
 
 
-async def create_github_repo(
-    info: Info, input: inputs.CreateGithubRepoInput
-) -> types.GithubRepo:
-
+async def create_github_repo(info: Info, input: inputs.CreateGithubRepoInput) -> types.GithubRepo:
     return await _create_github_repo(input, info.context.request.organization, info.context.request.user)
 
 
@@ -151,7 +145,7 @@ async def rescan_repos(info: Info) -> list[types.GithubRepo]:
         config = await aget_kabinet_config(repo.kabinet_url)
 
         try:
-            await parse_config(config, repo)
+            await parse_config(config, repo, organization=info.context.request.organization)
         except KeyError as e:
             logger.error(e, exc_info=True)
             pass
