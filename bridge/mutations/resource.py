@@ -1,11 +1,10 @@
 from kante.types import Info
 from bridge import types, inputs, models
 from bridge.utils import aget_backend_for_info
+import strawberry
 
 
-async def declare_resource(
-    info: Info, input: inputs.DeclareResourceInput
-) -> types.Resource:
+async def declare_resource(info: Info, input: inputs.DeclareResourceInput) -> types.Resource:
     """Create a new dask cluster on a bridge server"""
 
     backend = await models.Backend.objects.aget(id=input.backend)
@@ -14,7 +13,7 @@ async def declare_resource(
         backend=backend,
         resource_id=input.local_id,
         defaults={
-            "qualifiers": input.qualifiers,
+            "qualifiers": [strawberry.asdict(x) for x in input.qualifiers] if input.qualifiers else None,
             "name": input.name,
         },
     )
