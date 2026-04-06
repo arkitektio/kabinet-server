@@ -299,12 +299,12 @@ class Definition:
     defined_at: datetime.datetime
 
     @strawberry_django.field()
-    def args(self) -> list[rtypes.Port]:
-        return [rmodels.PortModel(**i) for i in self.args]
+    def args(self) -> list[rtypes.ArgPort]:
+        return [rmodels.ArgPortModel(**i) for i in self.args]
 
     @strawberry_django.field()
-    def returns(self) -> list[rtypes.Port]:
-        return [rmodels.PortModel(**i) for i in self.returns]
+    def returns(self) -> list[rtypes.ReturnPort]:
+        return [rmodels.ReturnPortModel(**i) for i in self.returns]
 
 
 @strawberry_django.type(models.LogDump, description="The logs of a pod")

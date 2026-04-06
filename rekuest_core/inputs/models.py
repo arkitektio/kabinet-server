@@ -54,7 +54,7 @@ class AssignWidgetInputModel(BaseModel):
     hook: str | None = None
     ward: str | None = None
     fallback: Optional["AssignWidgetInputModel"] = None
-    filters: list["PortInputModel"] | None = None
+    filters: list["ArgPortInputModel"] | None = None
     dependencies: list[str] | None = []
 
 
@@ -70,14 +70,27 @@ class ReturnWidgetInputModel(BaseModel):
     ward: str | None = None
 
 
-class DescriptorInputModel(BaseModel):
+class RequiresInputModel(BaseModel):
     key: str
+    operator: enums.RequiresOperator
+    value: Any
+
+
+class ProvidesInputModel(BaseModel):
+    key: str
+    operator: enums.ProvidesOperator
     value: Any
 
 
 class DescriptorSchemaInputModel(BaseModel):
     key: str
     description: str | None = None
+
+
+class OptimisticInputModel(BaseModel):
+    state: str
+    path: str
+    accessor: str | None = None
 
 
 class PortInputModel(BaseModel):
@@ -92,9 +105,29 @@ class PortInputModel(BaseModel):
     default: Any | None = None
     children: list["PortInputModel"] | None = None
     choices: list[ChoiceInputModel] | None = None
-    assign_widget: Optional["AssignWidgetInputModel"] = None
-    return_widget: Optional["ReturnWidgetInputModel"] = None
-    descriptors: list[DescriptorInputModel] | None = None
+
+    @model_validator(mode="after")
+    def check_children_for_port(cls, self) -> Self:
+        if self.kind == enums.PortKind.LIST and (self.children is None or len(self.children) != 1):
+            raise ValueError("Port of kind LIST must have exactly on children")
+        return self
+
+
+class ArgPortInputModel(PortInputModel):
+    default: Any | None = None
+    widget: Optional["AssignWidgetInputModel"] = None
+    requires: list[RequiresInputModel] | None = None
+
+    @model_validator(mode="after")
+    def check_children_for_port(cls, self) -> Self:
+        if self.kind == enums.PortKind.LIST and (self.children is None or len(self.children) != 1):
+            raise ValueError("Port of kind LIST must have exactly on children")
+        return self
+
+
+class ReturnPortInputModel(PortInputModel):
+    widget: Optional["ReturnWidgetInputModel"] = None
+    provides: list[ProvidesInputModel] | None = None
 
     @model_validator(mode="after")
     def check_children_for_port(cls, self) -> Self:
@@ -122,8 +155,7 @@ class PortMatchInputModel(BaseModel):
 
 class ActionDependencyInputModel(BaseModel):
     key: str
-    hash: str | None = None
-    name: str | None = None
+    version: str | None = None
     description: str | None = None
     arg_matches: list[PortMatchInputModel] | None = None
     return_matches: list[PortMatchInputModel] | None = None
@@ -134,17 +166,38 @@ class ActionDependencyInputModel(BaseModel):
     allow_inactive: bool = True
 
 
+class AgentDependencyInputModel(BaseModel):
+    key: str
+    app: str | None = None
+    version: str | None = None
+
+    description: str | None = None
+    optional: bool = False
+
+    # Filters for selecting which instances of the agent are valid for this dependency
+    action_demands: list[ActionDependencyInputModel] | None = None
+    auto_resolvable: bool = False
+
+    min_viable_instances: int | None = None
+    prefered_instances: int | None = None
+    assign_policy: enums.AssignPolicy = enums.AssignPolicy.BALANCED
+
+
 class DefinitionInputModel(BaseModel):
     """A definition for a implementation"""
 
+    key: str
+    version: str = "1"
     description: str = "No description provided"
     collections: list[str] = Field(default_factory=list)
+    package: str | None = None
     name: str
     stateful: bool = False
     port_groups: list[PortGroupInputModel] = Field(default_factory=list)
-    args: list[PortInputModel] = Field(default_factory=list)
-    returns: list[PortInputModel] = Field(default_factory=list)
+    args: list[ArgPortInputModel] = Field(default_factory=list)
+    returns: list[ReturnPortInputModel] = Field(default_factory=list)
     kind: enums.ActionKind
+    tests: ActionDependencyInputModel | None = Field(default=None)
     is_test_for: list["str"] = Field(default_factory=list)
     interfaces: list[str] = Field(default_factory=list)
     is_dev: bool = False
@@ -157,7 +210,6 @@ class DefinitionInputModel(BaseModel):
         all_return_keys = [port.key for port in self.returns]
 
         for arg in self.args:
-            print("Checking port:", arg.key)
             for validator in arg.validators or []:
                 if validator.dependencies:
                     for dep in validator.dependencies:
@@ -184,12 +236,18 @@ class DependencyInputModel(BaseModel):
 
 class ImplementationInputModel(BaseModel):
     definition: DefinitionInputModel
-    dependencies: list[ActionDependencyInputModel]
+    dependencies: list[AgentDependencyInputModel] = Field(default_factory=list)
     interface: str
     params: dict[str, Any] | None = None
     instance_id: str | None = None
     dynamic: bool = False
     logo: str | None = None
+    locks: list[str] | None = None
+
+
+class LockSchemaInputModel(BaseModel):
+    key: str
+    description: str | None = None
 
 
 class InterfaceInputModel(BaseModel):

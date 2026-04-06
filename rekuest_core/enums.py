@@ -57,7 +57,8 @@ class ActionScope(str, Enum):
 
 
 @strawberry.enum(description="The operator for matching descriptors.")
-class DescriptorOperator(str, Enum):
+class RequiresOperator(str, Enum):
+    EXISTS = "EXISTS"
     LTE = "LTE"
     GTE = "GTE"
     EQUALS = "EQUALS"
@@ -65,4 +66,24 @@ class DescriptorOperator(str, Enum):
     NOT_EQUALS = "NOT_EQUALS"
     IN = "IN"
     NOT_IN = "NOT_IN"
+
+
+@strawberry.enum(description="The operator for matching descriptors.")
+class ProvidesOperator(str, Enum):
     EXISTS = "EXISTS"
+    LTE = "LTE"
+    GTE = "GTE"
+    EQUALS = "EQUALS"
+    CONTAINS = "CONTAINS"
+    NOT_EQUALS = "NOT_EQUALS"
+    IN = "IN"
+    NOT_IN = "NOT_IN"
+
+
+@strawberry.enum
+class AssignPolicy(str, Enum):
+    AUTOMATIC = "AUTOMATIC"
+    BALANCED = "BALANCED"
+    ROUND_ROBIN = "ROUND_ROBIN"
+    LEAST_BUSY = "LEAST_BUSY"
+    FASTEST_RESPONSE = "FASTEST_RESPONSE"
