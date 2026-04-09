@@ -1,15 +1,9 @@
 import datetime
 from typing import List, Optional
 from strawberry.experimental import pydantic
-from rekuest_core.inputs.types import ImplementationInput
+from rekuest_core.inputs.types import ImplementationInput, StateImplementationInput, LockImplementationInput
 import strawberry
-from .models import (
-    DockerImageModel,
-    AppImageInputModel,
-    ManifestInputModel,
-    InspectionInputModel,
-    RequirementInputModel,
-)
+from .models import DockerImageModel, AppImageInputModel, ManifestInputModel, InspectionInputModel, RequirementInputModel
 from ..directives import unionElementOf
 
 
@@ -65,6 +59,8 @@ class RequirementInput:
 
 @pydantic.input(InspectionInputModel)
 class InspectionInput:
+    locks: List[LockImplementationInput] = strawberry.field(description="The locks are a list of lock implementations that the app provides")
+    states: List[StateImplementationInput] = strawberry.field(description="The states are a list of state implementations that the app provides")
     implementations: List[ImplementationInput] = strawberry.field(description="The implementations are a list of functionality the the app will provide")
     requirements: List[RequirementInput] = strawberry.field(description="The requirements are a list of services that the app needs to connect to (think: mikro, rekuest, ettc..)")
 
