@@ -238,6 +238,23 @@ class Definition(models.Model):
         return f"{self.name}"
 
 
+class StateDefinition(models.Model):
+    """StateDefinitions are used to define the state that an Action can have. They are used to define the state that an Action can have. They are used to define the state that an Action can have."""
+
+    name = models.CharField(max_length=1000, help_text="The cleartext name of this State")
+    description = models.TextField(help_text="A description for the State")
+    meta = models.JSONField(null=True, blank=True, help_text="Meta data about this State")
+    interfaces = models.JSONField(default=list, help_text="Intercae that we use to interpret the meta data")
+    protocols = models.ManyToManyField(
+        Protocol,
+        related_name="states",
+        blank=True,
+        help_text="The protocols this State implements (e.g. Predicate)",
+    )
+    ports = models.JSONField(default=list, help_text="Inputs for this Action")
+    defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
+
+
 class Backend(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="backends")
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
