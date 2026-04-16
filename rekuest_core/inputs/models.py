@@ -62,6 +62,9 @@ class AssignWidgetInputModel(BaseModel):
     filters: list["ArgPortInputModel"] | None = None
     dependencies: list[str] | None = []
     dependency: str | None = None
+    target_dependency: str | None = None
+    target_action: str | None = None
+    target_port: str | None = None
     state_path: str | None = None
     state_accessors: list[StateAccessorInputModel] | None = None
 
@@ -201,6 +204,7 @@ class AgentDependencyInputModel(BaseModel):
     auto_resolvable: bool = False
 
     min_viable_instances: int | None = None
+    max_viable_instances: int | None = None
     prefered_instances: int | None = None
     assign_policy: enums.AssignPolicy = enums.AssignPolicy.BALANCED
 
