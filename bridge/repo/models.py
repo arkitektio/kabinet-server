@@ -5,7 +5,7 @@ import datetime
 import semver
 from bridge.repo.selectors import Selector
 import uuid
-from rekuest_core.inputs.models import DefinitionInputModel, ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel
+from rekuest_core.inputs.models import DefinitionInputModel, ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel
 from typing import Literal, Union
 
 
@@ -69,6 +69,7 @@ class InspectionInputModel(BaseModel):
     locks: List[LockImplementationInputModel] = Field(alias="locks")
     implementations: List[ImplementationInputModel] = Field(alias="implementations")
     states: List[StateImplementationInputModel] = Field(alias="states")
+    bloks: list[BlokImplementationInputModel] = Field(alias="bloks")
     requirements: List[RequirementInputModel]
 
 

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, List, Optional
 from rekuest_core import enums
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Self
@@ -214,7 +214,7 @@ class DefinitionInputModel(BaseModel):
 
     key: str
     version: str = "1"
-    description: str = "No description provided"
+    description: str | None = None
     collections: list[str] = Field(default_factory=list)
     package: str | None = None
     name: str
@@ -260,15 +260,31 @@ class DependencyInputModel(BaseModel):
     viable_instances: int | None
 
 
+class WindowInputModel(BaseModel):
+    window_function: str
+    label: str | None = None
+
+
+class TrackInputModel(BaseModel):
+    dependency_key: str | None = None
+    state_key: str
+    value_key: str
+    label: str | None = None
+    description: str | None = None
+    windows: list[WindowInputModel] | None = None
+
+
 class ImplementationInputModel(BaseModel):
     definition: DefinitionInputModel
     dependencies: list[AgentDependencyInputModel] = Field(default_factory=list)
+    tracks: list[TrackInputModel] | None = None
     interface: str
     params: dict[str, Any] | None = None
     instance_id: str | None = None
     dynamic: bool = False
     logo: str | None = None
     locks: list[str] | None = None
+    manipulates: list[str] | None = None
     extension: str | None = None
 
 
@@ -288,6 +304,11 @@ class LockDefinitionInputModel(BaseModel):
 
 
 class LockImplementationInputModel(BaseModel):
+    key: str
+    definition: LockDefinitionInputModel
+
+
+class BlokImplementationInputModel(BaseModel):
     key: str
     definition: LockDefinitionInputModel
 
@@ -317,6 +338,108 @@ class StructurePackageInputModel(BaseModel):
     interfaces: list[InterfaceInputModel] | None = None
     structures: list[StructureInputModel] | None = None
     descriptors: list[DescriptorSchemaInputModel] | None = None
+
+
+class DynamicValueInputModel(BaseModel):
+    """Base model for a dynamic value input, which can reference a variable in a Blok state instance.
+
+    Attributes:
+        literal: An optional static fallback literal value, passed as a serialized string or JSON primitive.
+    """
+
+    path: str | None = None
+
+
+class AgentCallInputModel(BaseModel):
+    """Base model for defining a callback that routes user interactions directly to an Arkitekt Agent via Rekuest.
+
+    Attributes:
+        target_dependency_key: The abstract agent dependency key declared in the Blok manifest (e.g., 'stage_dep').
+        operation_name: The target function name registered on that specific agent's worker thread loop.
+        arguments: An optional list of key-value arguments compiled for the target agent call.
+    """
+
+    dependency: str
+    operation: str
+    arguments: Optional[List["ActionArgumentInputModel"]] = None
+
+
+class UtilCallInputModel(BaseModel):
+    operation: str
+    arguments: Optional[List["ActionArgumentInputModel"]] = None
+
+
+class ActionArgumentInputModel(BaseModel):
+    """Base model for an action argument input, which can be a static literal or a dynamic state reference.
+
+    Attributes:
+        key: The argument property name.
+        value_literal: An optional static literal string value if not dynamically bound.
+        value_path: An optional JSON Pointer referencing the shared Blok state to inject into this argument slot dynamically.
+    """
+
+    key: str | None = None
+    value_literal: Optional[str | int | float | dict | list] = None
+    value_path: Optional[str] = None
+
+    # Separated nested calls
+    agent_call: Optional["AgentCallInputModel"] = None
+    util_call: Optional["UtilCallInputModel"] = None
+
+    value_list: Optional[List["ActionArgumentInputModel"]] = None
+    value_dict: Optional[List["ActionArgumentInputModel"]] = None
+
+
+# ============================================================================
+# 2. Abstract Component Property Bindings
+# ============================================================================
+class ComponentPropInputModel(BaseModel):
+    """Base model for a single key-value prop configuration for a component layout node.
+
+    Attributes:
+        key: The prop key name matching the target UI catalog constraint.
+        static_value: An optional raw scalar or JSON-stringified literal configuration parameter (e.g., '40x' or True).
+        dynamic_value: An optional reactive state data-binding rule.
+        agent_action: An optional imperative interactive network action callback loop.
+    """
+
+    key: str
+    static_value: Optional[str | int | float | dict] = None
+    dynamic_value: Optional[DynamicValueInputModel] = None
+    declares_value: Optional[str] = None  # For declaring a new variable in the Blok state from this prop's value
+
+    # Separated top-level callbacks
+    agent_call: Optional["AgentCallInputModel"] = None
+    util_call: Optional["UtilCallInputModel"] = None
+
+
+# 3. The Unified Abstract Component Node Input
+# ============================================================================
+class ComponentNodeInputModel(BaseModel):
+    """Base model for an abstract structural visual element inside a Blok blueprint manifest.
+
+    Attributes:
+        id: Unique structural string identifying this node instance inside the flat workspace layout tree.
+        component: The type indicator token matching your Electron app's registered catalog specs (e.g. 'Slider').
+        props: The collection of static values, state pointers, or action endpoints assigned to this component.
+        children: Flat adjacency pointer list mapping out IDs nested inside this specific component layer.
+    """
+
+    id: str
+    component: str
+    props: list[ComponentPropInputModel] | None = None
+    children: list["ComponentNodeInputModel"] | None = None
+
+
+class BlokImplementationInputModel(BaseModel):
+    "Base model for a Blok implementation manifest, which compiles all necessary information to materialize a Blok instance in the Arkitekt ecosystem."
+
+    key: str
+    dependencies: list[AgentDependencyInputModel] = Field(default_factory=list, description="The dependencies required by this Blok.")
+    components: list[ComponentNodeInputModel]
+    catalog: Optional[str] = None
+    description: Optional[str] = None
+    demo_state: Optional[dict] = None
 
 
 AssignWidgetInputModel.model_rebuild()

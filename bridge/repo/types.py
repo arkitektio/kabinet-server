@@ -1,7 +1,7 @@
 import datetime
 from typing import List, Optional
 from strawberry.experimental import pydantic
-from rekuest_core.inputs.types import ImplementationInput, StateImplementationInput, LockImplementationInput
+from rekuest_core.inputs.types import BlokImplementationInput, ImplementationInput, StateImplementationInput, LockImplementationInput
 import strawberry
 from .models import DockerImageModel, AppImageInputModel, ManifestInputModel, InspectionInputModel, RequirementInputModel
 from ..directives import unionElementOf
@@ -63,7 +63,7 @@ class InspectionInput:
     states: List[StateImplementationInput] = strawberry.field(description="The states are a list of state implementations that the app provides")
     implementations: List[ImplementationInput] = strawberry.field(description="The implementations are a list of functionality the the app will provide")
     requirements: List[RequirementInput] = strawberry.field(description="The requirements are a list of services that the app needs to connect to (think: mikro, rekuest, ettc..)")
-
+    bloks: list[BlokImplementationInput] = strawberry.field(description="The bloks are a list of Blok implementations that the app provides")
     size: Optional[int] = strawberry.field(description="The size of the app in MB")
 
 
