@@ -6,3 +6,6 @@ class BridgeConfig(AppConfig):
 
     default_auto_field = "django.db.models.BigAutoField"
     name = "bridge"
+
+    def ready(self) -> None:
+        import bridge.signals  # noqa: F401

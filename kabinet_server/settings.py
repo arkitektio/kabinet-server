@@ -122,6 +122,7 @@ STRAWBERRY_DJANGO = {
 
 REPO_MAP = conf.get("repo_map", [])
 ENSURED_REPOS = conf.get("ensured_repos", [])
+DEFAULT_REPOS = conf.get("default_repos", [])
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
