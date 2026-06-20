@@ -8,7 +8,7 @@ async def create_deployment(
 ) -> types.Deployment:
     """Create a new dask cluster on a bridge server"""
 
-    backend = await aget_backend_for_info(info, input.instance_id)
+    backend = await aget_backend_for_info(info)
 
     flavour = await models.Flavour.objects.aget(id=input.flavour)
 

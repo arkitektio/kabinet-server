@@ -7,12 +7,12 @@ from kante.types import Info
 from django.db.models import QuerySet, Count
 
 
-@strawberry_django.order(models.Definition)
+@strawberry_django.order_type(models.Definition)
 class DefinitionOrder:
     defined_at: strawberry.auto
 
 
-@strawberry_django.filter(models.GithubRepo, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.GithubRepo, description="Filter for Dask Clusters")
 class GithubRepoFilter:
     """Filter for Dask Clusters"""
 
@@ -48,7 +48,7 @@ class GithubRepoFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter(models.Definition, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Definition, description="Filter for Dask Clusters")
 class DefinitionFilter:
     """Filter for Dask Clusters"""
 
@@ -111,7 +111,7 @@ class FlavourOrder:
         return queryset, [ordering]
 
 
-@strawberry_django.filter(models.Flavour, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Flavour, description="Filter for Dask Clusters")
 class FlavourFilter:
     """Filter for Dask Clusters"""
 
@@ -135,7 +135,7 @@ class FlavourFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter(models.Resource, description="Filter for Resources")
+@strawberry_django.filter_type(models.Resource, description="Filter for Resources")
 class ResourceFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -151,7 +151,7 @@ class ResourceFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter(models.Backend, description="Filter for Resources")
+@strawberry_django.filter_type(models.Backend, description="Filter for Resources")
 class BackendFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -167,7 +167,7 @@ class BackendFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter(models.Pod, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Pod, description="Filter for Dask Clusters")
 class PodFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -189,7 +189,7 @@ class PodFilter:
         return queryset.filter(backend__id=self.backend)
 
 
-@strawberry_django.filter(models.Deployment, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Deployment, description="Filter for Dask Clusters")
 class DeploymentFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -205,7 +205,7 @@ class DeploymentFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter(models.Release, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Release, description="Filter for Dask Clusters")
 class ReleaseFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -213,9 +213,171 @@ class ReleaseFilter:
     def filter_search(self, queryset):
         if self.search is None:
             return queryset
-        return queryset.filter(name__icontains=self.search)
+        return queryset.filter(version__icontains=self.search)
 
     def filter_ids(self, queryset):
         if self.ids is None:
             return queryset
         return queryset.filter(id__in=self.ids)
+
+
+@strawberry_django.filter_type(models.App, description="Filter for Apps")
+class AppFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset, info):
+        if self.search is None:
+            return queryset
+        return queryset.filter(identifier__icontains=self.search)
+
+    def filter_ids(self, queryset, info):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
+
+
+@strawberry_django.filter_type(models.DockerImage, description="Filter for Docker images")
+class DockerImageFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset, info):
+        if self.search is None:
+            return queryset
+        return queryset.filter(image_string__icontains=self.search)
+
+    def filter_ids(self, queryset, info):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
+
+
+@strawberry_django.filter_type(models.Collection, description="Filter for Collections")
+class CollectionFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset, info):
+        if self.search is None:
+            return queryset
+        return queryset.filter(name__icontains=self.search)
+
+    def filter_ids(self, queryset, info):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
+
+
+@strawberry_django.filter_type(models.Protocol, description="Filter for Protocols")
+class ProtocolFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset, info):
+        if self.search is None:
+            return queryset
+        return queryset.filter(name__icontains=self.search)
+
+    def filter_ids(self, queryset, info):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
+
+
+@strawberry_django.filter_type(models.LogDump, description="Filter for log dumps")
+class LogDumpFilter:
+    ids: list[strawberry.ID] | None = None
+    search: str | None = None
+
+    def filter_search(self, queryset, info):
+        if self.search is None:
+            return queryset
+        return queryset.filter(logs__icontains=self.search)
+
+    def filter_ids(self, queryset, info):
+        if self.ids is None:
+            return queryset
+        return queryset.filter(id__in=self.ids)
+
+
+# ---------------------------------------------------------------------------
+# Orders — one per model so every list query can be sorted.
+# ---------------------------------------------------------------------------
+
+
+@strawberry_django.order_type(models.GithubRepo)
+class GithubRepoOrder:
+    id: strawberry.auto
+    name: strawberry.auto
+    added_at: strawberry.auto
+    updated_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.App)
+class AppOrder:
+    id: strawberry.auto
+    identifier: strawberry.auto
+
+
+@strawberry_django.order_type(models.Release)
+class ReleaseOrder:
+    id: strawberry.auto
+    version: strawberry.auto
+    released_at: strawberry.auto
+    created_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.DockerImage)
+class DockerImageOrder:
+    id: strawberry.auto
+    image_string: strawberry.auto
+    build_at: strawberry.auto
+    created_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.Collection)
+class CollectionOrder:
+    id: strawberry.auto
+    name: strawberry.auto
+    defined_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.Protocol)
+class ProtocolOrder:
+    id: strawberry.auto
+    name: strawberry.auto
+
+
+@strawberry_django.order_type(models.LogDump)
+class LogDumpOrder:
+    id: strawberry.auto
+    created_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.Backend)
+class BackendOrder:
+    id: strawberry.auto
+    name: strawberry.auto
+    last_heartbeat: strawberry.auto
+
+
+@strawberry_django.order_type(models.Resource)
+class ResourceOrder:
+    id: strawberry.auto
+    name: strawberry.auto
+    created_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.Pod)
+class PodOrder:
+    id: strawberry.auto
+    status: strawberry.auto
+    created_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.Deployment)
+class DeploymentOrder:
+    id: strawberry.auto
+    local_id: strawberry.auto
+    created_at: strawberry.auto

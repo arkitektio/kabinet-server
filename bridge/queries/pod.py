@@ -9,7 +9,7 @@ def pod(id: strawberry.ID) -> types.Pod:
     return models.Pod.objects.get(id=id)
 
 
-def pod_for_agent(client_id: strawberry.ID, instance_id: strawberry.ID) -> types.Pod | None:
+def pod_for_agent(client_id: strawberry.ID) -> types.Pod | None:
     """Return a pod for a given agent"""
 
     try:
@@ -18,8 +18,8 @@ def pod_for_agent(client_id: strawberry.ID, instance_id: strawberry.ID) -> types
         return None
 
 
-async def my_pod_at(info: Info, instance_id: strawberry.ID, local_id: strawberry.ID) -> types.Pod:
+async def my_pod_at(info: Info, local_id: strawberry.ID) -> types.Pod:
     """Let a backend discover its own pod by local id"""
-    backend = await aget_backend_for_info(info, instance_id)
+    backend = await aget_backend_for_info(info)
 
     return await models.Pod.objects.aget(backend=backend, pod_id=local_id)

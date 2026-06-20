@@ -259,7 +259,6 @@ class Backend(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="backends")
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
-    instance_id = models.CharField(max_length=1000)
     last_heartbeat = models.DateTimeField(auto_now=True)
     kind = models.CharField(max_length=1000, default="unknown")
     name = models.CharField(max_length=1000, default="unset")

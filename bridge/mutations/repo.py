@@ -107,8 +107,6 @@ async def _create_github_repo(
 ) -> models.GithubRepo:
     user, repo, branch, name = infer_repo_info(input)
 
-    print(user, repo, branch, name)
-
     dep_url = models.GithubRepo.build_kabinet_url(user, repo, branch)
 
     config = await aget_kabinet_config(dep_url)

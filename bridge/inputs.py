@@ -144,7 +144,6 @@ class CreatePodInputModel(BaseModel):
     deployment: strawberry.ID
     local_id: strawberry.ID
     resource: strawberry.ID | None = None
-    instance_id: str
     client_id: str | None = None
 
 
@@ -155,7 +154,6 @@ class CreatePodInput:
     deployment: strawberry.ID
     local_id: strawberry.ID
     resource: strawberry.ID | None = None
-    instance_id: str
     client_id: str | None = None
 
 
@@ -165,7 +163,6 @@ class UpdatePodInputModel(BaseModel):
     pod: strawberry.ID | None
     local_id: strawberry.ID | None
     status: str
-    instance_id: str
 
 
 @pydantic.input(UpdatePodInputModel, description="Create a new Github repository input")
@@ -175,24 +172,21 @@ class UpdatePodInput:
     pod: strawberry.ID | None
     local_id: strawberry.ID | None
     status: PodStatus
-    instance_id: str
 
 
 class CreateDeploymentInputModel(BaseModel):
     """Create a new Github repository input model"""
 
-    instance_id: str
     local_id: str
     flavour: str
     last_pulled: datetime.datetime | None = None
-    secret_params: Dict[str, str] | None
+    secret_params: Dict[str, str] | None = None
 
 
 @pydantic.input(CreateDeploymentInputModel, description="Create a new Github repository input")
 class CreateDeploymentInput:
     """Create a new Github repository input"""
 
-    instance_id: str
     local_id: strawberry.ID
     flavour: strawberry.ID
     last_pulled: datetime.datetime | None = None
@@ -240,7 +234,6 @@ class DeclareBackendInputModel(BaseModel):
 class DeclareBackendInput:
     """Create a new Github repository input"""
 
-    instance_id: str
     name: str
     kind: str
 

@@ -19,7 +19,6 @@ from .type_gen import create_stats_type
 
 
 def build_prescoped_queryset(info, queryset, field="organization"):
-    print(info)
     if info.variable_values.get("filters", {}).get("scope") is None:
         queryset = queryset.filter(**{field: info.context.request.organization})
         return queryset
@@ -77,6 +76,7 @@ class Organization:
     models.GithubRepo,
     description="A user of the bridge server. Maps to an authentikate user",
     filters=filters.GithubRepoFilter,
+    ordering=filters.GithubRepoOrder,
     pagination=True,
 )
 class GithubRepo:
@@ -114,7 +114,13 @@ GithubRepoStats, GithubRepoStatsResolver = create_stats_type(
 )
 
 
-@strawberry_django.type(models.App, description="A user of the bridge server. Maps to an authentikate user")
+@strawberry_django.type(
+    models.App,
+    filters=filters.AppFilter,
+    ordering=filters.AppOrder,
+    pagination=True,
+    description="A user of the bridge server. Maps to an authentikate user",
+)
 class App:
     id: auto
     identifier: str
@@ -123,6 +129,7 @@ class App:
 @strawberry_django.type(
     models.Release,
     filters=filters.ReleaseFilter,
+    ordering=filters.ReleaseOrder,
     pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
@@ -160,6 +167,7 @@ class Release:
 @strawberry_django.type(
     models.Deployment,
     filters=filters.DeploymentFilter,
+    ordering=filters.DeploymentOrder,
     pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
@@ -215,7 +223,13 @@ class Requirement:
     optional: bool = False
 
 
-@strawberry_django.type(models.DockerImage, description="A docker image descriptor")
+@strawberry_django.type(
+    models.DockerImage,
+    filters=filters.DockerImageFilter,
+    ordering=filters.DockerImageOrder,
+    pagination=True,
+    description="A docker image descriptor",
+)
 class DockerImage:
     image_string: str
     build_at: datetime.datetime
@@ -225,7 +239,7 @@ class DockerImage:
     models.Flavour,
     description="A user of the bridge server. Maps to an authentikate user",
     filters=filters.FlavourFilter,
-    order=filters.FlavourOrder,
+    ordering=filters.FlavourOrder,
     pagination=True,
 )
 class Flavour:
@@ -259,6 +273,9 @@ class Flavour:
 
 @strawberry_django.type(
     models.Collection,
+    filters=filters.CollectionFilter,
+    ordering=filters.CollectionOrder,
+    pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
 class Collection:
@@ -270,6 +287,9 @@ class Collection:
 
 @strawberry_django.type(
     models.Protocol,
+    filters=filters.ProtocolFilter,
+    ordering=filters.ProtocolOrder,
+    pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
 class Protocol:
@@ -281,7 +301,7 @@ class Protocol:
 @strawberry_django.type(
     models.Definition,
     filters=filters.DefinitionFilter,
-    order=filters.DefinitionOrder,
+    ordering=filters.DefinitionOrder,
     pagination=True,
 )
 class Definition:
@@ -307,7 +327,13 @@ class Definition:
         return [rmodels.ReturnPortModel(**i) for i in self.returns]
 
 
-@strawberry_django.type(models.LogDump, description="The logs of a pod")
+@strawberry_django.type(
+    models.LogDump,
+    filters=filters.LogDumpFilter,
+    ordering=filters.LogDumpOrder,
+    pagination=True,
+    description="The logs of a pod",
+)
 class LogDump:
     id: auto
     pod: "Pod"
@@ -318,6 +344,7 @@ class LogDump:
 @strawberry_django.type(
     models.Backend,
     filters=filters.BackendFilter,
+    ordering=filters.BackendOrder,
     pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
@@ -330,7 +357,6 @@ class Backend:
     kind: str
     pods: List["Pod"]
     resources: List["Resource"]
-    instance_id: str
 
     @strawberry_django.field()
     def client_id(self) -> str:
@@ -344,6 +370,7 @@ class Backend:
 @strawberry_django.type(
     models.Resource,
     filters=filters.ResourceFilter,
+    ordering=filters.ResourceOrder,
     pagination=True,
     description="A resource on a backend. Resource define allocated resources on a backend. E.g a computational action",
 )
@@ -355,10 +382,16 @@ class Resource:
     pods: List["Pod"]
     qualifiers: scalars.UntypedParams | None
 
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        # Resource has no direct organization; it inherits it from its backend.
+        return build_prescoped_queryset(info, queryset, field="backend__organization")
+
 
 @strawberry_django.type(
     models.Pod,
     filters=filters.PodFilter,
+    ordering=filters.PodOrder,
     pagination=True,
     description="A user of the bridge server. Maps to an authentikate user",
 )
@@ -375,3 +408,8 @@ class Pod:
     @strawberry_django.field()
     def name(self) -> str:
         return self.backend.name + "-" + self.deployment.flavour.name + "-" + self.deployment.flavour.release.app.identifier
+
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        # Pod has no direct organization; it inherits it from its backend.
+        return build_prescoped_queryset(info, queryset, field="backend__organization")

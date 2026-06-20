@@ -10,7 +10,7 @@ from bridge.utils import aget_backend_for_info
 async def create_pod(info: Info, input: inputs.CreatePodInput) -> types.Pod:
     """Create a new dask cluster on a bridge server"""
 
-    backend = await aget_backend_for_info(info, input.instance_id)
+    backend = await aget_backend_for_info(info)
 
     deployment = await models.Deployment.objects.aget(id=input.deployment)
 
@@ -35,7 +35,7 @@ async def create_pod(info: Info, input: inputs.CreatePodInput) -> types.Pod:
 async def update_pod(info: Info, input: inputs.UpdatePodInput) -> types.Pod:
     """Create a new dask cluster on a bridge server"""
 
-    backend = await aget_backend_for_info(info, input.instance_id)
+    backend = await aget_backend_for_info(info)
 
     if not input.pod and not input.local_id:
         raise ValueError("Either pod or local_id must be set")

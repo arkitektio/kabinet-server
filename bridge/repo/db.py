@@ -24,7 +24,6 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organ
     deps = []
     try:
         for deployment in config.app_images:
-            print(deployment)
             manifest = deployment.manifest
 
             app, _ = await models.App.objects.aget_or_create(
@@ -81,7 +80,6 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organ
                     await def_model.flavours.aadd(flavour)
 
             deps.append(flavour)
-            print("Created", flavour)
     except Exception as e:
         raise DBError("Could not create models from deployments") from e
 

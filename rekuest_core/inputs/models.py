@@ -281,7 +281,6 @@ class ImplementationInputModel(BaseModel):
     tracks: list[TrackInputModel] | None = None
     interface: str
     params: dict[str, Any] | None = None
-    instance_id: str | None = None
     dynamic: bool = False
     logo: str | None = None
     locks: list[str] | None = None
