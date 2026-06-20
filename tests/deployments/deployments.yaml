@@ -43,6 +43,7 @@ app_images:
         interfaces: []
         isDev: false
         isTestFor: []
+        key: convert_omero
         kind: FUNCTION
         logo: ome.png
         name: Convert Omero
@@ -94,6 +95,9 @@ app_images:
       optional: false
       service: live.arkitekt.rekuest
     size: 1482598149
+    locks: []
+    states: []
+    bloks: []
   manifest:
     author: jhnnsrs
     entrypoint: app

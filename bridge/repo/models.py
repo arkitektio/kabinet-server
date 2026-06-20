@@ -69,7 +69,7 @@ class InspectionInputModel(BaseModel):
     locks: List[LockImplementationInputModel] = Field(alias="locks")
     implementations: List[ImplementationInputModel] = Field(alias="implementations")
     states: List[StateImplementationInputModel] = Field(alias="states")
-    bloks: list[BlokImplementationInputModel] = Field(alias="bloks")
+    bloks: list[BlokImplementationInputModel] = Field(default_factory=list, alias="bloks")
     requirements: List[RequirementInputModel]
 
 

@@ -11,7 +11,9 @@ from koherent.strawberry.extension import KoherentExtension
 from authentikate.strawberry.extension import AuthentikateExtension
 from typing import List
 from rekuest_core.constants import interface_types
+from rekuest_core.scalars import scalar_map as rscalar_map
 from bridge.repo.types import selector_types
+from strawberry.schema.config import StrawberryConfig
 
 
 @strawberry.type
@@ -133,4 +135,5 @@ schema = strawberry.Schema(
     schema_directives=[unionElementOf],
     extensions=[DjangoOptimizerExtension, AuthentikateExtension, KoherentExtension],
     types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector] + interface_types + selector_types,
+    config=StrawberryConfig(scalar_map={**rscalar_map}),
 )

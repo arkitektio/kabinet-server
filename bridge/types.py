@@ -241,7 +241,7 @@ class Flavour:
     manifest: scalars.UntypedParams
 
     @strawberry_django.field
-    def repo(self, info) -> GithubRepo:
+    def repo(self, info: Info) -> GithubRepo:
         return self.repo.githubrepo
 
     @strawberry_django.field()
