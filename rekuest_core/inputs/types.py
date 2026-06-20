@@ -378,10 +378,6 @@ class PortMatchInput:
         default=None,
         description="The identifier of the port to match. ",
     )
-    object: scalars.Arg | None = strawberry.field(
-        default=None,
-        description="The object of the port to match. This is used for adanved pattern matching based on the exact object descriptors of the object. i.e { x: 1, y: 2} ",
-    )
     nullable: bool | None = strawberry.field(
         default=None,
         description="Whether the port is nullable. ",
@@ -638,7 +634,7 @@ class ImplementationInput:
     )
     logo: str | None = strawberry.field(
         default=None,
-        description="The logo of the implementation. This is used to display the logo in the UI",
+        description="The logo of the implementation. This is used to display the logo in the UI either it should be 'custom:svg-paths' or a lucide icon name like 'lucide:activity' urls are not supported at the moment",
     )
     locks: list[str] | None = strawberry.field(
         default=None,
@@ -652,13 +648,17 @@ class ImplementationInput:
         default=None,
         description="The tracks of the definition. This is used to track values over time during the runtime of an action. This is the state of a dependency",
     )
-    extension: str | None = strawberry.field(
-        default=None,
-        description="The extension of the implementation. This is used to group implementations together in the UI and provide a better user experience",
-    )
     manipulates: list[str] | None = strawberry.field(
         default=None,
         description="The states that the implementation manipulates. This is used to identify which states are manipulated by the implementation, and can be use to enhance state safety in the system",
+    )
+    needs_token: bool = strawberry.field(
+        default=True,
+        description="Whether Rekuest should mint a signed provenance token when this implementation is assigned. Default true (provenance-by-default); set false for trivial/internal tasks that never produce external provenance.",
+    )
+    provenance_audience: list[str] | None = strawberry.field(
+        default=None,
+        description="The downstream service(s) the provenance token should be scoped to (the token's `aud`). If omitted, Rekuest derives the audience from the structures the assignment acts on.",
     )
     dependencies: list[AgentDependencyInput] = strawberry.field(default_factory=list)
 

@@ -114,11 +114,10 @@ class PortInputModel(BaseModel):
     nullable: bool = False
     effects: list[EffectInputModel] | None = None
     default: Any | None = None
-    children: list["PortInputModel"] | None = None
     choices: list[ChoiceInputModel] | None = None
 
     @model_validator(mode="after")
-    def check_children_for_port(cls, self) -> Self:
+    def check_children_for_port(self) -> Self:
         if self.kind == enums.PortKind.LIST and (self.children is None or len(self.children) != 1):
             raise ValueError("Port of kind LIST must have exactly on children")
         return self
@@ -128,9 +127,10 @@ class ArgPortInputModel(PortInputModel):
     default: Any | None = None
     widget: Optional["AssignWidgetInputModel"] = None
     requires: list[RequiresInputModel] | None = None
+    children: Optional[list["ArgPortInputModel"]] = None
 
     @model_validator(mode="after")
-    def check_children_for_port(cls, self) -> Self:
+    def check_children_for_port(self) -> Self:
         if self.kind == enums.PortKind.LIST and (self.children is None or len(self.children) != 1):
             raise ValueError("Port of kind LIST must have exactly on children")
         return self
@@ -139,9 +139,10 @@ class ArgPortInputModel(PortInputModel):
 class ReturnPortInputModel(PortInputModel):
     widget: Optional["ReturnWidgetInputModel"] = None
     provides: list[ProvidesInputModel] | None = None
+    children: Optional[list["ReturnPortInputModel"]] = None
 
     @model_validator(mode="after")
-    def check_children_for_port(cls, self) -> Self:
+    def check_children_for_port(self) -> Self:
         if self.kind == enums.PortKind.LIST and (self.children is None or len(self.children) != 1):
             raise ValueError("Port of kind LIST must have exactly on children")
         return self
@@ -230,7 +231,7 @@ class DefinitionInputModel(BaseModel):
     logo: str | None = None
 
     @model_validator(mode="after")
-    def check_dependencies(cls, self) -> Self:
+    def check_dependencies(self) -> Self:
         """Ensure that all dependencies in ports are valid."""
         all_arg_keys = [port.key for port in self.args]
         all_return_keys = [port.key for port in self.returns]
@@ -285,7 +286,8 @@ class ImplementationInputModel(BaseModel):
     logo: str | None = None
     locks: list[str] | None = None
     manipulates: list[str] | None = None
-    extension: str | None = None
+    needs_token: bool = True
+    provenance_audience: list[str] | None = None
 
 
 class StateDefinitionInputModel(BaseModel):
