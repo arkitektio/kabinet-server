@@ -6,6 +6,7 @@ from typing import List
 
 
 async def create_app_image(info: Info, input: AppImageInput) -> types.Release:
-    """Create a new dask cluster on a bridge server"""
-
+    """Register a built app image, creating its release and flavour as needed."""
+    parsed = input.to_pydantic()
+    del parsed  # TODO: persist the app image; resolver is currently a stub.
     return None

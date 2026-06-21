@@ -3,42 +3,53 @@ from typing import List, Optional
 from strawberry.experimental import pydantic
 from rekuest_core.inputs.types import BlokImplementationInput, ImplementationInput, StateImplementationInput, LockImplementationInput
 import strawberry
-from .models import DockerImageModel, AppImageInputModel, ManifestInputModel, InspectionInputModel, RequirementInputModel
+from .models import (
+    DockerImageModel,
+    AppImageInputModel,
+    ManifestInputModel,
+    InspectionInputModel,
+    RequirementInputModel,
+    RocmSelectorInputModel,
+    CudaSelectorInputModel,
+    OneApiSelectorInputModel,
+    CpuSelectorInputModel,
+    FlatSelectorInputModel,
+)
 from ..directives import unionElementOf
 
 
-@strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="rocm")])
+@pydantic.input(RocmSelectorInputModel, directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="rocm")])
 class RocmSelectorInput:
-    api_version: str | None = strawberry.field(default=None, description="The api version of the selector")
-    api_thing: str | None = strawberry.field(default=None, description="The api thing of the selector")
+    api_version: str | None = None
+    api_thing: str | None = None
 
 
-@strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cuda")])
+@pydantic.input(CudaSelectorInputModel, directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cuda")])
 class CudaSelectorInput:
-    cuda_version: str | None = strawberry.field(default=None, description="The minimum cuda version")
-    cuda_cores: int | None = strawberry.field(default=None, description="The cuda cores")
+    cuda_version: str | None = None
+    cuda_cores: int | None = None
 
 
-@strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cpu")])
+@pydantic.input(CpuSelectorInputModel, directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cpu")])
 class CpuSelectorInput:
-    frequency: int | None = strawberry.field(description="The frequency in MHz")
-    memory: int | None = strawberry.field(description="The memory in MB")
+    frequency: int | None = None
+    memory: int | None = None
 
 
-@strawberry.input(directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="oneapi")])
+@pydantic.input(OneApiSelectorInputModel, directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="oneapi")])
 class OneApiSelectorInput:
-    oneapi_version: str | None = strawberry.field(default=None, description="The api versison of the selector")
+    oneapi_version: str | None = None
 
 
-@strawberry.input(directives=[])
+@pydantic.input(FlatSelectorInputModel, directives=[])
 class SelectorInput:
-    kind: str = strawberry.field(description="The kind of the selector")
-    api_version: str | None = strawberry.field(default=None, description="The api version of the selector")
-    api_thing: str | None = strawberry.field(default=None, description="The api thing of the selector")
-    oneapi_version: str | None = strawberry.field(default=None, description="The api version of the selector")
-    cuda_cores: int | None = strawberry.field(default=None, description="The cuda cores")
-    frequency: int | None = strawberry.field(default=None, description="The frequency in MHz")
-    memory: int | None = strawberry.field(default=None, description="The memory in MB")
+    kind: str
+    api_version: str | None = None
+    api_thing: str | None = None
+    oneapi_version: str | None = None
+    cuda_cores: int | None = None
+    frequency: int | None = None
+    memory: int | None = None
 
 
 selector_types = [
@@ -85,9 +96,9 @@ class DockerImageInput:
     build_at: datetime.datetime = strawberry.field(description="The timestamp of the build")
 
 
-@pydantic.input(AppImageInputModel, description="Create a new Github repository input")
+@pydantic.input(AppImageInputModel, description="Input describing a built app image to register (its manifest, image, selectors and inspection).")
 class AppImageInput:
-    """Create a new Github repository input"""
+    """Input describing a built app image to register."""
 
     flavour_name: str | None = strawberry.field(description="The flavour name associated with this deployment")
     manifest: ManifestInput

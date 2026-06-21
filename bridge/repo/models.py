@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Dict, List, Optional
 from typing import Any
 import datetime
@@ -21,32 +21,56 @@ class RequirementInputModel(BaseModel):
 
 
 class RocmSelectorInputModel(BaseModel):
-    kind: Literal["rocm"]
+    kind: Literal["rocm"] = "rocm"
     api_version: Optional[str] = Field(default=None, alias="apiVersion")
     api_thing: Optional[str] = Field(default=None, alias="apiThing")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(validate_by_name=True)
 
 
 class CudaSelectorInputModel(BaseModel):
-    kind: Literal["cuda"]
+    kind: Literal["cuda"] = "cuda"
     cuda_version: Optional[str] = Field(default=None, alias="cudaVersion")
     cuda_cores: Optional[int] = Field(default=None, alias="cudaCores")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(validate_by_name=True)
 
 
 class OneApiSelectorInputModel(BaseModel):
-    kind: Literal["oneapi"]
+    kind: Literal["oneapi"] = "oneapi"
     oneapi_version: Optional[str] = Field(default=None, alias="oneapiVersion")
 
-    class Config:
-        allow_population_by_field_name = True
+    model_config = ConfigDict(validate_by_name=True)
 
 
-SelectorInputModel = Union[CudaSelectorInputModel, RocmSelectorInputModel, OneApiSelectorInputModel]
+class CpuSelectorInputModel(BaseModel):
+    kind: Literal["cpu"] = "cpu"
+    frequency: Optional[int] = Field(default=None, description="The minimum CPU frequency required, in MHz.")
+    memory: Optional[int] = Field(default=None, description="The minimum memory required, in MB.")
+
+    model_config = ConfigDict(validate_by_name=True)
+
+
+SelectorInputModel = Union[CudaSelectorInputModel, RocmSelectorInputModel, OneApiSelectorInputModel, CpuSelectorInputModel]
+
+
+class FlatSelectorInputModel(BaseModel):
+    """Flat, discriminator-carrying selector input.
+
+    This mirrors the single concrete ``SelectorInput`` GraphQL input that clients
+    actually send; the per-kind fields are all optional and the ``kind`` field
+    selects which ones are relevant.
+    """
+
+    kind: str = Field(description="The discriminator identifying which kind of selector this is (e.g. 'cuda', 'rocm', 'cpu', 'oneapi').")
+    api_version: Optional[str] = Field(default=None, alias="apiVersion", description="The minimum ROCm API version required (rocm selectors).")
+    api_thing: Optional[str] = Field(default=None, alias="apiThing", description="An additional ROCm capability qualifier (rocm selectors).")
+    oneapi_version: Optional[str] = Field(default=None, alias="oneapiVersion", description="The minimum oneAPI version required (oneapi selectors).")
+    cuda_cores: Optional[int] = Field(default=None, alias="cudaCores", description="The minimum number of CUDA cores required (cuda selectors).")
+    frequency: Optional[int] = Field(default=None, description="The minimum CPU frequency required, in MHz (cpu selectors).")
+    memory: Optional[int] = Field(default=None, description="The minimum memory required, in MB (cpu selectors).")
+
+    model_config = ConfigDict(validate_by_name=True)
 
 
 class ManifestInputModel(BaseModel):
@@ -60,8 +84,7 @@ class ManifestInputModel(BaseModel):
     def to_console_string(self) -> str:
         return f"📦 {self.identifier} ({self.version}) by {self.author}"
 
-    class Config:
-        validate_assignment = True
+    model_config = ConfigDict(validate_assignment=True)
 
 
 class InspectionInputModel(BaseModel):
@@ -76,6 +99,16 @@ class InspectionInputModel(BaseModel):
 class DockerImageModel(BaseModel):
     image_string: str = Field(alias="imageString")
     build_at: datetime.datetime | None = Field(alias="buildAt")
+
+    model_config = ConfigDict(validate_by_name=True)
+
+    @field_validator("build_at")
+    @classmethod
+    def _ensure_timezone_aware(cls, value: datetime.datetime | None) -> datetime.datetime | None:
+        """Treat tz-naive build timestamps as UTC so Django (USE_TZ=True) accepts them."""
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=datetime.timezone.utc)
+        return value
 
 
 class AppImageInputModel(BaseModel):
@@ -92,6 +125,27 @@ class AppImageInputModel(BaseModel):
     app_image_id: str = Field(alias="appImageId")
     inspection: InspectionInputModel
     image: DockerImageModel
+
+    model_config = ConfigDict(validate_by_name=True)
+
+    @field_validator("selectors", mode="before")
+    @classmethod
+    def _coerce_selectors(cls, value: object) -> object:
+        """Normalise selectors to dicts so the discriminated union can resolve them.
+
+        ``AppImageInput.to_pydantic()`` produces flat ``FlatSelectorInputModel``
+        instances; pydantic will not coerce a model instance into a different
+        union member, but it will coerce a dict (matched on ``kind``). Dumping to
+        a dict and dropping unset fields yields a clean, discriminator-keyed dict.
+        """
+        if not isinstance(value, (list, tuple)):
+            return value
+        normalised = []
+        for selector in value:
+            if isinstance(selector, BaseModel):
+                selector = selector.model_dump(exclude_none=True)
+            normalised.append(selector)
+        return normalised
 
 
 class KabinetConfigFile(BaseModel):

@@ -41,8 +41,9 @@ async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
 
 
 async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo:
-    """Create a new dask cluster on a bridge server"""
-    repo = await models.GithubRepo.objects.aget(id=input.id)
+    """Scan a tracked GitHub repository for app manifests and update its flavours."""
+    parsed = input.to_pydantic()
+    repo = await models.GithubRepo.objects.aget(id=parsed.id)
 
     config = await aget_kabinet_config(repo.kabinet_url)
 
@@ -55,7 +56,7 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     return repo
 
 
-def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str, str]:
+def infer_repo_info(input: inputs.CreateGithubRepoInputModel) -> tuple[str, str, str, str]:
     if input.identifier:
         # Check if the identifier is a full GitHub URL
         url_pattern = r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+))?"
@@ -101,7 +102,7 @@ def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str,
 
 
 async def _create_github_repo(
-    input: inputs.CreateGithubRepoInput,
+    input: inputs.CreateGithubRepoInputModel,
     organization: Organization,
     creator: User,
 ) -> models.GithubRepo:
@@ -133,7 +134,8 @@ async def _create_github_repo(
 
 
 async def create_github_repo(info: Info, input: inputs.CreateGithubRepoInput) -> types.GithubRepo:
-    return await _create_github_repo(input, info.context.request.organization, info.context.request.user)
+    parsed = input.to_pydantic()
+    return await _create_github_repo(parsed, info.context.request.organization, info.context.request.user)
 
 
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:

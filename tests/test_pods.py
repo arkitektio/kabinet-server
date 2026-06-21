@@ -9,38 +9,9 @@ used by ``test_retrieve_repo.py::test_db_deployments``.
 """
 
 import pytest
-import pytest_asyncio
-import yaml
 
-from kabinet_server.schema import schema
 from kante.context import HttpContext
-from bridge.models import GithubRepo
-from bridge.repo.models import KabinetConfigFile
-from bridge.repo.db import parse_config
-from tests.utils import build_relative_dir
-
-
-async def execute(query: str, context: HttpContext, variables: dict | None = None) -> dict:
-    """Run a GraphQL document and assert it produced data without errors."""
-    result = await schema.execute(query, variable_values=variables or {}, context_value=context)
-    assert not result.errors, result.errors
-    assert result.data is not None
-    return result.data
-
-
-@pytest_asyncio.fixture
-async def flavour_id(authenticated_context: HttpContext) -> str:
-    """A Flavour built offline in the authed org, returned as a GraphQL id string."""
-    org = authenticated_context.request.organization
-    user = authenticated_context.request.user
-
-    repo = await GithubRepo.objects.acreate(name="test", creator=user, organization=org)
-
-    with open(build_relative_dir("deployments/deployments.yaml"), "r") as f:
-        config = KabinetConfigFile(**yaml.safe_load(f))
-
-    flavours = await parse_config(config, repo, org)
-    return str(flavours[0].id)
+from tests.utils import execute
 
 
 # ---------------------------------------------------------------------------

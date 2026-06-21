@@ -12,9 +12,9 @@ class DefinitionOrder:
     defined_at: strawberry.auto
 
 
-@strawberry_django.filter_type(models.GithubRepo, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.GithubRepo, description="Filter for tracked GitHub repositories.")
 class GithubRepoFilter:
-    """Filter for Dask Clusters"""
+    """Filter for tracked GitHub repositories."""
 
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -48,9 +48,9 @@ class GithubRepoFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter_type(models.Definition, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Definition, description="Filter for action definitions.")
 class DefinitionFilter:
-    """Filter for Dask Clusters"""
+    """Filter for action definitions."""
 
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -111,9 +111,9 @@ class FlavourOrder:
         return queryset, [ordering]
 
 
-@strawberry_django.filter_type(models.Flavour, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Flavour, description="Filter for flavours.")
 class FlavourFilter:
-    """Filter for Dask Clusters"""
+    """Filter for flavours."""
 
     ids: list[strawberry.ID] | None
     search: str | None
@@ -151,7 +151,7 @@ class ResourceFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter_type(models.Backend, description="Filter for Resources")
+@strawberry_django.filter_type(models.Backend, description="Filter for backends.")
 class BackendFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -167,7 +167,7 @@ class BackendFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter_type(models.Pod, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Pod, description="Filter for pods.")
 class PodFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -189,7 +189,7 @@ class PodFilter:
         return queryset.filter(backend__id=self.backend)
 
 
-@strawberry_django.filter_type(models.Deployment, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Deployment, description="Filter for deployments.")
 class DeploymentFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None
@@ -205,7 +205,7 @@ class DeploymentFilter:
         return queryset.filter(id__in=self.ids)
 
 
-@strawberry_django.filter_type(models.Release, description="Filter for Dask Clusters")
+@strawberry_django.filter_type(models.Release, description="Filter for app releases.")
 class ReleaseFilter:
     ids: list[strawberry.ID] | None = None
     search: str | None = None

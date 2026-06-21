@@ -5,12 +5,13 @@ import strawberry
 
 
 async def declare_backend(info: Info, input: inputs.DeclareBackendInput) -> types.Backend:
-    """Create a new dask cluster on a bridge server"""
+    """Declare (register or update) a backend for the current client."""
+    parsed = input.to_pydantic()
 
     backend = await aget_backend_for_info(info)
 
-    backend.name = input.name
-    backend.kind = input.kind
+    backend.name = parsed.name
+    backend.kind = parsed.kind
 
     await backend.asave()
 

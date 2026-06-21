@@ -3,6 +3,8 @@ import time
 
 import psycopg
 import pytest
+import pytest_asyncio
+import yaml
 
 from authentikate.models import Client, Organization, User, Membership
 from django.contrib.contenttypes.management import create_contenttypes
@@ -10,6 +12,8 @@ from django.db.models.signals import post_migrate
 from kante.context import HttpContext, UniversalRequest
 from strawberry.http.temporal_response import TemporalResponse
 from dokker import testing
+
+from tests.utils import build_relative_dir
 
 
 @pytest.fixture(scope="session")
@@ -184,3 +188,38 @@ def simple_api_context(db, backend_stack) -> HttpContext:
     request.set_membership(membership)  # type: ignore
 
     return HttpContext(request=request, response=TemporalResponse(), headers={"Authorization": "Bearer test"}, type="http")
+
+
+@pytest_asyncio.fixture
+async def built_chain(authenticated_context: HttpContext) -> dict:
+    """Build a full App -> Release -> DockerImage -> Flavour -> Definition chain plus
+    its GithubRepo, offline via parse_config (the path test_db_deployments proves stays
+    network-free for a logo-less manifest). Returns the created ids for query tests.
+    """
+    from bridge.models import GithubRepo
+    from bridge.repo.models import KabinetConfigFile
+    from bridge.repo.db import parse_config
+
+    org = authenticated_context.request.organization
+    user = authenticated_context.request.user
+
+    repo = await GithubRepo.objects.acreate(
+        name="ome",
+        creator=user,
+        organization=org,
+        repo="ome",
+        user="arkitektio-apps",
+        branch="main",
+    )
+
+    with open(build_relative_dir("deployments/deployments.yaml"), "r") as f:
+        config = KabinetConfigFile(**yaml.safe_load(f))
+
+    flavours = await parse_config(config, repo, org)
+    return {"repo_id": str(repo.id), "flavour_id": str(flavours[0].id)}
+
+
+@pytest_asyncio.fixture
+async def flavour_id(built_chain: dict) -> str:
+    """The Flavour id from the built chain, as a GraphQL id string."""
+    return built_chain["flavour_id"]

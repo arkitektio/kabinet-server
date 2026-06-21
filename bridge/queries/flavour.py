@@ -8,15 +8,16 @@ def flavour(id: strawberry.ID) -> types.Flavour:
 
 
 def match_flavour(input: inputs.MatchFlavoursInput) -> types.Flavour:
-    """Return a dask cluster by id"""
+    """Return the flavour that best matches the requested release and actions."""
+    parsed = input.to_pydantic()
 
     flavours = models.Flavour.objects
 
-    if input.release:
-        flavours = flavours.filter(release_id=input.release)
+    if parsed.release:
+        flavours = flavours.filter(release_id=parsed.release)
 
-    if input.actions:
-        for action_hash in input.actions:
+    if parsed.actions:
+        for action_hash in parsed.actions:
             flavours = flavours.filter(definitions__hash=action_hash)
 
     return flavours.first()

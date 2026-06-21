@@ -31,8 +31,8 @@ class CPUSelector(BaseSelector):
     """
 
     kind: Literal["cpu"]
-    min_count: Optional[int] = None
-    frequency: Optional[float] = None
+    min_count: Optional[int] = Field(default=None, description="The minimum number of CPU cores required")
+    frequency: Optional[float] = Field(default=None, description="The minimum CPU frequency required, in MHz")
 
 
 class CudaSelector(BaseSelector):
@@ -51,8 +51,8 @@ class RocmSelector(BaseSelector):
     """
 
     kind: Literal["rocm"]
-    api_thing: Optional[str] = Field(alias="apiThing")
-    api_version: Optional[str] = Field(alias="apiVersion")
+    api_thing: Optional[str] = Field(alias="apiThing", description="An additional ROCm capability qualifier")
+    api_version: Optional[str] = Field(alias="apiVersion", description="The minimum ROCm API version required")
 
 
 class LabelSelector(BaseSelector):

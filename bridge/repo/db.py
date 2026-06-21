@@ -56,11 +56,11 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organ
                 defaults=dict(
                     deployment_id=deployment.app_image_id,
                     flavour=deployment.app_image_id,
-                    selectors=[d.dict() for d in deployment.selectors],
+                    selectors=[d.model_dump() for d in deployment.selectors],
                     repo=repo,
                     image=x,
-                    manifest=deployment.manifest.dict(),
-                    requirements=deployment.inspection.dict()["requirements"],
+                    manifest=deployment.manifest.model_dump(),
+                    requirements=deployment.inspection.model_dump()["requirements"],
                 ),
             )
 
@@ -72,8 +72,8 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organ
                         hash=hash_definition(implementation.definition),
                         defaults=dict(
                             description=implementation.definition.description,
-                            args=[d.dict() for d in implementation.definition.args],
-                            returns=[d.dict() for d in implementation.definition.returns],
+                            args=[d.model_dump() for d in implementation.definition.args],
+                            returns=[d.model_dump() for d in implementation.definition.returns],
                             name=implementation.definition.name,
                         ),
                     )
