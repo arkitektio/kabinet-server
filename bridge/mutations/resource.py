@@ -14,7 +14,7 @@ async def declare_resource(info: Info, input: inputs.DeclareResourceInput) -> ty
         resource_id=parsed.local_id,
         defaults={
             "qualifiers": [x.model_dump() for x in parsed.qualifiers] if parsed.qualifiers else None,
-            "name": parsed.name,
+            "name": parsed.name or "unset",
         },
     )
 
