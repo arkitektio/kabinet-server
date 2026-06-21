@@ -248,7 +248,7 @@ class DeclareResourceInputModel(BaseModel):
     """Input for declaring a resource on a backend."""
 
     backend: str = Field(description="The ID of the backend to declare the resource on.")
-    name: str = Field(description="An optional human-readable name for the resource.")
+    name: Optional[str] = Field(default=None, description="An optional human-readable name for the resource.")
     local_id: str = Field(description="The identifier of the resource as known to the backend.")
     qualifiers: Optional[List[QualifierInputModel]] = Field(default=None, description="Free-form key/value qualifiers describing the resource.")
 
