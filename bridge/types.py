@@ -260,7 +260,6 @@ class Flavour:
     logo: Optional[str] = strawberry_django.field(description="The stored logo of this flavour.")
     image: DockerImage = strawberry_django.field(description="The Docker image this flavour deploys.")
     original_logo: Optional[str] = strawberry_django.field(description="The original (upstream) logo URL of this flavour.")
-    entrypoint: CudaSelector = strawberry_django.field(description="The entrypoint selector for this flavour.")
     release: Release = strawberry_django.field(description="The release this flavour belongs to.")
     deployments: List[Deployment] = strawberry_django.field(description="The deployments that run this flavour.")
     definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
