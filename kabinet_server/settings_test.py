@@ -14,7 +14,7 @@ DATABASES["default"] = {
 }
 AUTHENTIKATE = {
     **AUTHENTIKATE,
-    "STATIC_TOKENS": {
+    "static_tokens": {
         "test": {"sub": "1"},
         # A non-privileged user in a different organization, for cross-tenant
         # scoping/permission tests (see the other_org_context fixture). roles
@@ -42,6 +42,13 @@ class DisableMigrations:
 
 # Disable logging during tests to reduce noise
 logging.disable(logging.CRITICAL)
+
+# Don't auto-provision default/ensured GithubRepos when an Organization is
+# created (see bridge.signals.ensure_default_repos_for_organization). The query
+# tests build their own repo chains via fixtures and assert on exact contents,
+# so any config-provisioned repo would leak in as an extra row.
+DEFAULT_REPOS = []
+ENSURED_REPOS = []
 
 # Enable database access from async code in tests
 DATABASE_ROUTERS = []

@@ -11,19 +11,18 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
-import os
-from omegaconf import OmegaConf
+from .configuration import Settings
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-conf = OmegaConf.load(os.path.join(BASE_DIR, "config.yaml"))
+conf = Settings()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = conf.django.get("secret_key", "changeme")  # TODO: Change this in production
+SECRET_KEY = conf.django.secret_key  # TODO: Change this in production
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -72,7 +71,7 @@ CHANNEL_LAYERS = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-MY_SCRIPT_NAME = conf.get("force_script_name", "")
+MY_SCRIPT_NAME = conf.django.force_script_name
 
 STRAWBERRY_DJANGO = {
     "FIELD_DESCRIPTION_FROM_HELP_TEXT": True,
@@ -120,20 +119,20 @@ STRAWBERRY_DJANGO = {
     "USE_DEPRECATED_FILTERS": True,
 }
 
-REPO_MAP = conf.get("repo_map", [])
-ENSURED_REPOS = conf.get("ensured_repos", [])
-DEFAULT_REPOS = conf.get("default_repos", [])
+REPO_MAP = conf.repo_map
+ENSURED_REPOS = conf.ensured_repos
+DEFAULT_REPOS = conf.default_repos
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
     "default": {
-        "ENGINE": conf.db.engine,
-        "NAME": conf.db.db_name,
-        "USER": conf.db.username,
-        "PASSWORD": conf.db.password,
-        "HOST": conf.db.host,
-        "PORT": conf.db.port,
+        "ENGINE": conf.postgres.engine,
+        "NAME": conf.postgres.db_name,
+        "USER": conf.postgres.username,
+        "PASSWORD": conf.postgres.password,
+        "HOST": conf.postgres.host,
+        "PORT": conf.postgres.port,
     }
 }
 
@@ -156,18 +155,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-AUTHENTIKATE = {
-    "ISSUERS": [
-        *conf.get("authentikate", []),
-        {
-            "iss": "lok",
-            "kid": "lok-key-1",
-            "kind": "rsa",
-            "public_key": conf.lok.get("public_key", None),
-        },
-    ],
-    "STATIC_TOKENS": conf.lok.get("static_tokens", {}),
-}
+AUTHENTIKATE = conf.authentikate.model_dump()
 
 
 # Internationalization
