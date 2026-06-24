@@ -1,4 +1,3 @@
-from rekuest_core.hash import hash_definition
 from .models import KabinetConfigFile
 from bridge import models
 from .errors import DBError
@@ -69,7 +68,7 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organ
             if inspection:
                 for implementation in inspection.implementations:
                     def_model, _ = await models.Definition.objects.aupdate_or_create(
-                        hash=hash_definition(implementation.definition),
+                        hash=implementation.definition.unique_hash,
                         defaults=dict(
                             description=implementation.definition.description,
                             args=[d.model_dump() for d in implementation.definition.args],
