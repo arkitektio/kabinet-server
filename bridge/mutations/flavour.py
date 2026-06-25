@@ -9,8 +9,9 @@ logger = logging.getLogger(__name__)
 async def match_flavours(
     info: Info, input: inputs.MatchFlavoursInput
 ) -> List[types.Flavour]:
-    """Create a new dask cluster on a bridge server"""
+    """Return the flavours matching the requested release."""
+    parsed = input.to_pydantic()
 
-    flavour = models.Flavour.objects.filter(id=input.release)
+    flavour = models.Flavour.objects.filter(id=parsed.release)
 
     return flavour

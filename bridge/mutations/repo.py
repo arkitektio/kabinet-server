@@ -8,6 +8,7 @@ from bridge.repo.models import KabinetConfigFile
 from django.core.files import File
 from django.core.files.temp import NamedTemporaryFile
 import re
+from authentikate.models import Organization, User
 
 
 logger = logging.getLogger(__name__)
@@ -25,13 +26,9 @@ async def adownload_logo(url: str) -> File:
 
 
 async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
-
     async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}) as session:
         async with session.get(kabinet_url) as response:
-
-            assert (
-                response.status == 200
-            ), f"This seems to be not an Arkitekt Repository. Failed to fetch kabinet.yml."
+            assert response.status == 200, f"This seems to be not an Arkitekt Repository. Failed to fetch kabinet.yml."
 
             z = await response.text()
 
@@ -44,13 +41,14 @@ async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
 
 
 async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo:
-    """Create a new dask cluster on a bridge server"""
-    repo = await models.GithubRepo.objects.aget(id=input.id)
+    """Scan a tracked GitHub repository for app manifests and update its flavours."""
+    parsed = input.to_pydantic()
+    repo = await models.GithubRepo.objects.aget(id=parsed.id)
 
     config = await aget_kabinet_config(repo.kabinet_url)
 
     try:
-        await parse_config(config, repo)
+        await parse_config(config, repo, organization=info.context.request.organization)
     except KeyError as e:
         logger.error(e, exc_info=True)
         pass
@@ -58,7 +56,7 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     return repo
 
 
-def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str, str]:
+def infer_repo_info(input: inputs.CreateGithubRepoInputModel) -> tuple[str, str, str, str]:
     if input.identifier:
         # Check if the identifier is a full GitHub URL
         url_pattern = r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+))?"
@@ -104,12 +102,11 @@ def infer_repo_info(input: inputs.CreateGithubRepoInput) -> tuple[str, str, str,
 
 
 async def _create_github_repo(
-    input: inputs.CreateGithubRepoInput, creator
+    input: inputs.CreateGithubRepoInputModel,
+    organization: Organization,
+    creator: User,
 ) -> models.GithubRepo:
-
     user, repo, branch, name = infer_repo_info(input)
-
-    print(user, repo, branch, name)
 
     dep_url = models.GithubRepo.build_kabinet_url(user, repo, branch)
 
@@ -119,6 +116,7 @@ async def _create_github_repo(
         user=user,
         branch=branch,
         repo=repo,
+        organization=organization,
         defaults=dict(
             name=name,
             creator=creator,
@@ -126,7 +124,7 @@ async def _create_github_repo(
     )
 
     try:
-        await parse_config(config, repo)
+        await parse_config(config, repo, organization)
     except KeyError as e:
         logger.error(e, exc_info=True)
         pass
@@ -135,11 +133,9 @@ async def _create_github_repo(
     return repo
 
 
-async def create_github_repo(
-    info: Info, input: inputs.CreateGithubRepoInput
-) -> types.GithubRepo:
-
-    return await _create_github_repo(input, info.context.request.user)
+async def create_github_repo(info: Info, input: inputs.CreateGithubRepoInput) -> types.GithubRepo:
+    parsed = input.to_pydantic()
+    return await _create_github_repo(parsed, info.context.request.organization, info.context.request.user)
 
 
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:
@@ -149,7 +145,7 @@ async def rescan_repos(info: Info) -> list[types.GithubRepo]:
         config = await aget_kabinet_config(repo.kabinet_url)
 
         try:
-            await parse_config(config, repo)
+            await parse_config(config, repo, organization=info.context.request.organization)
         except KeyError as e:
             logger.error(e, exc_info=True)
             pass

@@ -1,18 +1,25 @@
 from kante.types import Info
 from bridge import types, inputs, models
 from bridge.utils import aget_backend_for_info
+import strawberry
 
 
-async def declare_backend(
-    info: Info, input: inputs.DeclareBackendInput
-) -> types.Backend:
-    """Create a new dask cluster on a bridge server"""
+async def declare_backend(info: Info, input: inputs.DeclareBackendInput) -> types.Backend:
+    """Declare (register or update) a backend for the current client."""
+    parsed = input.to_pydantic()
 
-    backend = await aget_backend_for_info(info, input.instance_id)
+    backend = await aget_backend_for_info(info)
 
-    backend.name = input.name
-    backend.kind = input.kind
+    backend.name = parsed.name
+    backend.kind = parsed.kind
 
     await backend.asave()
 
     return backend
+
+
+async def delete_backend(info: Info, id: strawberry.ID) -> strawberry.ID:
+    backend = await models.Backend.objects.aget(id=id)
+    await backend.adelete()
+
+    return id

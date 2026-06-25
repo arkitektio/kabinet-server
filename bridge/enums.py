@@ -2,9 +2,9 @@ import strawberry
 from enum import Enum
 
 
-@strawberry.enum(description="The state of a dask cluster")
+@strawberry.enum(description="The lifecycle status of a pod.")
 class PodStatus(str, Enum):
-    """The state of a dask cluster"""
+    """The lifecycle status of a pod."""
 
     PENDING = "PENDING"
     RUNNING = "RUNNING"
@@ -20,7 +20,7 @@ class DemandKind(str, Enum):
     RETURNS = "returns"
 
 
-@strawberry.enum(description="The state of a dask cluster")
+@strawberry.enum(description="The container runtime used to run a pod.")
 class ContainerType(str, Enum):
     APPTAINER = "APPTAINER"
     DOCKER = "DOCKER"

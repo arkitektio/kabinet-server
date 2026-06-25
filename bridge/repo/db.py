@@ -1,4 +1,3 @@
-from rekuest_core.hash import hash_definition
 from .models import KabinetConfigFile
 from bridge import models
 from .errors import DBError
@@ -18,17 +17,17 @@ async def adownload_logo(url: str) -> File:  # type: ignore
     return File(img_tmp)
 
 
-async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo) -> list[models.Flavour]:
+async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organization: models.Organization) -> list[models.Flavour]:
     """Parse a deployments config file and create models"""
 
     deps = []
     try:
         for deployment in config.app_images:
-            print(deployment)
             manifest = deployment.manifest
 
             app, _ = await models.App.objects.aget_or_create(
                 identifier=manifest.identifier,
+                organization=organization,
             )
 
             release, _ = await models.Release.objects.aupdate_or_create(
@@ -47,6 +46,7 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo) -> li
             x, _ = await models.DockerImage.objects.aupdate_or_create(
                 image_string=deployment.image.image_string,
                 defaults=dict(build_at=deployment.image.build_at),
+                organization=organization
             )
 
             flavour, _ = await models.Flavour.objects.aupdate_or_create(
@@ -55,11 +55,11 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo) -> li
                 defaults=dict(
                     deployment_id=deployment.app_image_id,
                     flavour=deployment.app_image_id,
-                    selectors=[d.dict() for d in deployment.selectors],
+                    selectors=[d.model_dump() for d in deployment.selectors],
                     repo=repo,
                     image=x,
-                    manifest=deployment.manifest.dict(),
-                    requirements=deployment.inspection.dict()["requirements"],
+                    manifest=deployment.manifest.model_dump(),
+                    requirements=deployment.inspection.model_dump()["requirements"],
                 ),
             )
 
@@ -68,18 +68,17 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo) -> li
             if inspection:
                 for implementation in inspection.implementations:
                     def_model, _ = await models.Definition.objects.aupdate_or_create(
-                        hash=hash_definition(implementation.definition),
+                        hash=implementation.definition.unique_hash,
                         defaults=dict(
                             description=implementation.definition.description,
-                            args=[d.dict() for d in implementation.definition.args],
-                            returns=[d.dict() for d in implementation.definition.returns],
+                            args=[d.model_dump() for d in implementation.definition.args],
+                            returns=[d.model_dump() for d in implementation.definition.returns],
                             name=implementation.definition.name,
                         ),
                     )
                     await def_model.flavours.aadd(flavour)
 
             deps.append(flavour)
-            print("Created", flavour)
     except Exception as e:
         raise DBError("Could not create models from deployments") from e
 

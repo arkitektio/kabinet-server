@@ -6,17 +6,18 @@ from bridge.utils import aget_backend_for_info
 async def create_deployment(
     info: Info, input: inputs.CreateDeploymentInput
 ) -> types.Deployment:
-    """Create a new dask cluster on a bridge server"""
+    """Schedule a flavour onto a backend, creating a new deployment."""
+    parsed = input.to_pydantic()
 
-    backend = await aget_backend_for_info(info, input.instance_id)
+    backend = await aget_backend_for_info(info)
 
-    flavour = await models.Flavour.objects.aget(id=input.flavour)
+    flavour = await models.Flavour.objects.aget(id=parsed.flavour)
 
     deployment, _ = await models.Deployment.objects.aupdate_or_create(
         flavour=flavour,
         backend=backend,
-        local_id=input.local_id,
-        defaults={"secret_params": input.secret_params or {}},
+        local_id=parsed.local_id,
+        defaults={"secret_params": parsed.secret_params or {}},
     )
 
     return deployment
@@ -25,12 +26,13 @@ async def create_deployment(
 async def update_deployment(
     info: Info, input: inputs.UpdateDeploymentInput
 ) -> types.Deployment:
-    """Create a new dask cluster on a bridge server"""
+    """Update an existing deployment, addressed by its ID."""
+    parsed = input.to_pydantic()
 
-    pod = await models.Pod.objects.aget(id=input.id)
+    deployment = await models.Deployment.objects.aget(id=parsed.deployment)
 
-    pod.status = input.status
+    # NOTE: the Deployment model has no status field today, so the status from the
+    # input is not persisted; this resolver currently just returns the deployment.
+    await deployment.asave()
 
-    await pod.save()
-
-    return pod
+    return deployment

@@ -2,17 +2,26 @@ from .settings import *  # noqa
 from .settings import DATABASES, AUTHENTIKATE
 import logging
 
+# Point at the Postgres brought up by the conftest backend_stack (see
+# tests/integration/docker-compose.yaml — db on :5555, database "testdb").
 DATABASES["default"] = {
-    "ENGINE": "django.db.backends.sqlite3",
-    "NAME": ":memory:",
-    "OPTIONS": {
-        "timeout": 30,
-    },
-    "TEST": {
-        "NAME": ":memory:",
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": "testdb",
+    "USER": "test",
+    "PASSWORD": "test",
+    "HOST": "localhost",
+    "PORT": "5555",
+}
+AUTHENTIKATE = {
+    **AUTHENTIKATE,
+    "static_tokens": {
+        "test": {"sub": "1"},
+        # A non-privileged user in a different organization, for cross-tenant
+        # scoping/permission tests (see the other_org_context fixture). roles
+        # must be set explicitly: StaticToken defaults roles to ["admin"].
+        "othertest": {"sub": "9", "active_org": "other_org", "roles": []},
     },
 }
-AUTHENTIKATE = {**AUTHENTIKATE, "STATIC_TOKENS": {"test": {"sub": "1"}}}
 
 
 # Disable migrations for faster tests
@@ -33,6 +42,13 @@ class DisableMigrations:
 
 # Disable logging during tests to reduce noise
 logging.disable(logging.CRITICAL)
+
+# Don't auto-provision default/ensured GithubRepos when an Organization is
+# created (see bridge.signals.ensure_default_repos_for_organization). The query
+# tests build their own repo chains via fixtures and assert on exact contents,
+# so any config-provisioned repo would leak in as an extra row.
+DEFAULT_REPOS = []
+ENSURED_REPOS = []
 
 # Enable database access from async code in tests
 DATABASE_ROUTERS = []

@@ -7,6 +7,7 @@ import yaml
 from tests.utils import build_relative_dir
 from rekuest_core.enums import PortKind
 from bridge.repo.db import parse_config
+from authentikate.models import Organization
 
 
 @pytest.mark.asyncio
@@ -21,14 +22,14 @@ async def test_parse_deployments(db: typing.Any) -> None:
     assert len(config.app_images) >= 1 and (
         config.app_images[0].flavour_name == "vanilla"
     ), "First deployment should be vanilla"
-   
-    
-
-    
 
 
 @pytest.mark.asyncio
 async def test_db_deployments(db: typing.Any) -> None:
+    organization, _ = await Organization.objects.aget_or_create(
+        slug="test-organization"
+    )
+
     user, _ = await get_user_model().objects.aget_or_create(
         username="test", defaults=dict(email="test@gmail.com")
     )
@@ -36,6 +37,7 @@ async def test_db_deployments(db: typing.Any) -> None:
     github_repo = await GithubRepo.objects.acreate(
         name="test",
         creator=user,
+        organization=organization,
     )
 
     with open(
@@ -45,6 +47,6 @@ async def test_db_deployments(db: typing.Any) -> None:
 
     config = KabinetConfigFile(**deployment)
 
-    flavours = await parse_config(config, github_repo)
+    flavours = await parse_config(config, github_repo, organization)
 
     assert len(flavours) == 1, "Should have three flavours"
