@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.0.0-rc.4 (2026-06-26)
+
+### Features
+
+- Removal of stale migrations
+  ([`c81ac2b`](https://github.com/arkitektio/kabinet-server/commit/c81ac2b18778da1d5907345300ee5f34c4abad66))
+
+
 ## v1.0.0-rc.3 (2026-06-26)
 
 
