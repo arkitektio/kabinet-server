@@ -1,12 +1,20 @@
 # CHANGELOG
 
 
+## v1.0.0-rc.3 (2026-06-26)
+
+
 ## v1.0.0-rc.2 (2026-06-26)
 
 ### Bug Fixes
 
 - With CONFIG.md
   ([`e44d0ef`](https://github.com/arkitektio/kabinet-server/commit/e44d0efce8a22ed93346e99e13f89ac4da8126ab))
+
+### Features
+
+- With white noise and optimized Dockerfile
+  ([`2422c6e`](https://github.com/arkitektio/kabinet-server/commit/2422c6e707792eeafc9718b8aebfbb0cdb8ddddb))
 
 
 ## v1.0.0-rc.1 (2026-06-25)
