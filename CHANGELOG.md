@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.0.0-rc.2 (2026-06-26)
+
+### Bug Fixes
+
+- With CONFIG.md
+  ([`e44d0ef`](https://github.com/arkitektio/kabinet-server/commit/e44d0efce8a22ed93346e99e13f89ac4da8126ab))
+
+
 ## v1.0.0-rc.1 (2026-06-25)
 
 ### Bug Fixes
