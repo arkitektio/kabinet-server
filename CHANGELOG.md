@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.0.0-rc.5 (2026-06-29)
+
+### Bug Fixes
+
+- Authentikate update
+  ([`ef7e79f`](https://github.com/arkitektio/kabinet-server/commit/ef7e79fb96d1fe8a22d0e0a747195c4df6c852f0))
+
+
 ## v1.0.0-rc.4 (2026-06-26)
 
 ### Features
