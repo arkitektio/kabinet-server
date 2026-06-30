@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.0.0-rc.6 (2026-06-30)
+
+### Features
+
+- Org scoping functional
+  ([`119f38a`](https://github.com/arkitektio/kabinet-server/commit/119f38aeba34a9a8cccc86c7a9663f4a8f1703e5))
+
+
 ## v1.0.0-rc.5 (2026-06-29)
 
 ### Bug Fixes
