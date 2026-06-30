@@ -1,5 +1,6 @@
 from kante.types import Info
 from bridge import types, inputs, models
+from bridge.scoping import aget_for_org
 from bridge.utils import aget_backend_for_info
 
 
@@ -11,7 +12,7 @@ async def create_deployment(
 
     backend = await aget_backend_for_info(info)
 
-    flavour = await models.Flavour.objects.aget(id=parsed.flavour)
+    flavour = await aget_for_org(models.Flavour, info, id=parsed.flavour)
 
     deployment, _ = await models.Deployment.objects.aupdate_or_create(
         flavour=flavour,
@@ -29,7 +30,7 @@ async def update_deployment(
     """Update an existing deployment, addressed by its ID."""
     parsed = input.to_pydantic()
 
-    deployment = await models.Deployment.objects.aget(id=parsed.deployment)
+    deployment = await aget_for_org(models.Deployment, info, id=parsed.deployment)
 
     # NOTE: the Deployment model has no status field today, so the status from the
     # input is not persisted; this resolver currently just returns the deployment.
