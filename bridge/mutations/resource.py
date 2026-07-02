@@ -1,5 +1,6 @@
 from kante.types import Info
 from bridge import types, inputs, models
+from bridge.scoping import aget_for_org
 from bridge.utils import aget_backend_for_info
 
 
@@ -7,7 +8,7 @@ async def declare_resource(info: Info, input: inputs.DeclareResourceInput) -> ty
     """Declare (register or update) a resource on one of your backends."""
     parsed = input.to_pydantic()
 
-    backend = await models.Backend.objects.aget(id=parsed.backend)
+    backend = await aget_for_org(models.Backend, info, id=parsed.backend)
 
     resource, _ = await models.Resource.objects.aupdate_or_create(
         backend=backend,

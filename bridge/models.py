@@ -155,14 +155,22 @@ class Flavour(models.Model):
 
 
 class Collection(models.Model):
-    name = models.CharField(max_length=1000, unique=True, help_text="The name of this Collection")
+    name = models.CharField(max_length=1000, help_text="The name of this Collection")
     description = models.TextField(help_text="A description for the Collection")
     defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="collections")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["name", "organization"], name="Unique collection for org")]
 
 
 class Protocol(models.Model):
-    name = models.CharField(max_length=1000, unique=True, help_text="The name of this Protocol")
+    name = models.CharField(max_length=1000, help_text="The name of this Protocol")
     description = models.TextField(help_text="A description for the Protocol")
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="protocols")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["name", "organization"], name="Unique protocol for org")]
 
     def __str__(self) -> str:
         return self.name
@@ -186,9 +194,9 @@ class Definition(models.Model):
 
     hash = models.CharField(
         max_length=1000,
-        help_text="The hash of the Action (completely unique)",
-        unique=True,
+        help_text="The hash of the Action (unique within an organization)",
     )
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="definitions")
     collections = models.ManyToManyField(
         Collection,
         related_name="actions",
@@ -225,14 +233,12 @@ class Definition(models.Model):
         help_text="The protocols this Action implements (e.g. Predicate)",
     )
 
-    hash = models.CharField(
-        max_length=1000,
-        help_text="The hash of the Action (completely unique)",
-        unique=True,
-    )
     defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
     args = models.JSONField(default=list, help_text="Inputs for this Action")
     returns = models.JSONField(default=list, help_text="Outputs for this Action")
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["hash", "organization"], name="Unique definition for org")]
 
     def __str__(self) -> str:
         return f"{self.name}"
@@ -253,6 +259,7 @@ class StateDefinition(models.Model):
     )
     ports = models.JSONField(default=list, help_text="Inputs for this Action")
     defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="state_definitions")
 
 
 class Backend(models.Model):

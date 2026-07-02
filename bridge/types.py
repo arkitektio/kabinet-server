@@ -5,7 +5,7 @@ import strawberry
 import strawberry.django
 import strawberry_django
 from authentikate import models as auth_models
-from bridge import enums, filters, models, scalars, types
+from bridge import enums, filters, models, scalars, scoping, types
 from bridge.repo import selectors
 from django.contrib.auth import get_user_model
 from kante.types import Info
@@ -18,12 +18,15 @@ from strawberry.experimental import pydantic
 from .type_gen import create_stats_type
 
 
-def build_prescoped_queryset(info, queryset, field="organization"):
+def build_prescoped_queryset(info, queryset, field=None):
     # Everything is always organization-scoped; there is no per-request scope override.
+    # When no explicit field is given, auto-discover the path to the organization
+    # (direct ``organization`` FK, or through required FKs) via bridge.scoping.
+    field = field or scoping.organization_path(queryset.model)
     return queryset.filter(**{field: info.context.request.organization})
 
 
-def build_prescoper(field="organization"):
+def build_prescoper(field=None):
     def prescoper(queryset, info):
         return build_prescoped_queryset(info, queryset, field=field)
 
@@ -121,6 +124,10 @@ class App:
     id: auto
     identifier: str = strawberry_django.field(description="The globally unique, reverse-domain identifier of the app.")
 
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset)
+
 
 @strawberry_django.type(
     models.Release,
@@ -159,6 +166,11 @@ class Release:
     def name(self, info: Info) -> str:
         return self.app.identifier + ":" + self.version
 
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        # Release has no direct organization; it inherits it via app__organization.
+        return build_prescoped_queryset(info, queryset)
+
 
 @strawberry_django.type(
     models.Deployment,
@@ -177,6 +189,11 @@ class Deployment:
     @strawberry_django.field(description="The display name of this deployment, combining backend and flavour names.")
     def name(self) -> str:
         return self.backend.name + "-" + self.flavour.name
+
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        # Deployment has no direct organization; it inherits it via backend__organization.
+        return build_prescoped_queryset(info, queryset)
 
 
 @strawberry.experimental.pydantic.interface(
@@ -242,6 +259,10 @@ class DockerImage:
     image_string: str = strawberry_django.field(description="The fully-qualified image reference (registry/name:tag).")
     build_at: datetime.datetime = strawberry_django.field(description="When this image was built.")
 
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset)
+
 
 @strawberry_django.type(
     models.Flavour,
@@ -277,6 +298,11 @@ class Flavour:
     def description(self) -> str:
         return " No description provided"
 
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        # Flavour has no direct organization; it inherits it via release__app__organization.
+        return build_prescoped_queryset(info, queryset)
+
 
 @strawberry_django.type(
     models.Collection,
@@ -291,6 +317,10 @@ class Collection:
     description: str = strawberry_django.field(description="A description of this collection.")
     defined_at: datetime.datetime = strawberry_django.field(description="When this collection was defined.")
 
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset)
+
 
 @strawberry_django.type(
     models.Protocol,
@@ -303,6 +333,10 @@ class Protocol:
     id: auto
     name: str = strawberry_django.field(description="The name of this protocol.")
     description: str = strawberry_django.field(description="A description of this protocol.")
+
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset)
 
 
 @strawberry_django.type(
@@ -334,6 +368,10 @@ class Definition:
     def returns(self) -> list[rtypes.ReturnPort]:
         return [rmodels.ReturnPortModel(**i) for i in self.returns]
 
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset)
+
 
 @strawberry_django.type(
     models.LogDump,
@@ -347,6 +385,11 @@ class LogDump:
     pod: "Pod" = strawberry_django.field(description="The pod these logs were captured from.")
     logs: str = strawberry_django.field(description="The captured log output.")
     created_at: datetime.datetime = strawberry_django.field(description="When these logs were captured.")
+
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        # LogDump has no direct organization; it inherits it via pod__backend__organization.
+        return build_prescoped_queryset(info, queryset)
 
 
 @strawberry_django.type(

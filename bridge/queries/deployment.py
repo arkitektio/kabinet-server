@@ -1,8 +1,9 @@
 from bridge import types, models
+from bridge.scoping import aget_for_org
+from kante.types import Info
 import strawberry
-from rekuest_core.scalars import ActionHash
 
 
-async def deployment(id: strawberry.ID) -> types.Deployment:
-    """Return a dask cluster by id"""
-    return await models.Deployment.objects.aget(id=id)
+async def deployment(info: Info, id: strawberry.ID) -> types.Deployment:
+    """Return a deployment by id, scoped to the request's organization."""
+    return await aget_for_org(models.Deployment, info, id=id)

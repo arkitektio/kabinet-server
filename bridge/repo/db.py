@@ -69,6 +69,7 @@ async def parse_config(config: KabinetConfigFile, repo: models.GithubRepo, organ
                 for implementation in inspection.implementations:
                     def_model, _ = await models.Definition.objects.aupdate_or_create(
                         hash=implementation.definition.unique_hash,
+                        organization=organization,
                         defaults=dict(
                             description=implementation.definition.description,
                             args=[d.model_dump() for d in implementation.definition.args],

@@ -1,5 +1,6 @@
 from kante.types import Info
 from bridge import types, inputs, models
+from bridge.scoping import aget_for_org, for_org
 import logging
 import aiohttp
 import yaml
@@ -43,7 +44,7 @@ async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
 async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo:
     """Scan a tracked GitHub repository for app manifests and update its flavours."""
     parsed = input.to_pydantic()
-    repo = await models.GithubRepo.objects.aget(id=parsed.id)
+    repo = await aget_for_org(models.GithubRepo, info, id=parsed.id)
 
     config = await aget_kabinet_config(repo.kabinet_url)
 
@@ -139,7 +140,7 @@ async def create_github_repo(info: Info, input: inputs.CreateGithubRepoInput) ->
 
 
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:
-    repos = models.GithubRepo.objects.all()
+    repos = for_org(models.GithubRepo, info)
 
     async for repo in repos:
         config = await aget_kabinet_config(repo.kabinet_url)

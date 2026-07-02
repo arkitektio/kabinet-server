@@ -1,13 +1,15 @@
 from bridge import types, models
+from bridge.scoping import get_for_org
+from kante.types import Info
 import strawberry
 from rekuest_core.scalars import ActionHash
 
 
-def definition(id: strawberry.ID | None = None, hash: ActionHash | None = None) -> types.Definition:
-    """Return a dask cluster by id"""
+def definition(info: Info, id: strawberry.ID | None = None, hash: ActionHash | None = None) -> types.Definition:
+    """Return an action definition by id or hash, scoped to the request's organization."""
     if id:
-        return models.Definition.objects.get(id=id)
+        return get_for_org(models.Definition, info, id=id)
     if hash:
-        return models.Definition.objects.get(hash=hash)
+        return get_for_org(models.Definition, info, hash=hash)
 
     raise Exception("Either hash or id needs to be provided")
