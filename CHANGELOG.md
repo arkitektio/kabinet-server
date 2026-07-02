@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.0.0-rc.8 (2026-07-02)
+
+### Bug Fixes
+
+- Models to latest rekuest
+  ([`439038e`](https://github.com/arkitektio/kabinet-server/commit/439038e9a7496fcc95f9c55c3233052fac5de852))
+
+
 ## v1.0.0-rc.7 (2026-07-02)
 
 ### Bug Fixes
