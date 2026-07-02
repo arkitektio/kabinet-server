@@ -1,60 +1,7 @@
 # CHANGELOG
 
 
-## v1.0.0-rc.8 (2026-07-02)
-
-### Bug Fixes
-
-- Models to latest rekuest
-  ([`439038e`](https://github.com/arkitektio/kabinet-server/commit/439038e9a7496fcc95f9c55c3233052fac5de852))
-
-
-## v1.0.0-rc.7 (2026-07-02)
-
-### Bug Fixes
-
-- To new api
-  ([`0302975`](https://github.com/arkitektio/kabinet-server/commit/03029759032e587a21f90e7485c6bad02c85fdf9))
-
-
-## v1.0.0-rc.6 (2026-06-30)
-
-### Features
-
-- Org scoping functional
-  ([`119f38a`](https://github.com/arkitektio/kabinet-server/commit/119f38aeba34a9a8cccc86c7a9663f4a8f1703e5))
-
-
-## v1.0.0-rc.5 (2026-06-29)
-
-### Bug Fixes
-
-- Authentikate update
-  ([`ef7e79f`](https://github.com/arkitektio/kabinet-server/commit/ef7e79fb96d1fe8a22d0e0a747195c4df6c852f0))
-
-
-## v1.0.0-rc.4 (2026-06-26)
-
-### Features
-
-- Removal of stale migrations
-  ([`c81ac2b`](https://github.com/arkitektio/kabinet-server/commit/c81ac2b18778da1d5907345300ee5f34c4abad66))
-
-
-## v1.0.0-rc.3 (2026-06-26)
-
-
-## v1.0.0-rc.2 (2026-06-26)
-
-### Bug Fixes
-
-- With CONFIG.md
-  ([`e44d0ef`](https://github.com/arkitektio/kabinet-server/commit/e44d0efce8a22ed93346e99e13f89ac4da8126ab))
-
-### Features
-
-- With white noise and optimized Dockerfile
-  ([`2422c6e`](https://github.com/arkitektio/kabinet-server/commit/2422c6e707792eeafc9718b8aebfbb0cdb8ddddb))
+## v1.0.0 (2026-06-25)
 
 
 ## v1.0.0-rc.1 (2026-06-25)
