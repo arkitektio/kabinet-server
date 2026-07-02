@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.0.0-rc.7 (2026-07-02)
+
+### Bug Fixes
+
+- To new api
+  ([`0302975`](https://github.com/arkitektio/kabinet-server/commit/03029759032e587a21f90e7485c6bad02c85fdf9))
+
+
 ## v1.0.0-rc.6 (2026-06-30)
 
 ### Features
