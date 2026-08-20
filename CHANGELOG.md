@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v2.0.1 (2026-08-20)
+
+### Bug Fixes
+
+- Api
+  ([`0759352`](https://github.com/arkitektio/kabinet-server/commit/0759352e86aa4fd133ef9a38b5234ef4dad87f39))
+
+- Datalayer
+  ([`9e4ba80`](https://github.com/arkitektio/kabinet-server/commit/9e4ba800c62b39c21871c3c7b9677c4843e58d25))
+
+
 ## v2.0.0 (2026-07-02)
 
 
