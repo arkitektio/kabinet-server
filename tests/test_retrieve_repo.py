@@ -1,3 +1,4 @@
+from asgiref.sync import sync_to_async
 import pytest
 from bridge.models import Flavour, App, Release, GithubRepo
 from django.contrib.auth import get_user_model
@@ -47,6 +48,6 @@ async def test_db_deployments(db: typing.Any) -> None:
 
     config = KabinetConfigFile(**deployment)
 
-    flavours = await parse_config(config, github_repo, organization)
+    flavours = await sync_to_async(parse_config)(config, github_repo, organization)
 
     assert len(flavours) == 1, "Should have three flavours"

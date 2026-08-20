@@ -10,4 +10,17 @@ from .deployment import deployment
 from .backend import backend
 from .resource import resource
 
-__all__ = ["github_repo", "me", "definition", "release", "flavour", "match_flavour", "pod", "pod_for_agent", "deployment", "backend", "my_pod_at"]
+__all__ = [
+    "backend",
+    "definition",
+    "deployment",
+    "flavour",
+    "github_repo",
+    "match_flavour",
+    "me",
+    "my_pod_at",
+    "pod",
+    "pod_for_agent",
+    "release",
+    "resource",
+]

@@ -50,13 +50,8 @@ class StateAccessorModel(BaseModel):
     sub_path: str | None = None
 
 
-class StateChoiceAssignWidgetModel(AssignWidgetModel):
-    kind: Literal["STATE_CHOICE"]
-    state_path: str
-    dependency: str | None = None
-    state_accessors: list[StateAccessorModel] | None = None
-
-
+# `StateChoiceAssignWidgetModel` used to be declared twice here, byte for byte. The
+# second definition shadowed the first, so only one was ever reachable.
 class StateChoiceAssignWidgetModel(AssignWidgetModel):
     kind: Literal["STATE_CHOICE"]
     state_path: str

@@ -1,7 +1,6 @@
 from kante.types import Info
 from bridge import types, inputs, models
 from bridge.scoping import aget_for_org
-from bridge.utils import aget_backend_for_info
 
 
 async def declare_resource(info: Info, input: inputs.DeclareResourceInput) -> types.Resource:

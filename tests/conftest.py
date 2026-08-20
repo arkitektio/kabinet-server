@@ -1,3 +1,4 @@
+from asgiref.sync import sync_to_async
 import os
 import time
 
@@ -215,7 +216,9 @@ async def built_chain(authenticated_context: HttpContext) -> dict:
     with open(build_relative_dir("deployments/deployments.yaml"), "r") as f:
         config = KabinetConfigFile(**yaml.safe_load(f))
 
-    flavours = await parse_config(config, repo, org)
+    # `parse_config` is synchronous (it runs inside `transaction.atomic`), so it has
+    # to be thrown to a thread from this async fixture.
+    flavours = await sync_to_async(parse_config)(config, repo, org)
     return {"repo_id": str(repo.id), "flavour_id": str(flavours[0].id)}
 
 

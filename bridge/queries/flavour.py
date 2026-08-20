@@ -9,8 +9,13 @@ def flavour(info: Info, id: strawberry.ID) -> types.Flavour:
     return get_for_org(models.Flavour, info, id=id)
 
 
-def match_flavour(info: Info, input: inputs.MatchFlavoursInput) -> types.Flavour:
-    """Return the flavour that best matches the requested release and actions."""
+def match_flavour(info: Info, input: inputs.MatchFlavoursInput) -> types.Flavour | None:
+    """Return the flavour that best matches the requested release and actions, or None.
+
+    Declared non-null until now, while the body has always ended in ``.first()`` -- so
+    the ordinary "nothing matches" answer, which is what a matcher exists to give, came
+    back as a non-null violation instead of as null.
+    """
     parsed = input.to_pydantic()
 
     flavours = for_org(models.Flavour, info)

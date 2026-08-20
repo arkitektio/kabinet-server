@@ -1,12 +1,8 @@
-import re
 import typing as t
 
 from django.db import connection
 
-from .inputs import ActionDemandInput
 from rekuest_core.inputs.types import PortMatchInput
-
-qt = re.compile(r"@(?P<package>[^\/]*)\/(?P<interface>[^\/]*)")
 
 
 def build_child_recursively(item: PortMatchInput, prefix, value_path, parts, params):
@@ -23,8 +19,11 @@ def build_child_recursively(item: PortMatchInput, prefix, value_path, parts, par
         params[f"{value_path}_identifier"] = item.identifier
 
     if item.children:
+        # Nested children are flattened one level up by `build_sql_for_item_recursive`;
+        # a child that carries its own children is not something this SQL can express.
+        # (A recursive call used to follow this raise, unreachable, and it referenced
+        # `item.child`, which `PortMatchInput` does not have.)
         raise ValueError("Children should not be present in the child item")
-        build_child_recursively(item.child, prefix + "->'children'", f"{value_path}_child", parts, params)
 
 
 def build_sql_for_item_recursive(item: PortMatchInput, index: int, at_value: int | None = None, prefix: str = "arg"):
@@ -78,6 +77,13 @@ def build_params(
     if search_params:
         for index, item in enumerate(search_params):
             sql_part, params = build_sql_for_item_recursive(item, index, at_value=item.at)
+            if not sql_part:
+                # Every field on `PortMatchInput` is optional, so a client can send `{}`.
+                # That produced an empty predicate and rendered
+                # `EXISTS (SELECT 1 FROM ... WHERE )` -- a `ProgrammingError` and a 500,
+                # from a well-formed query. A match that constrains nothing matches
+                # everything, so it simply contributes no clause.
+                continue
             if type == "args":
                 subquery = f"EXISTS (SELECT 1 FROM jsonb_array_elements(args) WITH ORDINALITY AS j(item, idx) WHERE {sql_part})"
             else:
@@ -107,102 +113,6 @@ def build_params(
     return full_sql, all_params
 
 
-def build_action_demand_params(
-    action_demand: ActionDemandInput,
-    model: str = "facade_action",
-) -> tuple[str, dict[str, t.Any]]:
-    """Build SQL for action demand"""
-    individual_queries = []
-    all_params = {}
-    
-    
-    if action_demand.name:
-        individual_queries.append(f"name = %(name)s")
-        all_params["name"] = action_demand.name
-        
-
-    if action_demand.arg_matches:
-        for index, item in enumerate(action_demand.arg_matches):
-            sql_part, params = build_sql_for_item_recursive(item, index, at_value=item.at, prefix="arg")
-            subquery = f"EXISTS (SELECT 1 FROM jsonb_array_elements(args) WITH ORDINALITY AS j(item, idx) WHERE {sql_part})"
-
-            individual_queries.append(subquery)
-            all_params.update(params)
-
-    if action_demand.return_matches:
-        for index, item in enumerate(action_demand.return_matches):
-            sql_part, params = build_sql_for_item_recursive(item, index, at_value=item.at, prefix="return")
-            subquery = f"EXISTS (SELECT 1 FROM jsonb_array_elements(returns) WITH ORDINALITY AS j(item, idx) WHERE {sql_part})"
-
-            individual_queries.append(subquery)
-            all_params.update(params)
-
-    if action_demand.force_arg_length is not None:
-        individual_queries.append(f"jsonb_array_length(args) = {action_demand.force_arg_length}")
-    if action_demand.force_return_length is not None:
-        individual_queries.append(f"jsonb_array_length(returns) = {action_demand.force_return_length}")
-
-    if not individual_queries:
-        raise ValueError("No search params provided")
-
-    full_sql = f"SELECT id FROM {model} WHERE " + " AND ".join(individual_queries)
-
-    return full_sql, all_params
-
-
-def build_state_params(
-    search_params: list[PortMatchInput] | None,
-    model: str = "facade_state_schema",
-):
-    individual_queries = []
-    all_params = {}
-    if search_params:
-        for index, item in enumerate(search_params):
-            sql_part, params = build_sql_for_item_recursive(item, index, at_value=item.at)
-            subquery = f"EXISTS (SELECT 1 FROM jsonb_array_elements(ports) WITH ORDINALITY AS j(item, idx) WHERE {sql_part})"
-
-            individual_queries.append(subquery)
-            all_params.update(params)
-
-    if not individual_queries:
-        raise ValueError("No search params provided")
-
-    full_sql = f"SELECT id FROM {model} WHERE " + " AND ".join(individual_queries)
-
-    return full_sql, all_params
-
-
-def filter_actions_by_demands(
-    qs: t.Any,
-    demands: list[PortMatchInput] = None,
-    type: t.Literal["args", "returns"] = "args",
-    force_length: t.Optional[int] = None,
-    force_non_nullable_length: t.Optional[int] = None,
-    force_structure_length: t.Optional[int] = None,
-    model: str = "bridge_definition",
-):
-    if type not in ["args", "returns"]:
-        raise ValueError("Type must be either 'args' or 'returns'")
-    
-
-    full_sql, all_params = build_params(
-        demands,
-        type=type,
-        force_length=force_length,
-        force_non_nullable_length=force_non_nullable_length,
-        force_structure_length=force_structure_length,
-        model=model,
-    )
-
-    with connection.cursor() as cursor:
-        cursor.execute(full_sql, all_params)
-        rows = cursor.fetchall()
-        ids = [row[0] for row in rows]
-
-    qs = qs.filter(id__in=ids)
-    return qs
-
-
 def get_action_ids_by_demands(
     demands: list[PortMatchInput] = None,
     type: t.Literal["args", "returns"] = "args",
@@ -230,33 +140,8 @@ def get_action_ids_by_demands(
         return ids
 
 
-def get_action_ids_by_action_demand(
-    action_demand: ActionDemandInput,
-    model: str = "bridge_definition",
-):
-    full_sql, all_params = build_action_demand_params(
-        action_demand,
-        model=model,
-    )
-
-    with connection.cursor() as cursor:
-        cursor.execute(full_sql, all_params)
-        rows = cursor.fetchall()
-        ids = [row[0] for row in rows]
-        return ids
-
-
-def get_state_ids_by_demands(
-    matches: list[PortMatchInput] = None,
-    model: str = "facade_stateschema",
-):
-    full_sql, all_params = build_state_params(
-        matches,
-        model=model,
-    )
-
-    with connection.cursor() as cursor:
-        cursor.execute(full_sql, all_params)
-        rows = cursor.fetchall()
-        ids = [row[0] for row in rows]
-        return ids
+# `build_action_demand_params`, `build_state_params`, `filter_actions_by_demands`,
+# `get_action_ids_by_action_demand` and `get_state_ids_by_demands` used to follow. None
+# of them had a caller, and their default table names -- "facade_action",
+# "facade_state_schema" and "facade_stateschema", three spellings of two tables -- name
+# rekuest's schema, not kabinet's. Nothing in this database would have answered them.

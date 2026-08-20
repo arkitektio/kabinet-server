@@ -4,12 +4,10 @@ from strawberry.experimental import pydantic
 from .enums import PodStatus, ContainerType
 import strawberry
 from rekuest_core.scalars import ActionHash
-from rekuest_core import enums as renums
 from rekuest_core.inputs import types as rtypes
 from rekuest_core.inputs import models as rmodels
 from typing import Dict, List, Optional
 from bridge import scalars
-from strawberry import LazyType
 from bridge import enums
 
 
@@ -127,7 +125,12 @@ class MatchFlavoursInputModel(BaseModel):
 
     environment: EnvironmentInputModel | None = Field(default=None, description="The target environment to match flavours against.")
     release: strawberry.ID | None = Field(default=None, description="The release whose flavours should be matched.")
-    actions: Optional[list[str]] = Field(description="The action hashes that the matched flavour must provide.")
+    # Every field here is optional -- matching on release alone, or on actions alone, are
+    # both meaningful queries -- but `actions` and `release` carried no default, so they
+    # rendered as mandatory-and-nullable: a client had to send `actions: null` explicitly
+    # or the resolver raised `MatchFlavoursInput.__init__() missing 1 required
+    # keyword-only argument`. Nullable-but-required is never what anyone means.
+    actions: Optional[list[str]] = Field(default=None, description="The action hashes that the matched flavour must provide.")
 
 
 @pydantic.input(MatchFlavoursInputModel, description="Input for matching the best flavour for a release in a given environment.")
@@ -135,8 +138,8 @@ class MatchFlavoursInput:
     """Input for matching the best flavour for a release in a given environment."""
 
     environment: EnvironmentInput | None = None
-    actions: Optional[list[ActionHash]]
-    release: Optional[strawberry.ID]
+    actions: Optional[list[ActionHash]] = None
+    release: Optional[strawberry.ID] = None
 
 
 class CreatePodInputModel(BaseModel):

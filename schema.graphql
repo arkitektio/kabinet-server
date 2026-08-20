@@ -1,0 +1,2575 @@
+directive @oneOf on INPUT_OBJECT
+
+directive @unionElementOf(union: String!, discriminator: String!, key: String!) on INPUT_OBJECT
+
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+"""A JSON-serializable argument entry for a multi-agent action trigger."""
+input ActionArgumentInput {
+  """The argument property name."""
+  key: String = null
+
+  """Static literal value if not dynamically bound."""
+  valueLiteral: JSONSerializable = null
+
+  """
+  JSON Pointer referencing the shared Blok state to inject into this argument slot dynamically.
+  """
+  valuePath: String = null
+
+  """
+  Defines a nested agent call if this argument should trigger an agent interaction.
+  """
+  agentCall: AgentCallInput = null
+
+  """
+  Defines a nested utility call if this argument should trigger a system utility interaction.
+  """
+  utilCall: UtilCallInput = null
+
+  """Defines a list of values if this argument should be an array."""
+  valueList: [ActionArgumentInput!] = null
+
+  """
+  Defines a list of key-value pairs if this argument should be a dictionary.
+  """
+  valueDict: [ActionArgumentInput!] = null
+}
+
+"""
+Pure matching criteria for an action: hash or name short-circuits, arg/return
+    port matches, protocols and forced port counts. Used directly by query filters and, wrapped
+    in an ActionDependencyInput, by dependency declarations.
+"""
+input ActionDemandInput {
+  """
+  The exact hash of the action. When set, matching short-circuits on the hash and everything else is ignored.
+  """
+  hash: String = null
+
+  """
+  The action's key within its app, e.g. 'open_image'. Together with `app` this is the preferred identification of the demanded action.
+  """
+  key: String = null
+
+  """
+  The identifier of the app providing the action, e.g. 'imagej'. Omit (or drop when loosening) to allow equivalent actions from any app.
+  """
+  app: String = null
+
+  """The exact version of the action."""
+  version: String = null
+
+  """The display name of the action to match."""
+  name: String = null
+
+  """The matches the action's arg ports must satisfy."""
+  argMatches: [PortMatchInput!] = null
+
+  """The matches the action's return ports must satisfy."""
+  returnMatches: [PortMatchInput!] = null
+
+  """Protocols (by name) the action must implement, e.g. 'predicate'."""
+  protocols: [String!] = null
+
+  """Require that the action has exactly this number of root args."""
+  forceArgLength: Int = null
+
+  """Require that the action has exactly this number of root returns."""
+  forceReturnLength: Int = null
+
+  """Require the action to be (or not be) pure. Omit to match either."""
+  pure: Boolean = null
+
+  """Require the action to be (or not be) idempotent. Omit to match either."""
+  idempotent: Boolean = null
+
+  """Require the action to be (or not be) stateful. Omit to match either."""
+  stateful: Boolean = null
+}
+
+"""
+A named action requirement of a dependency: a slot key plus the demand the
+    resolved action must satisfy, and resolution-lifecycle filters.
+"""
+input ActionDependencyInput {
+  """
+  The local slot key of this action requirement — callers reference it when assigning.
+  """
+  key: String!
+
+  """
+  The description of the dependency, why it is needed and what it is used for.
+  """
+  description: String = null
+
+  """
+  The matching criteria the resolved action must satisfy (app/key preferred; matches loosen).
+  """
+  demand: ActionDemandInput = null
+
+  """
+  Whether the dependency is optional or not. If the dependency is optional, the agent doesn't have to provide it to be potentially callable
+  """
+  optional: Boolean! = false
+
+  """Allow inactive nodes, defaults to true"""
+  allowInactive: Boolean = true
+}
+
+"""
+The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+"""
+scalar ActionHash
+
+"""The kind of action."""
+enum ActionKind {
+  FUNCTION
+  GENERATOR
+}
+
+"""The kind of action scope."""
+enum ActionScope {
+  GLOBAL
+  LOCAL
+  BRIDGE_GLOBAL_TO_LOCAL
+  BRIDGE_LOCAL_TO_GLOBAL
+}
+
+"""
+Defines a callback that routes user interactions directly to an Arkitekt Agent via Rekuest.
+"""
+input AgentCallInput {
+  """
+  The abstract agent dependency key declared in the Blok manifest (e.g., 'stage_dep').
+  """
+  dependency: String!
+
+  """
+  The target function name registered on that specific agent's worker thread loop.
+  """
+  operation: String!
+
+  """Key-value arguments map compiled for the target agent call."""
+  arguments: [ActionArgumentInput!] = null
+}
+
+"""
+A dependency for a implementation. By defining dependencies, you can
+    create a dependency graph for your implementations and actions
+"""
+input AgentDependencyInput {
+  """
+  The key of this dependency, when assigning you can reference this key to specify which agent_dependency you are assigning to.
+  """
+  key: String!
+
+  """
+  Which app this dependency corresponds to (i.e. do you want to use a stardist agent for that or imagej agents needs to be a world unique classsifier (reverse domain notation) that identifies the type of agent you want to use, and then we can have multiple agents of the same type running in the system, e.g. startdist could be the app for all agents that correpsond to a startdist instance)
+  """
+  app: String = null
+
+  """The version of the app this dependency corresponds to."""
+  version: String = null
+
+  """
+  The name of the agent. This is used to identify the agent in the system.
+  """
+  name: String = null
+
+  """
+  A description of the dependency, why it is needed and what it is used for. This can be used to provide more context to users when assigning dependencies.
+  """
+  description: String = null
+
+  """
+  Whether the dependency is optional or not. If the dependency is optional, users can choose to not provide it
+  """
+  optional: Boolean! = false
+
+  """
+  The named action requirements of the agent — each a slot key plus the demand the resolved action must satisfy.
+  """
+  actionDependencies: [ActionDependencyInput!] = null
+
+  """
+  The named state requirements of the agent — each a slot key plus the demand the agent's state must satisfy.
+  """
+  stateDependencies: [StateDependencyInput!] = null
+
+  """
+  Whether this dependency is auto resolvable or not. If so we will try to automatically resolve it based on the demands specified in the dependency and the capabilities of the available agents in the system. This is used to identify the demand in the system. Attention if any of the dependencies of this agent dependency is not auto resolvable, this dependency will also not be auto resolvable
+  """
+  autoResolvable: Boolean! = false
+
+  """
+  A list of keys of other agent dependencies that are mutually exclusive with this one. This means two agent dependencies with mutually exclusive keys cannot be assigned to the same implementing agent. This is used to identify the demand in the system.
+  """
+  mutuallyExclusiveKeys: [String!] = null
+
+  """
+  The minimum amount of viable instances for the agent. This is used to identify the demand in the system.
+  """
+  minViableInstances: Int = null
+
+  """
+  The maximum amount of viable instances for the agent. This is used to identify the demand in the system.
+  """
+  maxViableInstances: Int = null
+
+  """
+  The prefered amount of instances for the agent. This is used to identify the demand in the system.
+  """
+  preferedInstances: Int = null
+
+  """The policy used to pick which instance of the agent to assign to."""
+  assignPolicy: AssignPolicy! = BALANCED
+}
+
+"""
+The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+"""
+scalar AnyDefault
+
+"""
+An application, identified by a globally unique, reverse-domain identifier (e.g. live.arkitekt.app).
+"""
+type App {
+  id: ID!
+
+  """The globally unique, reverse-domain identifier of the app."""
+  identifier: String!
+}
+
+"""
+Input describing a built app image to register (its manifest, image, selectors and inspection).
+"""
+input AppImageInput {
+  flavourName: String
+  manifest: ManifestInput!
+  selectors: [SelectorInput!]!
+  appImageId: String!
+  inspection: InspectionInput!
+  image: DockerImageInput!
+}
+
+"""The `Arg` scalar type represents a an Argument in a Action assignment"""
+scalar Arg
+
+type ArgPort {
+  key: String!
+  label: String
+  kind: PortKind!
+  description: String
+  identifier: Identifier
+  nullable: Boolean!
+  effects: [Effect!]
+  default: AnyDefault
+  children: [ArgPort!]
+  choices: [Choice!]
+  referenceUnit: String
+  proposedUnits: [String!]
+  dimension: String
+  validators: [Validator!]
+  widget: AssignWidget
+  requires: [Requires!]
+}
+
+"Port\n\n    A Port is a single input or output of a action. It is composed of a key and a kind\n    which are used to uniquely identify the port.\n\n    If the Port is a structure, we need to define a identifier and scope,\n    Identifiers uniquely identify a specific type of model for the scopes (e.g\n    all the ports that have the identifier \"@mikro/image\" are of the same type, and\n    are hence compatible with each other). Scopes are used to define in which context\n    the identifier is valid (e.g. a port with the identifier \"@mikro/image\" and the\n    scope \"local\", can only be wired to other ports that have the same identifier and\n    are running in the same app). Global ports are ports that have the scope \"global\",\n    and can be wired to any other port that has the same identifier, as there exists a\n    mechanism to resolve and retrieve the object for each app. Please check the rekuest\n    documentation for more information on how this works.\n\n\n    "
+input ArgPortInput {
+  """The validators for the port"""
+  validators: [ValidatorInput!] = null
+
+  """The key of the port"""
+  key: String!
+
+  """The label of the port. This is the text that is displayed in the UI"""
+  label: String = null
+
+  """
+  The kind of the port. This is the type of the port. Can be either int, string, structure, list, bool, dict, float, date, union or model
+  """
+  kind: PortKind!
+
+  """
+  The description of the port. This is the text that is displayed in the UI when the user hovers over the port
+  """
+  description: String = null
+
+  """
+  The identifier of a structure port. This is used to uniquely identify a specific type of structure.
+  """
+  identifier: String = null
+
+  """
+  Whether the port is nullable or not. If the port is nullable, it can be set to null. If the port is not nullable, it cannot be set to null
+  """
+  nullable: Boolean! = false
+
+  """The effects of the port"""
+  effects: [EffectInput!] = null
+
+  """The default value for the port."""
+  default: AnyDefault = null
+
+  """The options for the port. This is used for dropdowns and text inputs"""
+  choices: [ChoiceInput!] = null
+
+  """
+  For QUANTITY ports: the canonical/reference unit of the physical quantity, e.g. "volt" or "farad". It is the default selection and the key used to resolve the concrete quantity type; other units of the same dimension are still allowed.
+  """
+  referenceUnit: String = null
+
+  """
+  For QUANTITY ports: units offered as a dropdown in the UI, e.g. ["pF", "nF", "uF"]. Proposals only — any unit of the same dimension remains valid input.
+  """
+  proposedUnits: [String!] = null
+
+  """
+  For QUANTITY ports: the pint dimensionality string, e.g. "[mass] * [length] ** 2 / [time] ** 3 / [current]". This is the wiring-compatibility key between quantity ports.
+  """
+  dimension: String = null
+
+  """The child ports (used for list, dict, union and model ports)."""
+  children: [ArgPortInput!] = null
+
+  """The assign widget to use for this port."""
+  widget: AssignWidgetInput = null
+
+  """
+  The descriptors for the port. Descriptors are key-value pairs that can be used to add additional metadata to a port. When using rekuest's action search, you can filter actions based on their port descriptors
+  """
+  requires: [RequiresInput!] = null
+}
+
+enum AssignPolicy {
+  AUTOMATIC
+  BALANCED
+  ROUND_ROBIN
+  LEAST_BUSY
+  FASTEST_RESPONSE
+}
+
+interface AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+}
+
+input AssignWidgetInput {
+  """
+  The kind of the assign widget. Can be either dropdown, text, slider, checkbox, radio or custom
+  """
+  kind: AssignWidgetKind!
+
+  """
+  The query to run when searching for choices. This is used for dropdowns and text inputs
+  """
+  query: SearchQuery = null
+
+  """
+  The choices to display in the dropdown. This is used for dropdowns and text inputs
+  """
+  choices: [ChoiceInput!] = null
+
+  """
+  The key of a state whose value provides the choices for this widget (state-driven choices).
+  """
+  stateChoices: String = null
+
+  """
+  The key of another port whose value this widget should follow and mirror.
+  """
+  followValue: String = null
+
+  """
+  The minimum value of the slider (if a slider). This is used for sliders and text inputs
+  """
+  min: Float = null
+
+  """
+  The maximum value of the slider (if a slider). This is used for sliders and text inputs
+  """
+  max: Float = null
+
+  """
+  The step value of the slider (if a slider). This is used for sliders and text inputs
+  """
+  step: Float = null
+
+  """
+  The placeholder of the input. This is used for text inputs and dropdowns
+  """
+  placeholder: String = null
+
+  """
+  Whether to display the input as a paragraph or not. This is used for text inputs and dropdowns
+  """
+  asParagraph: Boolean = null
+
+  """
+  The hook to run when the input is changed. This is used for custom assign widgets
+  """
+  hook: String = null
+
+  """The ward that is responsible for handling querying the choices"""
+  ward: String = null
+
+  """
+  The fallback assign widget to use if the current one fails. This is used for custom assign widgets
+  """
+  fallback: AssignWidgetInput = null
+
+  """
+  The filters to apply to a search widget. This is used for custom assign widgets
+  """
+  filters: [ArgPortInput!] = null
+
+  """
+  The dependencies of the assign widget, which will be passed to the search or the hook widget. Use the .. syntax to traverse the tree of ports. For example, if you have a port with the key 'foo' and you want to reference a port with the key 'bar' that is a child of 'foo', you would use 'foo..bar'
+  """
+  dependencies: [String!] = []
+
+  """
+  The dependency that we are going to use to fullfill the state choices. If none is provided its the own state that will be queried
+  """
+  dependency: String = null
+
+  """
+  The dependency that we are going to target with a proxy widget. This is used for proxy widgets
+  """
+  targetDependency: String = null
+
+  """
+  The action that we are going to target with a proxy widget. This is used for proxy widgets
+  """
+  targetAction: String = null
+
+  """
+  The port that we are going to target with a proxy widget. This is used for proxy widgets
+  """
+  targetPort: String = null
+
+  """
+  The path to the state value that we are going to use to fullfill the state choices. Always traverse from top to bottom level. i.e state.x for state.x and state.x.y for state.x.y. You can also use an arrow function to specify a dynamic path based on the other arguments, e.g. (args) => state[args.foo]
+  """
+  statePath: String = null
+
+  """
+  State accessors are used to specify how to access the state values that we are going to use to fullfill the state choices. This is used when the state value that we want to use is not the same as the one of the port, e.g. when we want to use a specific key of a state object, or when we want to use a dynamic key based on the other arguments. The option_key field is used to specify which part of the state accessor we want to use as the value for the assign widget (e.g. the key, the description, the logo, etc.)
+  """
+  stateAccessors: [StateAccessorInput!] = null
+}
+
+"""The kind of assign widget."""
+enum AssignWidgetKind {
+  SEARCH
+  CHOICE
+  SLIDER
+  CUSTOM
+  STRING
+  STATE_CHOICE
+  PROXY
+}
+
+"""
+A deployment target (agent) registered by a client that runs pods on behalf of an organization.
+"""
+type Backend {
+  id: ID!
+
+  """The user that registered this backend."""
+  user: User!
+
+  """The OAuth2 client this backend authenticates as."""
+  client: Client!
+
+  """The organization this backend belongs to."""
+  organization: Organization!
+
+  """The human-readable name of this backend."""
+  name: String!
+
+  """The kind of backend (its runtime type)."""
+  kind: String!
+
+  """The pods currently running on this backend."""
+  pods(filters: PodFilter, ordering: [PodOrder!]! = [], pagination: OffsetPaginationInput): [Pod!]!
+
+  """The resources declared on this backend."""
+  resources(filters: ResourceFilter, ordering: [ResourceOrder!]! = [], pagination: OffsetPaginationInput): [Resource!]!
+
+  """The OAuth2 client ID of this backend."""
+  clientId: String!
+}
+
+"""Filter for backends."""
+input BackendFilter {
+  AND: BackendFilter
+  OR: BackendFilter
+  NOT: BackendFilter
+  DISTINCT: Boolean
+
+  """Keep only backends whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the backend name."""
+  search: String
+}
+
+input BackendOrder @oneOf {
+  id: Ordering
+  name: Ordering
+  lastHeartbeat: Ordering
+}
+
+"""Which locks does the agent provide in general"""
+input BlokImplementationInput {
+  """The key of this Blok implementation."""
+  key: String!
+
+  """The dependencies required by this Blok."""
+  dependencies: [AgentDependencyInput!]! = []
+
+  """The UI component tree blueprint for this Blok."""
+  components: [ComponentNodeInput!]!
+
+  """
+  The optional catalog name if this Blok should be registered inside a specific namespace in your Electron app's UI component registry.
+  """
+  catalog: String = null
+
+  """
+  A human-readable description about this Blok's purpose and functionality.
+  """
+  description: String = null
+
+  """
+  An optional JSON-serializable object providing demo state values for this Blok's internal reactive data model, useful for testing and development purposes.
+  """
+  demoState: JSONSerializable = null
+}
+
+"""Requires CPU resources on the backend."""
+type CPUSelector implements Selector {
+  kind: String!
+  required: Boolean!
+  weight: Int!
+
+  """The minimum number of CPU cores required"""
+  minCount: Int
+
+  """The minimum CPU frequency required, in MHz"""
+  frequency: Float
+}
+
+type Choice {
+  label: String!
+  value: String!
+  image: String
+  description: String
+}
+
+type ChoiceAssignWidget implements AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+  choices: [Choice!]
+}
+
+"\nA choice is a value that can be selected in a dropdown.\n\nIt is composed of a value, a label, and a description. The value is the\nvalue that is returned when the choice is selected. The label is the\ntext that is displayed in the dropdown. The description is the text\nthat is displayed when the user hovers over the choice.\n\n    "
+input ChoiceInput {
+  """
+  The value of the choice. This is the value that is returned when the choice is selected
+  """
+  value: AnyDefault!
+
+  """The label of the choice. This is the text that is displayed in the UI"""
+  label: String!
+
+  """
+  The image of the choice. This is the image that is displayed in the UI (must be a URL)
+  """
+  image: String = null
+
+  """
+  The description of the choice. This is the text that is displayed in the UI when the user hovers over the choice
+  """
+  description: String = null
+}
+
+type ChoiceReturnWidget implements ReturnWidget {
+  kind: ReturnWidgetKind!
+  choices: [Choice!]
+}
+
+"""Represents a registered OAuth2 client."""
+type Client {
+  """Unique ID of the client."""
+  id: ID!
+
+  """Name of the client."""
+  name: String!
+
+  """OAuth2 client ID."""
+  clientId: String!
+
+  """Release associated with the client."""
+  release: ClientRelease
+
+  """Device associated with the client."""
+  device: Device
+}
+
+"""A client application registered with the authentication provider."""
+type ClientApp {
+  """Unique ID of the app."""
+  id: ID!
+
+  """The unique identifier of the app."""
+  identifier: String!
+}
+
+"""A released version of a client application."""
+type ClientRelease {
+  """Unique ID of the release."""
+  id: ID!
+
+  """The app this release belongs to."""
+  app: ClientApp!
+
+  """Version string of the release."""
+  version: String!
+}
+
+"""A named grouping of related action definitions."""
+type Collection {
+  id: ID!
+
+  """The name of this collection."""
+  name: String!
+
+  """A description of this collection."""
+  description: String!
+
+  """When this collection was defined."""
+  definedAt: DateTime!
+}
+
+"""Filter for collections."""
+input CollectionFilter {
+  AND: CollectionFilter
+  OR: CollectionFilter
+  NOT: CollectionFilter
+  DISTINCT: Boolean
+
+  """Keep only collections whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the collection name."""
+  search: String
+}
+
+input CollectionOrder @oneOf {
+  id: Ordering
+  name: Ordering
+  definedAt: Ordering
+}
+
+"""
+An abstract structural visual element inside a Blok blueprint manifest.
+"""
+input ComponentNodeInput {
+  """
+  Unique structural string identifying this node instance inside the flat workspace layout tree.
+  """
+  id: String!
+
+  """
+  The type indicator token matching your Electron app's registered catalog specs (e.g. 'Slider').
+  """
+  component: String!
+
+  """
+  The collection of static values, state pointers, or action endpoints assigned to this component.
+  """
+  props: [ComponentPropInput!] = null
+
+  """
+  Flat adjacency pointer list mapping out IDs nested inside this specific component layer.
+  """
+  children: [ComponentNodeInput!] = null
+}
+
+"""A single key-value prop configuration for a component layout node."""
+input ComponentPropInput {
+  """The prop key name matching the target UI catalog constraint."""
+  key: String!
+
+  """
+  A raw scalar or JSON-stringified literal configuration parameter (e.g. '40x' or True).
+  """
+  staticValue: JSONSerializable = null
+
+  """A reactive state data-binding rule."""
+  dynamicValue: DynamicValueInput = null
+
+  """
+  If set, this prop declares a new 'value' in the Blok state that can be referenced by other props or actions. The value of this field should be the name of the declared value (e.g., 'selected_user').
+  """
+  declaresValue: String = null
+
+  """
+  Defines an imperative interactive network action callback loop if this prop should trigger an agent interaction.
+  """
+  agentCall: AgentCallInput = null
+
+  """
+  Defines an imperative interactive network action callback loop if this prop should trigger a system utility interaction.
+  """
+  utilCall: UtilCallInput = null
+}
+
+"""The container runtime used to run a pod."""
+enum ContainerType {
+  APPTAINER
+  DOCKER
+}
+
+input CpuSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "cpu") {
+  """The minimum CPU frequency required, in MHz."""
+  frequency: Int = null
+
+  """The minimum memory required, in MB."""
+  memory: Int = null
+}
+
+"""Input for creating a deployment of a flavour on a backend."""
+input CreateDeploymentInput {
+  """The identifier of the deployment as known to the backend."""
+  localId: ID!
+
+  """The ID of the flavour to deploy."""
+  flavour: ID!
+
+  """When the flavour's image was last pulled, if known."""
+  lastPulled: DateTime = null
+
+  """Secret parameters passed to the deployment (e.g. credentials)."""
+  secretParams: UntypedParams = null
+}
+
+"""Input for tracking a new GitHub repository."""
+input CreateGithubRepoInput {
+  """An optional human-readable name for the repository."""
+  name: String = null
+
+  """The GitHub owner (user or organization) of the repository."""
+  user: String = null
+
+  """The branch to scan for app manifests."""
+  branch: String = null
+
+  """The repository name on GitHub."""
+  repo: String = null
+
+  """
+  An optional identifier (e.g. 'user/repo') used to derive the other fields.
+  """
+  identifier: String = null
+
+  """Whether to scan the repository immediately after adding it."""
+  autoScan: Boolean = true
+}
+
+"""Input for registering a running pod for a deployment."""
+input CreatePodInput {
+  """The ID of the deployment this pod is an instance of."""
+  deployment: ID!
+
+  """The identifier of the pod as known to the backend."""
+  localId: ID!
+
+  """The resource this pod is scheduled onto, if any."""
+  resource: ID = null
+
+  """The OAuth2 client ID this pod authenticates as, if any."""
+  clientId: String = null
+}
+
+"""Requires a CUDA-capable (NVIDIA) GPU on the backend."""
+type CudaSelector implements Selector {
+  kind: String!
+  required: Boolean!
+  weight: Int!
+
+  """The number of cuda cores"""
+  cudaCores: Int
+
+  """The minimum cuda version"""
+  cudaVersion: String
+}
+
+input CudaSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "cuda") {
+  cudaVersion: String = null
+  cudaCores: Int = null
+}
+
+type CustomAssignWidget implements AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+  hook: String!
+  ward: String!
+}
+
+type CustomEffect implements Effect {
+  kind: EffectKind!
+  function: ValidatorFunction!
+  dependencies: [String!]!
+  hook: String!
+  ward: String!
+}
+
+type CustomReturnWidget implements ReturnWidget {
+  kind: ReturnWidgetKind!
+  hook: String!
+  ward: String!
+}
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+"""Input for declaring (registering or updating) a backend."""
+input DeclareBackendInput {
+  """The human-readable name of the backend."""
+  name: String!
+
+  """The kind of backend (its runtime type)."""
+  kind: String!
+}
+
+"""Input for declaring (registering or updating) a resource on a backend."""
+input DeclareResourceInput {
+  """The ID of the backend to declare the resource on."""
+  backend: ID!
+
+  """An optional human-readable name for the resource."""
+  name: String = null
+
+  """The identifier of the resource as known to the backend."""
+  localId: String!
+
+  """Free-form key/value qualifiers describing the resource."""
+  qualifiers: [QualifierInput!] = null
+}
+
+"""
+An action definition: the abstract, hashed description of an RPC task that a flavour provides.
+"""
+type Definition {
+  id: ID!
+
+  """The unique hash identifying this action definition."""
+  hash: ActionHash!
+
+  """The cleartext name of this action."""
+  name: String!
+
+  """The kind of action, e.g. a function or a generator."""
+  kind: ActionKind!
+
+  """A human-readable description of this action."""
+  description: String
+
+  """The collections this action belongs to."""
+  collections(filters: CollectionFilter, ordering: [CollectionOrder!]! = [], pagination: OffsetPaginationInput): [Collection!]!
+
+  """The flavours that provide this action."""
+  flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
+
+  """The data scope of this action (e.g. local, global or bridge)."""
+  scope: ActionScope!
+
+  """The action definitions that this definition is a test for."""
+  isTestFor(filters: DefinitionFilter, ordering: [DefinitionOrder!]! = [], pagination: OffsetPaginationInput): [Definition!]!
+
+  """The action definitions that act as tests for this definition."""
+  tests(filters: DefinitionFilter, ordering: [DefinitionOrder!]! = [], pagination: OffsetPaginationInput): [Definition!]!
+
+  """The protocols this action implements."""
+  protocols(filters: ProtocolFilter, ordering: [ProtocolOrder!]! = [], pagination: OffsetPaginationInput): [Protocol!]!
+
+  """When this action definition was first defined."""
+  definedAt: DateTime!
+
+  """The input ports (arguments) of this action."""
+  args: [ArgPort!]!
+
+  """The output ports (return values) of this action."""
+  returns: [ReturnPort!]!
+}
+
+"""Filter for action definitions."""
+input DefinitionFilter {
+  AND: DefinitionFilter
+  OR: DefinitionFilter
+  NOT: DefinitionFilter
+  DISTINCT: Boolean
+
+  """Keep only definitions whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the action name."""
+  search: String
+
+  """Keep only definitions whose ports satisfy all of the given demands."""
+  demands: [PortDemandInput!]
+}
+
+"A definition\n\n    Definitions are the building implementation for Actions and provide the\n    information needed to create a action. They are primarly composed of a name,\n    a description, and a list of ports.\n\n    Definitions provide a protocol of input and output, and do not contain\n    any information about the actual implementation of the action ( this is handled\n    by a implementation that implements a action).\n\n    "
+input DefinitionInput {
+  """
+  The description of the definition. This is the text that is displayed in the UI
+  """
+  description: String = null
+
+  """
+  The collections of the definition. This is used to group definitions together in the UI
+  """
+  collections: [String!]! = []
+
+  """
+  The key of the definition. This is used to uniquely identify the definition
+  """
+  key: String!
+
+  """
+  The package of the function. Will default to the currents agent's app if not specified. This is used to group definitions together in the UI and provide a better user experience
+  """
+  package: String = null
+
+  """
+  The version of the definition. This is used to differentiate if the underyling algorithm has changed, i.e we would expect different results for the same input
+  """
+  version: String!
+
+  """
+  The name of the actions. This is used to uniquely identify the definition
+  """
+  name: String!
+
+  """
+  Whether the definition is stateful or not. If the definition is stateful, it can be used to create a stateful action. If the definition is not stateful, it cannot be used to create a stateful action
+  """
+  stateful: Boolean! = false
+
+  """
+  Whether the action is pure: same args always produce the same result and no side effects — its results are replayable/cacheable. Implies idempotent. Incompatible with stateful and with a PHYSICAL effect class.
+  """
+  pure: Boolean! = false
+
+  """
+  Whether the action is idempotent: safe to run multiple times with the same args without changing the outcome — on ambiguous executor loss it may be freely re-dispatched.
+  """
+  idempotent: Boolean! = false
+
+  """
+  The port groups of the definition. This is used to group ports together in the UI
+  """
+  portGroups: [PortGroupInput!]! = []
+
+  """The args of the definition. This is the input ports of the definition"""
+  args: [ArgPortInput!]! = []
+
+  """
+  The returns of the definition. This is the output ports of the definition
+  """
+  returns: [ReturnPortInput!]! = []
+  tests: ActionDependencyInput = null
+
+  """
+  The kind of the definition. This is the type of the definition. Can be either a function or a generator
+  """
+  kind: ActionKind!
+
+  """
+  The tests for the definition. This is used to group definitions together in the UI
+  """
+  isTestFor: [String!]! = []
+
+  """
+  The interfaces of the definition. This is used to group definitions together in the UI
+  """
+  interfaces: [String!]! = []
+
+  """
+  Whether the definition is a dev definition or not. If the definition is a dev definition, it can be used to create a dev action. If the definition is not a dev definition, it cannot be used to create a dev action
+  """
+  isDev: Boolean! = false
+
+  """The logo of the definition. This is used to display the logo in the UI"""
+  logo: String = null
+}
+
+input DefinitionOrder @oneOf {
+  definedAt: Ordering
+}
+
+"""Input for deleting a pod."""
+input DeletePodInput {
+  """The ID of the pod to delete."""
+  id: ID!
+}
+
+enum DemandKind {
+  ARGS
+  RETURNS
+}
+
+"""A flavour scheduled to run on a particular backend."""
+type Deployment {
+  id: ID!
+
+  """The flavour that is deployed."""
+  flavour: Flavour!
+
+  """The backend this deployment runs on."""
+  backend: Backend!
+
+  """The identifier of this deployment as known to the backend."""
+  localId: ID!
+
+  """The current lifecycle status of this deployment."""
+  status: PodStatus!
+
+  """
+  The display name of this deployment, combining backend and flavour names.
+  """
+  name: String!
+}
+
+"""Filter for deployments."""
+input DeploymentFilter {
+  AND: DeploymentFilter
+  OR: DeploymentFilter
+  NOT: DeploymentFilter
+  DISTINCT: Boolean
+
+  """Keep only deployments whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the deployment name."""
+  search: String
+}
+
+input DeploymentOrder @oneOf {
+  id: Ordering
+  localId: Ordering
+  createdAt: Ordering
+}
+
+"""
+A single runtime descriptor key/value pair carried by a candidate object.
+"""
+input DescriptorInput {
+  """The descriptor key, e.g. 'axes'."""
+  key: String!
+
+  """The descriptor value. Any JSON-serializable value."""
+  value: Arg!
+}
+
+"""Represents a device assigned to users within an organization."""
+type Device {
+  """Unique ID of the device."""
+  id: ID!
+
+  """The device identifier."""
+  deviceId: ID!
+}
+
+"""A single hardware feature of a device to match against."""
+input DeviceFeature {
+  """The kind of feature (e.g. 'gpu', 'cpu')."""
+  kind: String!
+
+  """The number of CPUs the feature describes."""
+  cpuCount: String!
+}
+
+"""A reference to a built Docker image."""
+type DockerImage {
+  """The fully-qualified image reference (registry/name:tag)."""
+  imageString: String!
+
+  """When this image was built."""
+  buildAt: DateTime!
+}
+
+input DockerImageInput {
+  imageString: String!
+  buildAt: DateTime!
+}
+
+"""Input for attaching a log dump to a pod."""
+input DumpLogsInput {
+  """The ID of the pod the logs belong to."""
+  pod: ID!
+
+  """The captured log output to store."""
+  logs: String!
+}
+
+"""
+A bound state pointer referencing a variable inside a Blok state instance.
+"""
+input DynamicValueInput {
+  """
+  JSON Pointer to a variable inside the Blok's isolated data model (e.g., '/microscope/exposure').
+  """
+  path: String = null
+}
+
+interface Effect {
+  kind: EffectKind!
+  function: ValidatorFunction!
+  dependencies: [String!]!
+}
+
+"""
+The effect class of an implementation — declared by the implementation, never the caller. NONE work is freely retryable/reclaimable; PHYSICAL work touches the real world (no UPSERT), so an ambiguous failure is terminal and must not be retried.
+"""
+enum EffectClass {
+  NONE
+  PHYSICAL
+}
+
+"\n                 An effect is a way to modify a port based on a condition. For example,\n    you could have an effect that sets a port to null if another port is null.\n\n    Or, you could have an effect that hides the port if another port meets a condition.\n    E.g when the user selects a certain option in a dropdown, another port is hidden.\n\n\n    "
+input EffectInput {
+  """The function to run to determine if the effect should be applied"""
+  function: ValidatorFunction!
+
+  """
+  The dependencies of the effect. Use the .. syntax to traverse the tree of ports. For example, if you have a port with the key 'foo' and you want to reference a port with the key 'bar' that is a child of 'foo', you would use 'foo..bar'
+  """
+  dependencies: [String!] = []
+
+  """
+  The message to display when the effect is applied (if it is a message effect)
+  """
+  message: String = null
+
+  """The kind of the effect. Can be either message, hide or custom"""
+  kind: EffectKind!
+
+  """
+  Whether to fade out the port when the effect is applied (if it is a hide effect)
+  """
+  fade: Boolean = true
+
+  """The hook to run when the effect is applied (if it is a custom effect)"""
+  hook: String = null
+
+  """The ward to run when the effect is applied (if it is a custom effect)"""
+  ward: String = null
+}
+
+"""The kind of effect."""
+enum EffectKind {
+  MESSAGE
+  HIDE
+  CUSTOM
+}
+
+"""The target environment that flavours are matched against."""
+input EnvironmentInput {
+  """The container runtime available in the environment."""
+  containerType: ContainerType!
+
+  """The hardware features available in the environment."""
+  features: [DeviceFeature!] = null
+}
+
+"""
+A buildable variant of a release: a specific Docker image together with the selectors and requirements needed to run it.
+"""
+type Flavour {
+  id: ID!
+
+  """The name of this flavour (e.g. 'vanilla', 'cuda')."""
+  name: String!
+
+  """The stored logo of this flavour."""
+  logo: String
+
+  """The Docker image this flavour deploys."""
+  image: DockerImage!
+
+  """The original (upstream) logo URL of this flavour."""
+  originalLogo: String
+
+  """The release this flavour belongs to."""
+  release: Release!
+
+  """The deployments that run this flavour."""
+  deployments(filters: DeploymentFilter, ordering: [DeploymentOrder!]! = [], pagination: OffsetPaginationInput): [Deployment!]!
+
+  """The action definitions this flavour provides."""
+  definitions(filters: DefinitionFilter, ordering: [DefinitionOrder!]! = [], pagination: OffsetPaginationInput): [Definition!]!
+
+  """The raw app manifest this flavour was built from."""
+  manifest: UntypedParams!
+
+  """
+  The GitHub repository this flavour was built from, if it came from one.
+  """
+  repo: GithubRepo
+
+  """
+  The hardware/capability selectors a backend must satisfy to run this flavour.
+  """
+  selectors: [Selector!]!
+
+  """The services this flavour requires in order to run."""
+  requirements: [Requirement!]!
+}
+
+"""Filter for flavours."""
+input FlavourFilter {
+  AND: FlavourFilter
+  OR: FlavourFilter
+  NOT: FlavourFilter
+  DISTINCT: Boolean
+
+  """Keep only flavours whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the flavour name."""
+  search: String
+
+  """Keep only flavours that provide one of the given definitions."""
+  hasDefinitions: [ID!]
+}
+
+input FlavourOrder @oneOf {
+  releasedAt: Ordering
+}
+
+"""
+A GitHub repository tracked by Kabinet and scanned for deployable Arkitekt apps.
+"""
+type GithubRepo {
+  id: ID!
+
+  """The human-readable name of the repository."""
+  name: String!
+
+  """The repository name on GitHub (the part after the owner)."""
+  repo: String!
+
+  """The branch that is scanned for app manifests."""
+  branch: String!
+
+  """The GitHub owner (user or organization) of the repository."""
+  user: String!
+
+  """The flavours discovered by scanning this repository."""
+  flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
+
+  """When this repository was last updated."""
+  updatedAt: DateTime!
+
+  """When this repository was first added to Kabinet."""
+  addedAt: DateTime!
+
+  """The organization that owns this repository."""
+  organization: Organization!
+
+  """The URL for opening a new issue against this repository on GitHub."""
+  issueUrl: String!
+
+  """The URL of this repository on GitHub."""
+  url: String!
+}
+
+"""Numeric/aggregatable fields of GithubRepo"""
+enum GithubRepoField {
+  CREATED_AT
+}
+
+"""Filter for tracked GitHub repositories."""
+input GithubRepoFilter {
+  AND: GithubRepoFilter
+  OR: GithubRepoFilter
+  NOT: GithubRepoFilter
+  DISTINCT: Boolean
+
+  """Keep only repositories whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the repository name."""
+  search: String
+
+  """Case-insensitive match on the GitHub repository name."""
+  repo: String
+
+  """Case-insensitive match on the GitHub owner."""
+  user: String
+
+  """Case-insensitive match on the branch name."""
+  branch: String
+}
+
+input GithubRepoOrder @oneOf {
+  id: Ordering
+  name: Ordering
+  addedAt: Ordering
+  updatedAt: Ordering
+}
+
+type GithubRepoStats {
+  """Total number of items in the selection"""
+  count: Int!
+
+  """Number of distinct values for the field"""
+  distinctCount(field: GithubRepoField!): Int!
+
+  """Maximum"""
+  max(field: GithubRepoField!): Float
+
+  """Minimum"""
+  min(field: GithubRepoField!): Float
+
+  """Average"""
+  avg(field: GithubRepoField!): Float
+
+  """Sum"""
+  sum(field: GithubRepoField!): Float
+
+  """Time-bucketed stats over a datetime field."""
+  series(field: GithubRepoField!, timestampField: GithubRepoTimestampField!, by: Granularity!): [TimeBucket!]!
+}
+
+"""Datetime fields of GithubRepo for bucketing"""
+enum GithubRepoTimestampField {
+  CREATED_AT
+}
+
+enum Granularity {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+}
+
+type HideEffect implements Effect {
+  kind: EffectKind!
+  function: ValidatorFunction!
+  dependencies: [String!]!
+  fade: Boolean!
+}
+
+"""
+The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+"""
+scalar Identifier
+
+"""
+A implementation is a blueprint for a action. It is composed of a definition, a list of dependencies, and a list of params.
+"""
+input ImplementationInput {
+  """
+  The definition of the implementation. This is used to uniquely identify the implementation
+  """
+  definition: DefinitionInput!
+
+  """The agent dependencies required by this implementation."""
+  dependencies: [AgentDependencyInput!]! = []
+
+  """
+  The tracks of the definition. This is used to track values over time during the runtime of an action. This is the state of a dependency
+  """
+  tracks: [TrackInput!] = null
+
+  """
+  The interface of the implementation. This is used to group implementations together in the UI
+  """
+  interface: String
+
+  """
+  The params of the implementation. This is used to pass parameters to the implementation
+  """
+  params: AnyDefault = null
+
+  """The instance id of the agent this implementation is bound to."""
+  instanceId: String = null
+
+  """
+  Whether the implementation is dynamic or not. If the implementation is dynamic, it can be used to create a dynamic action. If the implementation is not dynamic, it cannot be used to create a dynamic action
+  """
+  dynamic: Boolean! = false
+
+  """
+  The logo of the implementation. This is used to display the logo in the UI either it should be 'custom:svg-paths' or a lucide icon name like 'lucide:activity' urls are not supported at the moment
+  """
+  logo: String = null
+
+  """
+  The locks of the implementation. This is used to specify which resources the implementation needs to run
+  """
+  locks: [String!] = null
+
+  """
+  The optimistics of the definition. This is used to optimistically set state values when the action is assigned, to provide a better user experience.
+  """
+  optimistics: [OptimisticInput!] = null
+
+  """
+  The states that the implementation manipulates. This is used to identify which states are manipulated by the implementation, and can be use to enhance state safety in the system
+  """
+  manipulates: [String!] = null
+
+  """
+  Whether Rekuest should mint a signed provenance token when this implementation is assigned. Default true (provenance-by-default); set false for trivial/internal tasks that never produce external provenance.
+  """
+  needsToken: Boolean! = true
+
+  """
+  The downstream service(s) the provenance token should be scoped to (the token's `aud`). If omitted, Rekuest derives the audience from the structures the assignment acts on.
+  """
+  provenanceAudience: [String!] = null
+
+  """
+  The effect class of this implementation. NONE work is freely retryable/reclaimable; PHYSICAL work touches the real world and an ambiguous failure is terminal (never retried). Declared by the implementation here — never by the caller.
+  """
+  effect: EffectClass! = NONE
+}
+
+input InspectionInput {
+  size: Int
+  locks: [LockImplementationInput!]!
+  implementations: [ImplementationInput!]!
+  states: [StateImplementationInput!]!
+  bloks: [BlokImplementationInput!]! = []
+  requirements: [RequirementInput!]!
+}
+
+"""
+The `JSONSerializable` scalar type represents a JSON-serializable value.
+"""
+scalar JSONSerializable
+
+"""Requires the backend to carry a specific key/value label."""
+type LabelSelector implements Selector {
+  kind: String!
+  required: Boolean!
+  weight: Int!
+  key: String
+  value: String
+}
+
+"""Which locks does the agent provide in general"""
+input LockDefinitionInput {
+  """The key of the lock. This is used to uniquely identify the lock"""
+  key: String!
+
+  """Describe the lock a bit"""
+  description: String = null
+}
+
+"""Which locks does the agent provide in general"""
+input LockImplementationInput {
+  """The key of the lock implementation."""
+  key: String!
+
+  """The lock definition this implementation fulfills."""
+  definition: LockDefinitionInput!
+}
+
+"""A captured snapshot of a pod's logs at a point in time."""
+type LogDump {
+  id: ID!
+
+  """The pod these logs were captured from."""
+  pod: Pod!
+
+  """The captured log output."""
+  logs: String!
+
+  """When these logs were captured."""
+  createdAt: DateTime!
+}
+
+input ManifestInput {
+  """The entrypoint of the app, defaults to 'app'"""
+  entrypoint: String
+  identifier: String!
+  version: String!
+  author: String! = "unknown"
+  logo: String = null
+  scopes: [String!]! = []
+}
+
+"""
+Input for matching the best flavour for a release in a given environment.
+"""
+input MatchFlavoursInput {
+  """The target environment to match flavours against."""
+  environment: EnvironmentInput = null
+
+  """The release whose flavours should be matched."""
+  release: ID = null
+
+  """The action hashes that the matched flavour must provide."""
+  actions: [ActionHash!] = null
+}
+
+type MessageEffect implements Effect {
+  kind: EffectKind!
+  function: ValidatorFunction!
+  dependencies: [String!]!
+  message: String!
+}
+
+type Mutation {
+  """
+  Scan a tracked GitHub repository for app manifests and update its flavours.
+  """
+  scanRepo(input: ScanRepoInput!): GithubRepo!
+
+  """
+  Rescan every tracked GitHub repository for new or updated app manifests.
+  """
+  rescanRepos: [GithubRepo!]!
+
+  """Start tracking a new GitHub repository so it can be scanned for apps."""
+  createGithubRepo(input: CreateGithubRepoInput!): GithubRepo!
+
+  """Schedule a flavour onto a backend, creating a new deployment."""
+  createDeployment(input: CreateDeploymentInput!): Deployment!
+
+  """Update the status of an existing deployment."""
+  updateDeployment(input: UpdateDeploymentInput!): Deployment!
+
+  """Register a running pod for a deployment on a backend."""
+  createPod(input: CreatePodInput!): Pod!
+
+  """Update the status of an existing pod."""
+  updatePod(input: UpdatePodInput!): Pod!
+
+  """Attach a captured log dump to a pod."""
+  dumpLogs(input: DumpLogsInput!): LogDump!
+
+  """Declare (register or update) a backend for the current client."""
+  declareBackend(input: DeclareBackendInput!): Backend!
+
+  """Declare (register or update) a resource on one of your backends."""
+  declareResource(input: DeclareResourceInput!): Resource!
+
+  """Delete a pod and return its ID."""
+  deletePod(input: DeletePodInput!): ID!
+
+  """
+  Register a built app image, creating its release and flavour as needed.
+  """
+  createAppImage(input: AppImageInput!): Release!
+
+  """Delete a backend and return its ID."""
+  deleteBackend(id: ID!): ID!
+}
+
+input OffsetPaginationInput {
+  offset: Int! = 0
+  limit: Int
+}
+
+input OneApiSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "oneapi") {
+  oneapiVersion: String = null
+}
+
+" An optimistic is used to optimistically set state values when the action is assigned. This is used to provide a better user experience by optimistically setting state values when the action is assigned, instead of waiting for the action to be executed and the state to be updated. This will only ever happen on the frontend.\n\n"
+input OptimisticInput {
+  """The state to optimistically set when the action is assigned"""
+  state: String!
+
+  """
+  The path to the state.value to optimistically set the value, always traverse from top to bottom level. i.e state.x for state.x and state.x.y for state.x.y. You can also use an arrow function to specify a dynamic path based on the other arguments, e.g. (args) => state[args.foo]
+  """
+  path: String!
+
+  """
+  The accessor to get the value to optimistically set. This is used when the value to optimistically set is not the same as the value of the port
+  """
+  accessor: String = null
+}
+
+enum OptionKey {
+  LABEL
+  DESCRIPTION
+  LOGO
+  VALUE
+}
+
+enum Ordering {
+  ASC
+  ASC_NULLS_FIRST
+  ASC_NULLS_LAST
+  DESC
+  DESC_NULLS_FIRST
+  DESC_NULLS_LAST
+}
+
+"""Represents an organization in the system."""
+type Organization {
+  """Slug of the organization."""
+  slug: String!
+}
+
+"""A running instance of a deployment on a backend."""
+type Pod {
+  id: ID!
+
+  """The resource this pod is scheduled onto, if any."""
+  resource: Resource
+
+  """The backend this pod runs on."""
+  backend: Backend!
+
+  """The deployment this pod is an instance of."""
+  deployment: Deployment!
+
+  """The most recent log dump captured from this pod."""
+  latestLogDump: LogDump
+
+  """The identifier of this pod as known to the backend."""
+  podId: String!
+
+  """The OAuth2 client ID this pod authenticates as, if any."""
+  clientId: String
+
+  """The current lifecycle status of this pod."""
+  status: PodStatus!
+
+  """
+  The display name of this pod, combining backend, flavour and app identifier.
+  """
+  name: String!
+}
+
+"""Something that happened to a pod: it was created, updated or deleted."""
+type PodEvent {
+  """The pod that was just created, if this event is a creation."""
+  create: Pod
+
+  """The pod that just changed, if this event is an update."""
+  update: Pod
+
+  """The ID of the pod that was deleted, if this event is a deletion."""
+  delete: ID
+}
+
+"""Filter for pods."""
+input PodFilter {
+  AND: PodFilter
+  OR: PodFilter
+  NOT: PodFilter
+  DISTINCT: Boolean
+
+  """Keep only pods whose ID is in this list."""
+  ids: [ID!]
+
+  """Match pods by the name of their backend."""
+  search: String
+
+  """Keep only pods running on the given backend."""
+  backend: ID
+}
+
+input PodOrder @oneOf {
+  id: Ordering
+  status: Ordering
+  createdAt: Ordering
+}
+
+"""The lifecycle status of a pod."""
+enum PodStatus {
+  PENDING
+  RUNNING
+  STOPPING
+  STOPPED
+  FAILED
+  UNKOWN
+}
+
+"""A demand on the ports (args or returns) of an action."""
+input PortDemandInput {
+  """The kind of the demand. You can ask for args or returns"""
+  kind: DemandKind!
+
+  """The matches of the demand. """
+  matches: [PortMatchInput!] = null
+
+  """
+  Require that the action has a specific number of ports. This is used to identify the demand in the system.
+  """
+  forceLength: Int = null
+
+  """
+  Require that the action has a specific number of non-nullable ports. This is used to identify the demand in the system.
+  """
+  forceNonNullableLength: Int = null
+
+  """
+  Require that the action has a specific number of structure ports. This is used to identify the demand in the system.
+  """
+  forceStructureLength: Int = null
+}
+
+"""
+A Port Group is a group of ports that are related to each other. It is used to group ports together in the UI and provide a better user experience.
+"""
+input PortGroupInput {
+  """
+  The key of the port group. This is used to uniquely identify the port group
+  """
+  key: String!
+  title: String
+  description: String
+  effects: [EffectInput!] = []
+  ports: [String!] = []
+}
+
+"""The kind of port."""
+enum PortKind {
+  INT
+  STRING
+  STRUCTURE
+  LIST
+  BOOL
+  DICT
+  FLOAT
+  DATE
+  UNION
+  ENUM
+  MODEL
+  MEMORY_STRUCTURE
+  INTERFACE
+  QUANTITY
+}
+
+"""
+A structural (and optionally object-level) match against a port. Purely
+    structural fields target the port shape; the optional ``descriptors`` carry a concrete
+    runtime object's key/value pairs, evaluated against the port's compiled requires
+    micro-constraint to find actions the object can actually be passed to.
+"""
+input PortMatchInput {
+  """The index of the port to match."""
+  at: Int = null
+
+  """The key of the port to match."""
+  key: String = null
+
+  """The kind of the port to match."""
+  kind: PortKind = null
+
+  """The identifier of the port to match."""
+  identifier: String = null
+
+  """Whether the port is nullable."""
+  nullable: Boolean = null
+
+  """
+  The canonical pint dimensionality the port must have (QUANTITY wiring-compatibility key).
+  """
+  dimension: String = null
+
+  """
+  Runtime descriptors of a candidate object, evaluated against the port's compiled requires micro-constraint. Omit for purely structural matching.
+  """
+  descriptors: [DescriptorInput!] = null
+
+  """The matches for the children of the port to match."""
+  children: [PortMatchInput!] = null
+}
+
+"""An interface that an action definition can implement (e.g. Predicate)."""
+type Protocol {
+  id: ID!
+
+  """The name of this protocol."""
+  name: String!
+
+  """A description of this protocol."""
+  description: String!
+}
+
+"""Filter for protocols."""
+input ProtocolFilter {
+  AND: ProtocolFilter
+  OR: ProtocolFilter
+  NOT: ProtocolFilter
+  DISTINCT: Boolean
+
+  """Keep only protocols whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the protocol name."""
+  search: String
+}
+
+input ProtocolOrder @oneOf {
+  id: Ordering
+  name: Ordering
+}
+
+type Provides {
+  key: String!
+  operator: ProvidesOperator!
+  value: Arg!
+}
+
+input ProvidesInput {
+  """
+  The key of the provision. This is used to uniquely identify the provision
+  """
+  key: String!
+
+  """The operator for the provision"""
+  operator: ProvidesOperator!
+
+  """The value of the provision. This can be any JSON serializable value"""
+  value: Arg!
+}
+
+"""The operator for matching descriptors."""
+enum ProvidesOperator {
+  MATCHES
+  EXISTS
+  LTE
+  GTE
+  EQUALS
+  CONTAINS
+  NOT_EQUALS
+  IN
+  NOT_IN
+}
+
+type ProxyWidget implements AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+  targetPort: String!
+  targetAction: String!
+  targetDependency: String
+}
+
+"""A qualifier that describes some property of the action"""
+input QualifierInput {
+  """The key of the qualifier."""
+  key: String!
+
+  """The value of the qualifier."""
+  value: String!
+}
+
+type Query {
+  """Return a single tracked GitHub repository by its ID."""
+  githubRepo(id: ID!): GithubRepo!
+
+  """Return a single action definition by its ID."""
+  definition(id: ID = null, hash: ActionHash = null): Definition!
+
+  """Return a single app release by its ID."""
+  release(id: ID!): Release!
+
+  """Return a single backend resource by its ID."""
+  resource(id: ID!): Resource!
+
+  """Return a single flavour (a buildable variant of a release) by its ID."""
+  flavour(id: ID!): Flavour!
+
+  """Return a single deployment by its ID."""
+  deployment(id: ID!): Deployment!
+
+  """Return a single backend by its ID."""
+  backend(id: ID!): Backend!
+
+  """Return a single pod by its ID."""
+  pod(id: ID!): Pod!
+
+  """Return the currently authenticated user."""
+  me: User!
+
+  """
+  Return the flavour that best matches the requested release, actions and target environment, or null when nothing matches.
+  """
+  matchFlavour(input: MatchFlavoursInput!): Flavour
+
+  """List all flavours visible to the current organization."""
+  flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
+
+  """List all app releases visible to the current organization."""
+  releases(filters: ReleaseFilter, ordering: [ReleaseOrder!]! = [], pagination: OffsetPaginationInput): [Release!]!
+
+  """List all backend resources visible to the current organization."""
+  resources(filters: ResourceFilter, ordering: [ResourceOrder!]! = [], pagination: OffsetPaginationInput): [Resource!]!
+
+  """List all deployments visible to the current organization."""
+  deployments(filters: DeploymentFilter, ordering: [DeploymentOrder!]! = [], pagination: OffsetPaginationInput): [Deployment!]!
+
+  """
+  List all tracked GitHub repositories visible to the current organization.
+  """
+  githubRepos(filters: GithubRepoFilter, ordering: [GithubRepoOrder!]! = [], pagination: OffsetPaginationInput): [GithubRepo!]!
+
+  """List all action definitions visible to the current organization."""
+  definitions(filters: DefinitionFilter, ordering: [DefinitionOrder!]! = [], pagination: OffsetPaginationInput): [Definition!]!
+
+  """List all pods visible to the current organization."""
+  pods(filters: PodFilter, ordering: [PodOrder!]! = [], pagination: OffsetPaginationInput): [Pod!]!
+
+  """List all backends visible to the current organization."""
+  backends(filters: BackendFilter, ordering: [BackendOrder!]! = [], pagination: OffsetPaginationInput): [Backend!]!
+
+  """Stats about github repos"""
+  githubRepoStats(filters: GithubRepoFilter = null): GithubRepoStats!
+
+  """
+  Return the pod that a given agent (client) is running for a deployment.
+  """
+  podForAgent(clientId: ID!): Pod
+
+  """Let a backend discover one of its own pods by local identifier."""
+  myPodAt(localId: ID!): Pod!
+}
+
+"""Requires a minimum amount of system memory on the backend."""
+type RAMSelector implements Selector {
+  kind: String!
+  required: Boolean!
+  weight: Int!
+  min: Int
+}
+
+"""
+A specific version of an app, bundling the flavours that can be deployed for it.
+"""
+type Release {
+  id: ID!
+
+  """The semantic version of this release."""
+  version: String!
+
+  """The app this release belongs to."""
+  app: App!
+
+  """The OAuth2 scopes this release requires."""
+  scopes: [String!]!
+
+  """The stored logo of this release."""
+  logo: String
+
+  """The original (upstream) logo URL of this release."""
+  originalLogo: String
+
+  """The entrypoint used to start the app."""
+  entrypoint: String!
+
+  """The flavours (buildable variants) available for this release."""
+  flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
+
+  """The deployments that run a flavour of this release."""
+  deployments(filters: DeploymentFilter, ordering: [DeploymentOrder!]! = [], pagination: OffsetPaginationInput): [Deployment!]!
+
+  """The display name of this release, in the form 'identifier:version'."""
+  name: String!
+}
+
+"""Filter for app releases."""
+input ReleaseFilter {
+  AND: ReleaseFilter
+  OR: ReleaseFilter
+  NOT: ReleaseFilter
+  DISTINCT: Boolean
+
+  """Keep only releases whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the release version."""
+  search: String
+}
+
+input ReleaseOrder @oneOf {
+  id: Ordering
+  version: Ordering
+  releasedAt: Ordering
+  createdAt: Ordering
+}
+
+"""
+A service that a flavour requires in order to run (e.g. mikro, rekuest).
+"""
+type Requirement {
+  """The key identifying this requirement within the flavour."""
+  key: String!
+
+  """The name of the required service."""
+  service: String!
+
+  """An optional human-readable description of the requirement."""
+  description: String
+
+  """Whether the flavour can still run if this service is unavailable."""
+  optional: Boolean!
+}
+
+input RequirementInput {
+  key: String!
+  service: String!
+  optional: Boolean! = false
+  description: String = null
+}
+
+type Requires {
+  key: String!
+  operator: RequiresOperator!
+  value: Arg!
+}
+
+input RequiresInput {
+  """
+  The key of the requirement. This is used to uniquely identify the requirement
+  """
+  key: String!
+
+  """The operator for the requirement"""
+  operator: RequiresOperator!
+
+  """The value of the requirement. This can be any JSON serializable value"""
+  value: Arg!
+}
+
+"""The operator for matching descriptors."""
+enum RequiresOperator {
+  MATCHES
+  EXISTS
+  LTE
+  GTE
+  EQUALS
+  CONTAINS
+  NOT_EQUALS
+  IN
+  NOT_IN
+}
+
+"""
+An allocatable resource on a backend (e.g. a compute slot) that pods can be scheduled onto.
+"""
+type Resource {
+  id: ID!
+
+  """The backend this resource belongs to."""
+  backend: Backend!
+
+  """The identifier of this resource as known to the backend."""
+  resourceId: String!
+
+  """The human-readable name of this resource."""
+  name: String!
+
+  """The pods scheduled onto this resource."""
+  pods(filters: PodFilter, ordering: [PodOrder!]! = [], pagination: OffsetPaginationInput): [Pod!]!
+
+  """Free-form key/value qualifiers describing this resource."""
+  qualifiers: UntypedParams
+}
+
+"""Filter for resources."""
+input ResourceFilter {
+  AND: ResourceFilter
+  OR: ResourceFilter
+  NOT: ResourceFilter
+  DISTINCT: Boolean
+
+  """Keep only resources whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive search on the resource name."""
+  search: String
+}
+
+input ResourceOrder @oneOf {
+  id: Ordering
+  name: Ordering
+  createdAt: Ordering
+}
+
+type ReturnPort {
+  key: String!
+  label: String
+  kind: PortKind!
+  description: String
+  identifier: Identifier
+  nullable: Boolean!
+  effects: [Effect!]
+  default: AnyDefault
+  children: [ReturnPort!]
+  choices: [Choice!]
+  referenceUnit: String
+  proposedUnits: [String!]
+  dimension: String
+  widget: ReturnWidget
+  provides: [Provides!]
+}
+
+"Port\n\n    A Port is a single input or output of a action. It is composed of a key and a kind\n    which are used to uniquely identify the port.\n\n    If the Port is a structure, we need to define a identifier and scope,\n    Identifiers uniquely identify a specific type of model for the scopes (e.g\n    all the ports that have the identifier \"@mikro/image\" are of the same type, and\n    are hence compatible with each other). Scopes are used to define in which context\n    the identifier is valid (e.g. a port with the identifier \"@mikro/image\" and the\n    scope \"local\", can only be wired to other ports that have the same identifier and\n    are running in the same app). Global ports are ports that have the scope \"global\",\n    and can be wired to any other port that has the same identifier, as there exists a\n    mechanism to resolve and retrieve the object for each app. Please check the rekuest\n    documentation for more information on how this works.\n\n\n    "
+input ReturnPortInput {
+  """The validators for the port"""
+  validators: [ValidatorInput!] = null
+
+  """The key of the port"""
+  key: String!
+
+  """The label of the port. This is the text that is displayed in the UI"""
+  label: String = null
+
+  """
+  The kind of the port. This is the type of the port. Can be either int, string, structure, list, bool, dict, float, date, union or model
+  """
+  kind: PortKind!
+
+  """
+  The description of the port. This is the text that is displayed in the UI when the user hovers over the port
+  """
+  description: String = null
+
+  """
+  The identifier of a structure port. This is used to uniquely identify a specific type of structure.
+  """
+  identifier: String = null
+
+  """
+  Whether the port is nullable or not. If the port is nullable, it can be set to null. If the port is not nullable, it cannot be set to null
+  """
+  nullable: Boolean! = false
+
+  """The effects of the port"""
+  effects: [EffectInput!] = null
+
+  """The default value for the port."""
+  default: AnyDefault = null
+
+  """The options for the port. This is used for dropdowns and text inputs"""
+  choices: [ChoiceInput!] = null
+
+  """
+  For QUANTITY ports: the canonical/reference unit of the physical quantity, e.g. "volt" or "farad". It is the default selection and the key used to resolve the concrete quantity type; other units of the same dimension are still allowed.
+  """
+  referenceUnit: String = null
+
+  """
+  For QUANTITY ports: units offered as a dropdown in the UI, e.g. ["pF", "nF", "uF"]. Proposals only — any unit of the same dimension remains valid input.
+  """
+  proposedUnits: [String!] = null
+
+  """
+  For QUANTITY ports: the pint dimensionality string, e.g. "[mass] * [length] ** 2 / [time] ** 3 / [current]". This is the wiring-compatibility key between quantity ports.
+  """
+  dimension: String = null
+
+  """The child ports (used for list, dict, union and model ports)."""
+  children: [ReturnPortInput!] = null
+
+  """The return widget to use for this port."""
+  widget: ReturnWidgetInput = null
+
+  """
+  The provisions for the port. Provisions are key-value pairs that can be used to add additional metadata to a port. When using rekuest's action search, you can filter actions based on their port provisions
+  """
+  provides: [ProvidesInput!] = null
+}
+
+interface ReturnWidget {
+  kind: ReturnWidgetKind!
+}
+
+"A Return Widget is a UI element that is used to display the value of a port.\n\n    Return Widgets get displayed both if we show the return values of an assignment,\n    but also when we inspect the given arguments of a previous run task. Their primary\n    usecase is to adequately display the value of a port, in a user readable way.\n\n    Return Widgets are often overwriten by the underlying UI framework (e.g. Orkestrator)\n    to provide a better user experience. For example, a return widget that displays a\n    date could be overwriten to display a calendar widget.\n\n    Return Widgets provide more a way to customize this overwriten behavior.\n\n    "
+input ReturnWidgetInput {
+  """
+  The kind of the return widget. Can be either dropdown, text, slider, checkbox, radio or custom
+  """
+  kind: ReturnWidgetKind!
+
+  """
+  The query to run when searching for choices. This is used for dropdowns and text inputs
+  """
+  query: SearchQuery = null
+
+  """
+  The choices to display in the dropdown. This is used for dropdowns and text inputs
+  """
+  choices: [ChoiceInput!] = null
+
+  """The minimum value to display (if a slider)."""
+  min: Int = null
+
+  """The maximum value to display (if a slider)."""
+  max: Int = null
+
+  """The step value to display (if a slider)."""
+  step: Int = null
+
+  """The placeholder text of the return widget."""
+  placeholder: String = null
+
+  """The hook to run (if it is a custom return widget)."""
+  hook: String = null
+
+  """The ward responsible for handling the return widget."""
+  ward: String = null
+}
+
+"""The kind of return widget."""
+enum ReturnWidgetKind {
+  CHOICE
+  CUSTOM
+  PROXY
+}
+
+"""Requires a ROCm-capable (AMD) GPU on the backend."""
+type RocmSelector implements Selector {
+  kind: String!
+  required: Boolean!
+  weight: Int!
+
+  """An additional ROCm capability qualifier"""
+  apiThing: String
+
+  """The minimum ROCm API version required"""
+  apiVersion: String
+}
+
+input RocmSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "rocm") {
+  apiVersion: String = null
+  apiThing: String = null
+}
+
+"""Input for scanning a tracked GitHub repository for app manifests."""
+input ScanRepoInput {
+  """The ID of the GitHub repository to scan."""
+  id: String!
+}
+
+type SearchAssignWidget implements AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+  query: String!
+  ward: String!
+  filters: [ArgPort!]
+  dependencies: [String!]
+}
+
+"""
+The `ArrayLike` scalar type represents a reference to a store previously created by the user n a datalayer
+"""
+scalar SearchQuery
+
+"""
+A selector expresses a hardware (or capability) requirement that a backend must satisfy to run a flavour.
+"""
+interface Selector {
+  kind: String!
+  required: Boolean!
+  weight: Int!
+}
+
+input SelectorInput {
+  """
+  The discriminator identifying which kind of selector this is (e.g. 'cuda', 'rocm', 'cpu', 'oneapi').
+  """
+  kind: String!
+
+  """The minimum ROCm API version required (rocm selectors)."""
+  apiVersion: String = null
+
+  """An additional ROCm capability qualifier (rocm selectors)."""
+  apiThing: String = null
+
+  """The minimum oneAPI version required (oneapi selectors)."""
+  oneapiVersion: String = null
+
+  """The minimum number of CUDA cores required (cuda selectors)."""
+  cudaCores: Int = null
+
+  """The minimum CPU frequency required, in MHz (cpu selectors)."""
+  frequency: Int = null
+
+  """The minimum memory required, in MB (cpu selectors)."""
+  memory: Int = null
+}
+
+"""Requires the backend to provide a particular service."""
+type ServiceSelector implements Selector {
+  kind: String!
+  required: Boolean!
+  weight: Int!
+}
+
+type SliderAssignWidget implements AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+  min: Float
+  max: Float
+  step: Float
+}
+
+type StateAccessor {
+  optionKey: OptionKey!
+  subPath: String
+}
+
+input StateAccessorInput {
+  """
+  The part of the state accessor to use as the value for the assign widget (e.g. the key, the description, the logo, etc.)
+  """
+  optionKey: OptionKey!
+
+  """
+  The sub path to access a specific part of the state value. Always traverse from top to bottom level. i.e state.x for state.x and state.x.y for state.x.y. You can also use an arrow function to specify a dynamic path based on the other arguments, e.g. (args) => state[args.foo]
+  """
+  subPath: String = null
+}
+
+type StateChoiceAssignWidget implements AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+  statePath: String!
+  dependency: String
+  stateAccessors: [StateAccessor!]
+}
+
+"""
+A state schema is a blueprint for a state. It is composed of a definition, a list of dependencies, and a list of params.
+"""
+input StateDefinitionInput {
+  """
+  The ports of the state schema. This is used to define the structure of the state
+  """
+  ports: [ReturnPortInput!]!
+
+  """
+  The name of the state schema. This is used to uniquely identify the state schema
+  """
+  name: String!
+}
+
+"""
+Pure matching criteria for a state definition: hash short-circuits, port
+    matches and protocols. Used directly by query filters and, wrapped in a
+    StateDependencyInput, by dependency declarations.
+"""
+input StateDemandInput {
+  """
+  The exact hash of the state definition. When set, matching short-circuits on the hash.
+  """
+  hash: String = null
+
+  """
+  The state's identity key on the agent (defaults to the interface at registration).
+  """
+  key: String = null
+
+  """The identifier of the app providing the state."""
+  app: String = null
+
+  """The matches the state definition's ports must satisfy."""
+  matches: [PortMatchInput!] = null
+
+  """Protocols (by name) the state must implement."""
+  protocols: [String!] = null
+}
+
+"""
+A named state requirement of a dependency: a slot key plus the demand the
+    agent's state must satisfy, and resolution-lifecycle filters.
+"""
+input StateDependencyInput {
+  """
+  The local slot key of this state requirement — callers reference it when assigning.
+  """
+  key: String!
+
+  """
+  The description of the dependency, why it is needed and what it is used for.
+  """
+  description: String = null
+
+  """
+  The matching criteria the agent's state must satisfy (app/key preferred; matches loosen).
+  """
+  demand: StateDemandInput = null
+
+  """
+  Whether the dependency is optional or not. If the dependency is optional, the agent doesn't have to provide it to be potentially callable
+  """
+  optional: Boolean! = false
+
+  """Allow inactive nodes, defaults to true"""
+  allowInactive: Boolean = true
+}
+
+"""
+A state implementation is a blueprint for a state. It is composed of a definition, a list of dependencies, and a list of params.
+"""
+input StateImplementationInput {
+  """
+  The key of the state implementation. This is used to uniquely identify the state implementation
+  """
+  interface: String!
+
+  """
+  The stable identity key of the state, matched by state demands. Defaults to the interface when omitted.
+  """
+  key: String = null
+
+  """
+  The identifier of the app providing this state. Defaults to the registering agent's app identifier when omitted.
+  """
+  app: String = null
+
+  """
+  The schema of the state implementation. This is used to define the structure of the state
+  """
+  definition: StateDefinitionInput!
+}
+
+type StringAssignWidget implements AssignWidget {
+  kind: AssignWidgetKind!
+  followValue: String
+  placeholder: String!
+  asParagraph: Boolean!
+}
+
+type Subscription {
+  """Subscribe to lifecycle events for a single pod."""
+  pod(podId: ID!): PodEvent!
+
+  """
+  Subscribe to lifecycle events for every pod visible to the current organization.
+  """
+  pods: PodEvent!
+}
+
+type TimeBucket {
+  ts: DateTime!
+  count: Int!
+  distinctCount: Int!
+  max: Float
+  min: Float
+  avg: Float
+  sum: Float
+}
+
+"""
+A value that is being tracked over time during the runtime of an action. This is the state of a dependency
+"""
+input TrackInput {
+  """The key of the dependency whose state is being tracked."""
+  dependencyKey: String = null
+
+  """The key of the state to track."""
+  stateKey: String!
+
+  """The key of the value within the state to track."""
+  valueKey: String!
+
+  """An optional human-readable label for the track."""
+  label: String = null
+
+  """An optional description for the track."""
+  description: String = null
+
+  """The windows (aggregations) computed over the tracked value."""
+  windows: [WindowInput!] = null
+}
+
+"""
+An untyped, free-form JSON object whose shape is not known to the schema.
+"""
+scalar UntypedParams
+
+"""Input for updating a deployment's status."""
+input UpdateDeploymentInput {
+  """The ID of the deployment to update."""
+  deployment: ID!
+
+  """The new status of the deployment."""
+  status: PodStatus!
+}
+
+"""Input for updating a pod's status."""
+input UpdatePodInput {
+  """The ID of the pod to update; required unless 'local_id' is given."""
+  pod: ID
+
+  """The backend-local identifier of the pod to update."""
+  localId: ID
+
+  """The new status of the pod."""
+  status: PodStatus!
+}
+
+"""Represents an authenticated user."""
+type User {
+  """The subject identifier of the user."""
+  sub: ID!
+}
+
+"""Defines a utility call that can be invoked within the system."""
+input UtilCallInput {
+  """The utility function name to invoke."""
+  operation: String!
+
+  """Key-value arguments map compiled for the target utility call."""
+  arguments: [ActionArgumentInput!] = null
+}
+
+type Validator {
+  function: ValidatorFunction!
+  dependencies: [String!]
+  label: String
+  errorMessage: String
+}
+
+"\n    The `Validator` scalar represents a javascript function that should execute on the client side (inside a shadow realm)\n      to validate a value (or a set of values) before it is sent to the server.  The function has two parameters (value, otherValues) and should return a string if the value is invalid and undefined if the value is valid.\n        The otherValues parameter is an object with the other values in the form {fieldName: value}."
+scalar ValidatorFunction
+
+"\nA validating function for a port. Can specify a function that will run when validating values of the port.\nIf outside dependencies are needed they need to be specified in the dependencies field. With the .. syntax\nwhen transversing the tree of ports.\n\n"
+input ValidatorInput {
+  """The function to run when validating the port"""
+  function: ValidatorFunction!
+
+  """
+  The dependencies of the function. Use the .. syntax to traverse the tree of ports. For example, if you have a port with the key 'foo' and you want to reference a port with the key 'bar' that is a child of 'foo', you would use 'foo..bar'
+  """
+  dependencies: [String!] = []
+
+  """An optional human-readable label for the validator."""
+  label: String = null
+
+  """The error message to display when the validation fails"""
+  errorMessage: String = null
+}
+
+"""A window that is calculated"""
+input WindowInput {
+  """The window function to apply over the tracked value."""
+  windowFunction: String!
+
+  """An optional human-readable label for the window."""
+  label: String = null
+}

@@ -26,9 +26,12 @@ SECRET_KEY = conf.django.secret_key  # TODO: Change this in production
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Both of these were hardcoded (`True` and `["*"]`) while the typed configuration
+# validated `django.debug` and `django.hosts` and then had them thrown away -- so
+# CONFIG.md documented a debug flag that could not turn debug off.
+DEBUG = conf.django.debug
 
-ALLOWED_HOSTS: list[str] = ["*"]
+ALLOWED_HOSTS: list[str] = conf.django.hosts
 
 
 # Application definition
@@ -60,8 +63,6 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = "authentikate.User"
 
 
-GRAPHENE = {"SCHEMA": "core.schema.schema"}
-
 CHANNEL_LAYERS = {
     "default": {
         # This example app uses the Redis channel layer implementation channels_redis
@@ -74,9 +75,15 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 MY_SCRIPT_NAME = conf.django.force_script_name
 
+# Assigned twice until now -- once here and once below `ASGI_APPLICATION` -- and the
+# second assignment replaced this dict wholesale. So both description flags were dead
+# (which is why every field in `bridge/types.py` carries a hand-written `description=`)
+# while `USE_DEPRECATED_FILTERS` was live, against a filter layer that had already been
+# migrated off the deprecated form (see the module docstring of `tests/test_filters.py`).
 STRAWBERRY_DJANGO = {
     "FIELD_DESCRIPTION_FROM_HELP_TEXT": True,
     "TYPE_DESCRIPTION_FROM_MODEL_DOCSTRING": True,
+    "USE_DEPRECATED_FILTERS": True,
 }
 
 MIDDLEWARE = [
@@ -115,11 +122,6 @@ AUTHENTICATION_BACKENDS = (
 
 WSGI_APPLICATION = "kabinet_server.wsgi.application"
 ASGI_APPLICATION = "kabinet_server.asgi.application"
-
-
-STRAWBERRY_DJANGO = {
-    "USE_DEPRECATED_FILTERS": True,
-}
 
 REPO_MAP = conf.repo_map
 ENSURED_REPOS = conf.ensured_repos

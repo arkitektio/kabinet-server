@@ -418,11 +418,9 @@ class LockImplementationInputModel(BaseModel):
     definition: LockDefinitionInputModel = Field(description="The lock definition this implementation fulfills.")
 
 
-class BlokImplementationInputModel(BaseModel):
-    key: str = Field(description="The key of the blok implementation.")
-    definition: LockDefinitionInputModel = Field(description="The definition this blok implementation fulfills.")
-
-
+# A two-field `BlokImplementationInputModel` stub used to sit here. The real one is
+# declared further down and shadowed it at import time, so the stub was never reachable
+# -- and its `definition: LockDefinitionInputModel` named a lock, not a blok.
 class InterfaceInputModel(BaseModel):
     key: str = Field(description="The key of the interface. This is used to uniquely identify the interface")
     description: str | None = Field(default=None, description="Describe the interface a bit")

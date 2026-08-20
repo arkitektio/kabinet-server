@@ -5,7 +5,6 @@ from bridge import types
 from bridge import mutations
 from bridge import subscriptions
 from bridge import queries
-from bridge import messages
 import strawberry_django
 from koherent.strawberry.extension import KoherentExtension
 from authentikate.strawberry.extension import AuthentikateExtension
@@ -31,9 +30,9 @@ class Query:
     pod: types.Pod = strawberry_django.field(resolver=queries.pod, description="Return a single pod by its ID.")
     pod_for_agent = strawberry_django.field(resolver=queries.pod_for_agent, description="Return the pod that a given agent (client) is running for a deployment.")
     me: types.User = strawberry_django.field(resolver=queries.me, description="Return the currently authenticated user.")
-    match_flavour: types.Flavour = strawberry_django.field(
+    match_flavour: types.Flavour | None = strawberry_django.field(
         resolver=queries.match_flavour,
-        description="Return the flavour that best matches the requested release, actions and target environment.",
+        description="Return the flavour that best matches the requested release, actions and target environment, or null when nothing matches.",
     )
     flavours: List[types.Flavour] = strawberry_django.field(description="List all flavours visible to the current organization.")
     releases: List[types.Release] = strawberry_django.field(description="List all app releases visible to the current organization.")
@@ -119,13 +118,18 @@ class Mutation:
 class Subscription:
     """The root subscription type"""
 
-    pod: messages.PodUpdateMessage = strawberry.subscription(
+    # Both fields used to be declared as `messages.PodUpdateMessage` while the resolvers
+    # built `PodEvent`, a type that was in no schema at all -- so even once the resolvers
+    # could stream, nothing they produced would serialize. `PodUpdateMessage` was never
+    # constructed anywhere and is gone; `PodEvent` is the shape the publisher actually
+    # has, since a delete leaves nothing but an ID behind.
+    pod: subscriptions.PodEvent = strawberry.subscription(
         resolver=subscriptions.pod,
-        description="Subscribe to status updates for a single pod.",
+        description="Subscribe to lifecycle events for a single pod.",
     )
-    pods: messages.PodUpdateMessage = strawberry.subscription(
+    pods: subscriptions.PodEvent = strawberry.subscription(
         resolver=subscriptions.pods,
-        description="Subscribe to status updates for all pods visible to the current organization.",
+        description="Subscribe to lifecycle events for every pod visible to the current organization.",
     )
 
 
@@ -135,6 +139,16 @@ schema = strawberry.Schema(
     subscription=Subscription,
     schema_directives=[unionElementOf],
     extensions=[DjangoOptimizerExtension, AuthentikateExtension, KoherentExtension],
-    types=[types.Selector, types.CudaSelector, types.CPUSelector, types.RocmSelector] + interface_types + selector_types,
+    types=[
+        types.Selector,
+        types.CudaSelector,
+        types.CPUSelector,
+        types.RocmSelector,
+        types.RAMSelector,
+        types.LabelSelector,
+        types.ServiceSelector,
+    ]
+    + interface_types
+    + selector_types,
     config=StrawberryConfig(scalar_map={**rscalar_map, **bscalar_map}),
 )

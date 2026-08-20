@@ -1,6 +1,5 @@
 from typing import Annotated, List, Optional
 from strawberry.experimental import pydantic
-from strawberry import LazyType
 from rekuest_core.inputs import models
 import strawberry
 from rekuest_core import enums, scalars

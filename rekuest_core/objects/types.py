@@ -3,7 +3,6 @@ from typing import Annotated, List, Optional
 import strawberry
 import strawberry_django
 from pydantic import BaseModel
-from strawberry import LazyType
 from strawberry.experimental import pydantic
 
 from rekuest_core.objects import models

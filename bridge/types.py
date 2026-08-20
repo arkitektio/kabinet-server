@@ -7,22 +7,36 @@ import strawberry_django
 from authentikate import models as auth_models
 from bridge import enums, filters, models, scalars, scoping, types
 from bridge.repo import selectors
-from django.contrib.auth import get_user_model
 from kante.types import Info
 from rekuest_core import enums as rkenums
 from rekuest_core import scalars as rkscalars
 from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
 from strawberry import auto
-from strawberry.experimental import pydantic
 from .type_gen import create_stats_type
 
 
-def build_prescoped_queryset(info, queryset, field=None):
-    # Everything is always organization-scoped; there is no per-request scope override.
-    # When no explicit field is given, auto-discover the path to the organization
-    # (direct ``organization`` FK, or through required FKs) via bridge.scoping.
+def build_prescoped_queryset(info: Info, queryset, field: str | None = None):
+    """Narrow ``queryset`` to the request's organization.
+
+    Everything is always organization-scoped; there is no per-request scope override.
+    When no explicit field is given, the path to the organization is auto-discovered
+    (a direct ``organization`` FK, or one reached through required FKs) by
+    :func:`bridge.scoping.organization_path`.
+
+    Fails closed, which it did not. When ``organization_path`` found no path this
+    produced ``queryset.filter(**{None: organization})`` -- a `TypeError` at best, and a
+    silent tenancy hole in any Django version that tolerated it. The sibling
+    :func:`bridge.scoping.for_org` has always raised here; the two mechanisms guarding
+    the same boundary now agree.
+    """
     field = field or scoping.organization_path(queryset.model)
+    if field is None:
+        raise LookupError(
+            f"{queryset.model.__name__} has no path to an organization and is not "
+            "registered in bridge.scoping.UNSCOPED_MODELS, so it cannot be scoped to "
+            "the requesting organization."
+        )
     return queryset.filter(**{field: info.context.request.organization})
 
 
@@ -145,22 +159,19 @@ class Release:
     original_logo: Optional[str] = strawberry_django.field(description="The original (upstream) logo URL of this release.")
     entrypoint: str = strawberry_django.field(description="The entrypoint used to start the app.")
     flavours: List["Flavour"] = strawberry_django.field(description="The flavours (buildable variants) available for this release.")
+    deployments: List["Deployment"] = strawberry_django.field(description="The deployments that run a flavour of this release.")
 
-    @strawberry_django.field(description="Whether this release is currently deployed somewhere.")
-    def installed(self, info: Info) -> bool:
-        return True
-
-    @strawberry_django.field(description="The deployments that run a flavour of this release.")
-    def deployments(self, info: Info) -> List["Deployment"]:
-        return models.Deployment.objects.filter(flavour__release=self).all()
-
-    @strawberry_django.field(description="A human-readable description of this release.")
-    def description(self, info: Info) -> str:
-        return "This is a basic app. That allows a few extra things"
-
-    @strawberry_django.field(description="A display colour for this release, as a hex string.")
-    def colour(self, info: Info) -> str:
-        return "#254d11"
+    # `installed`, `description` and `colour` used to sit here and were placeholders
+    # shipped as API: `installed` returned `True` unconditionally, `description`
+    # returned a fixed sentence about "a basic app", and `colour` returned the literal
+    # "#254d11" for every release. Nothing behind them was ever built, so they are gone
+    # rather than left telling every client the same thing about every row.
+    #
+    # `deployments` also sat here as a hand-written resolver and is now the declarative
+    # field above. It did `models.Deployment.objects.filter(flavour__release=self)`,
+    # which was the one reachable read in this module that skipped organization scoping
+    # -- a Deployment is scoped by `backend__organization`, independent of the Release's
+    # `app__organization` -- and issued a fresh unoptimized query per Release row.
 
     @strawberry_django.field(description="The display name of this release, in the form 'identifier:version'.")
     def name(self, info: Info) -> str:
@@ -182,9 +193,14 @@ class Release:
 class Deployment:
     id: auto
     flavour: "Flavour" = strawberry_django.field(description="The flavour that is deployed.")
-    api_token: str = strawberry_django.field(description="The API token the deployed pod uses to authenticate.")
     backend: "Backend" = strawberry_django.field(description="The backend this deployment runs on.")
     local_id: strawberry.ID = strawberry_django.field(description="The identifier of this deployment as known to the backend.")
+    status: enums.PodStatus = strawberry_django.field(description="The current lifecycle status of this deployment.")
+
+    # `api_token` used to be declared here as a non-null `String!`. The Deployment model
+    # has no such field, so selecting it raised `AttributeError` -- and had it resolved,
+    # it would have handed the pod's authentication secret to every member of the
+    # organization who can read a Deployment.
 
     @strawberry_django.field(description="The display name of this deployment, combining backend and flavour names.")
     def name(self) -> str:
@@ -192,8 +208,17 @@ class Deployment:
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
-        # Deployment has no direct organization; it inherits it via backend__organization.
-        return build_prescoped_queryset(info, queryset)
+        # Deployment has no direct organization. This comment used to say it is scoped
+        # by `backend__organization`, but no field is passed, so `organization_path`
+        # picks the first required FK in declaration order -- `flavour` -- and the path
+        # is actually `flavour__release__app__organization`. Named explicitly now, so it
+        # cannot change under a field reordering.
+        #
+        # Both FKs are the caller's own organization at creation time
+        # (`create_deployment` resolves the backend from the request and the flavour
+        # through `aget_for_org`), so the two paths agree in practice; the flavour is
+        # named because that is what has been enforced.
+        return build_prescoped_queryset(info, queryset, field="flavour__release__app__organization")
 
 
 @strawberry.experimental.pydantic.interface(
@@ -205,6 +230,7 @@ class Selector:
 
     kind: str
     required: bool
+    weight: int
 
 
 @strawberry.experimental.pydantic.type(
@@ -236,8 +262,49 @@ class RocmSelector(Selector):
 class CPUSelector(Selector):
     """Requires CPU resources on the backend."""
 
-    min: int | None = None
+    # Declared as `min` until now, but `selectors.CPUSelector` names the field
+    # `min_count` -- so the GraphQL field pointed at nothing and could never resolve.
+    min_count: int | None = None
     frequency: float | None = None
+
+
+# `Flavour.selectors` is a non-null list of `Selector`, and `Flavour.get_selectors()`
+# can return any of the six kinds in `selectors.Selector`. Only cuda/rocm/cpu had a
+# GraphQL type, so a flavour carrying a ram, label or service selector failed the whole
+# query with an unresolvable-type error. The union is complete now.
+@strawberry.experimental.pydantic.type(
+    selectors.RAMSelector,
+    description="Requires a minimum amount of system memory on the backend.",
+)
+class RAMSelector(Selector):
+    """Requires a minimum amount of system memory on the backend."""
+
+    min: int | None = None
+
+
+@strawberry.experimental.pydantic.type(
+    selectors.LabelSelector,
+    description="Requires the backend to carry a specific key/value label.",
+)
+class LabelSelector(Selector):
+    """Requires the backend to carry a specific key/value label."""
+
+    key: str | None = None
+    value: str | None = None
+
+
+@strawberry.experimental.pydantic.type(
+    selectors.ServiceSelector,
+    description="Requires the backend to provide a particular service.",
+)
+class ServiceSelector(Selector):
+    """Requires the backend to provide a particular service."""
+
+    # `kind` and `required` are already on the interface, but strawberry's pydantic
+    # integration refuses a type that declares no fields of its own, and a service
+    # selector adds none.
+    kind: str
+    required: bool
 
 
 @strawberry.type(description="A service that a flavour requires in order to run (e.g. mikro, rekuest).")
@@ -282,9 +349,16 @@ class Flavour:
     definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
     manifest: scalars.UntypedParams = strawberry_django.field(description="The raw app manifest this flavour was built from.")
 
-    @strawberry_django.field(description="The GitHub repository this flavour was built from.")
-    def repo(self, info: Info) -> GithubRepo:
-        return self.repo.githubrepo
+    @strawberry_django.field(description="The GitHub repository this flavour was built from, if it came from one.")
+    def repo(self, info: Info) -> GithubRepo | None:
+        # `self.repo` is the MTI parent. It is null for a flavour registered straight
+        # from a built image via `createAppImage`, and the `githubrepo` child row is
+        # absent for any other kind of Repo -- both of which used to raise against a
+        # non-null return type.
+        repo = self.repo
+        if repo is None:
+            return None
+        return getattr(repo, "githubrepo", None)
 
     @strawberry_django.field(description="The hardware/capability selectors a backend must satisfy to run this flavour.")
     def selectors(self, info: Info) -> List[types.Selector]:
@@ -292,11 +366,17 @@ class Flavour:
 
     @strawberry_django.field(description="The services this flavour requires in order to run.")
     def requirements(self) -> List[Requirement]:
-        return [Requirement(**i) for i in self.requirements]
+        # The writer stores a list (`bridge/repo/db.py`), but the model default used to
+        # be `dict`. Iterating a dict yields its keys, so `Requirement(**"some-key")`
+        # raised `TypeError` on every row that kept the default. The default is a list
+        # now; this stays defensive for rows written before that migration.
+        stored = self.requirements
+        if not isinstance(stored, list):
+            return []
+        return [Requirement(**i) for i in stored]
 
-    @strawberry_django.field(description="A human-readable description of this flavour.")
-    def description(self) -> str:
-        return " No description provided"
+    # `description` used to sit here returning the literal " No description provided"
+    # for every flavour. Removed rather than left as API-shaped filler.
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):

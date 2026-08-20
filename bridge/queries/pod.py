@@ -1,5 +1,5 @@
 from bridge import types, models
-from bridge.scoping import aget_for_org, for_org, get_for_org
+from bridge.scoping import aget_for_org, get_for_org
 import strawberry
 from kante.types import Info
 from bridge.utils import aget_backend_for_info

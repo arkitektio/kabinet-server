@@ -35,6 +35,9 @@ def request_general_media_access(info: Info, input: inputs.RequestGeneralMediaAc
     """Request temporary S3 read credentials for a media file."""
 
     dl = get_current_datalayer()
-    model = input.to_pydantic()
 
+    # The input carries no field this grant depends on -- the grant is derived entirely
+    # from the requesting organization and user -- so it is deliberately not parsed. See
+    # the `# TODO: FIX ORGANIZATION SCOPED MEDIA GRANTS` in `datalayer/datalayer.py`:
+    # the grant is bucket-wide today and cannot yet honour the scope it is handed.
     return types.GeneralMediaAccessGrant.from_pydantic(dl.generate_general_media_access_grant(info.context.request.organization.id, info.context.request.user.id))

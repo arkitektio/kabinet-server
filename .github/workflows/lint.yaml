@@ -22,10 +22,18 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
-      # Advisory for now: these steps report issues without failing the build so
-      # PRs aren't blocked while existing lint/format debt is burned down. Remove
-      # `continue-on-error` (or set it to false) to make them required checks.
-      - name: Ruff check
+      # `E`/`F` -- pyflakes plus pycodestyle errors -- is a required check. It was
+      # advisory until now, but the reason nothing was ever flagged is that `ruff` was
+      # not a dependency at all: `uv run ruff check` failed to find the executable and
+      # `continue-on-error` swallowed that into a green job. An `__all__` entry reading
+      # "declare_backenddelete_pod" (F822) survived in the tree the whole time.
+      - name: Ruff check (E,F)
+        run: uv run ruff check --select E,F .
+
+      # `ANN`/`D1` -- missing annotations and docstrings -- is a backlog, not a
+      # regression signal, so it reports without blocking. Configured in
+      # `[tool.ruff.lint]`; make it required once it is burned down.
+      - name: Ruff check (annotations, docstrings)
         run: uv run ruff check .
         continue-on-error: true
 

@@ -204,5 +204,3 @@ authentikate:
 ```
 
 Validate it with `python manage.py validate_settings`.
-</content>
-</invoke>

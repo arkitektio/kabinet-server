@@ -64,7 +64,10 @@ def create_stats_type(
     # --------- Enums ---------
     enum_name = enum_name or f"{model.__name__}Field"
     FieldEnumPy = Enum(enum_name, {k.upper(): v for k, v in allowed_fields.items()})
-    FieldEnum = strawberry.enum(
+    # `strawberry.enum` registers the enum on the class it is given and returns it; the
+    # return value was bound to an unused `FieldEnum` while `FieldEnumPy` is what the
+    # rest of this function actually references.
+    strawberry.enum(
         FieldEnumPy,
         description=f"Numeric/aggregatable fields of {model.__name__}",
     )  # type: ignore
