@@ -22,7 +22,7 @@ AUTHENTIKATE = {
         # A non-privileged user in a different organization, for cross-tenant
         # scoping/permission tests (see the other_org_context fixture). roles
         # must be set explicitly: StaticToken defaults roles to ["admin"].
-        "othertest": {"sub": "9", "active_org": "other_org", "roles": []},
+        "othertest": {"sub": "9", "org": "other_org", "roles": []},
     },
 }
 
