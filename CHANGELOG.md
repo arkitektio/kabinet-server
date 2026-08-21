@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v2.1.0 (2026-08-21)
+
+### Features
+
+- Update authentikate
+  ([`d2c5dd4`](https://github.com/arkitektio/kabinet-server/commit/d2c5dd49ee3ed522dc5652f3b47967b75fabecb9))
+
+
 ## v2.0.2 (2026-08-20)
 
 ### Bug Fixes
