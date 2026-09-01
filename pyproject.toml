@@ -1,6 +1,6 @@
 [project]
 name = "kabinet-server"
-version = "2.1.0"
+version = "2.2.0"
 description = ""
 authors = [{ name = "jhnnsrs", email = "jhnnsrs@gmail.com" }]
 requires-python = ">=3.12,<4"

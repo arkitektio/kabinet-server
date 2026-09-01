@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v2.2.0 (2026-09-01)
+
+### Features
+
+- Better kabinet
+  ([`321326f`](https://github.com/arkitektio/kabinet-server/commit/321326f4405cb68f5c6cc7edcced6c596ac1531c))
+
+
 ## v2.1.0 (2026-08-21)
 
 ### Features
