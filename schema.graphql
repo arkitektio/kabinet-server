@@ -1,6 +1,6 @@
 directive @oneOf on INPUT_OBJECT
 
-directive @unionElementOf(union: String!, discriminator: String!, key: String!) on INPUT_OBJECT
+directive @unionElementOf(union: String!, discriminator: String!, key: String!) repeatable on INPUT_OBJECT
 
 schema {
   query: Query
@@ -556,14 +556,27 @@ input BlokImplementationInput {
 """Requires CPU resources on the backend."""
 type CPUSelector implements Selector {
   kind: String!
+
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
   required: Boolean!
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
   weight: Int!
 
-  """The minimum number of CPU cores required"""
+  """The minimum number of CPU cores required."""
   minCount: Int
 
-  """The minimum CPU frequency required, in MHz"""
+  """The minimum CPU frequency required, in MHz."""
   frequency: Float
+
+  """
+  The CPU architecture the image is built for (docker platform / kubernetes.io/arch values, e.g. 'amd64', 'arm64').
+  """
+  arch: String
 }
 
 type Choice {
@@ -732,18 +745,28 @@ input ComponentPropInput {
   utilCall: UtilCallInput = null
 }
 
-"""The container runtime used to run a pod."""
-enum ContainerType {
-  APPTAINER
-  DOCKER
-}
-
 input CpuSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "cpu") {
-  """The minimum CPU frequency required, in MHz."""
-  frequency: Int = null
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
+  required: Boolean! = true
 
-  """The minimum memory required, in MB."""
-  memory: Int = null
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
+  weight: Int! = 1
+  kind: String! = "cpu"
+
+  """The minimum number of CPU cores required."""
+  minCount: Int = null
+
+  """The minimum CPU frequency required, in MHz."""
+  frequency: Float = null
+
+  """
+  The CPU architecture the image is built for (docker platform / kubernetes.io/arch values, e.g. 'amd64', 'arm64').
+  """
+  arch: String = null
 }
 
 """Input for creating a deployment of a flavour on a backend."""
@@ -802,18 +825,70 @@ input CreatePodInput {
 """Requires a CUDA-capable (NVIDIA) GPU on the backend."""
 type CudaSelector implements Selector {
   kind: String!
+
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
   required: Boolean!
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
   weight: Int!
 
-  """The number of cuda cores"""
-  cudaCores: Int
+  """
+  The minimum CUDA compute capability required (e.g. '8.6') — NVIDIA's standard placement key.
+  """
+  computeCapability: String
 
-  """The minimum cuda version"""
+  """The minimum CUDA (driver/runtime) version required."""
   cudaVersion: String
+
+  """The minimum GPU memory (VRAM) required, in MB."""
+  memory: Int
+
+  """
+  The number of GPUs required (a Docker device-reservation count; unset lets the deployer decide).
+  """
+  count: Int
+
+  """
+  Deprecated: the minimum number of CUDA cores. Prefer computeCapability and memory.
+  """
+  cudaCores: Int
 }
 
 input CudaSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "cuda") {
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
+  required: Boolean! = true
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
+  weight: Int! = 1
+  kind: String! = "cuda"
+
+  """
+  The minimum CUDA compute capability required (e.g. '8.6') — NVIDIA's standard placement key.
+  """
+  computeCapability: String = null
+
+  """The minimum CUDA (driver/runtime) version required."""
   cudaVersion: String = null
+
+  """The minimum GPU memory (VRAM) required, in MB."""
+  memory: Int = null
+
+  """
+  The number of GPUs required (a Docker device-reservation count; unset lets the deployer decide).
+  """
+  count: Int = null
+
+  """
+  Deprecated: the minimum number of CUDA cores. Prefer computeCapability and memory.
+  """
   cudaCores: Int = null
 }
 
@@ -1090,15 +1165,6 @@ type Device {
   deviceId: ID!
 }
 
-"""A single hardware feature of a device to match against."""
-input DeviceFeature {
-  """The kind of feature (e.g. 'gpu', 'cpu')."""
-  kind: String!
-
-  """The number of CPUs the feature describes."""
-  cpuCount: String!
-}
-
 """A reference to a built Docker image."""
 type DockerImage {
   """The fully-qualified image reference (registry/name:tag)."""
@@ -1181,15 +1247,6 @@ enum EffectKind {
   MESSAGE
   HIDE
   CUSTOM
-}
-
-"""The target environment that flavours are matched against."""
-input EnvironmentInput {
-  """The container runtime available in the environment."""
-  containerType: ContainerType!
-
-  """The hardware features available in the environment."""
-  features: [DeviceFeature!] = null
 }
 
 """
@@ -1463,13 +1520,50 @@ The `JSONSerializable` scalar type represents a JSON-serializable value.
 """
 scalar JSONSerializable
 
-"""Requires the backend to carry a specific key/value label."""
+"""
+Requires the backend resource to carry a qualifier (the nodeSelector analog).
+"""
 type LabelSelector implements Selector {
   kind: String!
+
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
   required: Boolean!
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
   weight: Int!
-  key: String
+
+  """The qualifier key the backend resource must carry."""
+  key: String!
+
+  """
+  The value the qualifier must have; null means the key merely has to exist.
+  """
   value: String
+}
+
+input LabelSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "label") {
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
+  required: Boolean! = true
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
+  weight: Int! = 1
+  kind: String! = "label"
+
+  """The qualifier key the backend resource must carry."""
+  key: String!
+
+  """
+  The value the qualifier must have; null means the key merely has to exist.
+  """
+  value: String = null
 }
 
 """Which locks does the agent provide in general"""
@@ -1512,20 +1606,6 @@ input ManifestInput {
   author: String! = "unknown"
   logo: String = null
   scopes: [String!]! = []
-}
-
-"""
-Input for matching the best flavour for a release in a given environment.
-"""
-input MatchFlavoursInput {
-  """The target environment to match flavours against."""
-  environment: EnvironmentInput = null
-
-  """The release whose flavours should be matched."""
-  release: ID = null
-
-  """The action hashes that the matched flavour must provide."""
-  actions: [ActionHash!] = null
 }
 
 type MessageEffect implements Effect {
@@ -1587,7 +1667,37 @@ input OffsetPaginationInput {
   limit: Int
 }
 
+"""Requires a oneAPI-capable (Intel) accelerator on the backend."""
+type OneApiSelector implements Selector {
+  kind: String!
+
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
+  required: Boolean!
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
+  weight: Int!
+
+  """The minimum oneAPI version required."""
+  oneapiVersion: String
+}
+
 input OneApiSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "oneapi") {
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
+  required: Boolean! = true
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
+  weight: Int! = 1
+  kind: String! = "oneapi"
+
+  """The minimum oneAPI version required."""
   oneapiVersion: String = null
 }
 
@@ -1904,11 +2014,6 @@ type Query {
   """Return the currently authenticated user."""
   me: User!
 
-  """
-  Return the flavour that best matches the requested release, actions and target environment, or null when nothing matches.
-  """
-  matchFlavour(input: MatchFlavoursInput!): Flavour
-
   """List all flavours visible to the current organization."""
   flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
 
@@ -1950,9 +2055,35 @@ type Query {
 """Requires a minimum amount of system memory on the backend."""
 type RAMSelector implements Selector {
   kind: String!
+
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
   required: Boolean!
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
   weight: Int!
+
+  """The minimum amount of system memory required, in MB."""
   min: Int
+}
+
+input RamSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "ram") {
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
+  required: Boolean! = true
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
+  weight: Int! = 1
+  kind: String! = "ram"
+
+  """The minimum amount of system memory required, in MB."""
+  min: Int = null
 }
 
 """
@@ -2243,18 +2374,40 @@ enum ReturnWidgetKind {
 """Requires a ROCm-capable (AMD) GPU on the backend."""
 type RocmSelector implements Selector {
   kind: String!
+
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
   required: Boolean!
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
   weight: Int!
 
-  """An additional ROCm capability qualifier"""
-  apiThing: String
-
-  """The minimum ROCm API version required"""
+  """The minimum ROCm API version required."""
   apiVersion: String
+
+  """An additional ROCm capability qualifier."""
+  apiThing: String
 }
 
 input RocmSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "kind", key: "rocm") {
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
+  required: Boolean! = true
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
+  weight: Int! = 1
+  kind: String! = "rocm"
+
+  """The minimum ROCm API version required."""
   apiVersion: String = null
+
+  """An additional ROCm capability qualifier."""
   apiThing: String = null
 }
 
@@ -2283,40 +2436,88 @@ A selector expresses a hardware (or capability) requirement that a backend must 
 """
 interface Selector {
   kind: String!
+
+  """
+  If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
   required: Boolean!
+
+  """
+  Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
   weight: Int!
 }
 
+"""
+A hardware or capability requirement a backend must satisfy to run a flavour, as a discriminated union. required=true is a hard constraint; required=false is a preference scored by weight. Service dependencies are Requirements, never selectors.
+"""
 input SelectorInput {
   """
-  The discriminator identifying which kind of selector this is (e.g. 'cuda', 'rocm', 'cpu', 'oneapi').
+  The discriminator identifying which kind of selector this is ('cpu', 'ram', 'cuda', 'rocm', 'oneapi' or 'label').
   """
   kind: String!
 
-  """The minimum ROCm API version required (rocm selectors)."""
-  apiVersion: String = null
+  """
+  (cpu, ram, cuda, rocm, oneapi, label) If true, a backend failing this selector must not run the flavour (hard constraint). If false, the selector is a preference scored by `weight`.
+  """
+  required: Boolean = null
 
-  """An additional ROCm capability qualifier (rocm selectors)."""
-  apiThing: String = null
+  """
+  (cpu, ram, cuda, rocm, oneapi, label) Scoring weight of a preferred (non-required) selector; deployers prefer candidates with the highest sum of satisfied weights.
+  """
+  weight: Int = null
 
-  """The minimum oneAPI version required (oneapi selectors)."""
-  oneapiVersion: String = null
+  """(cpu) The minimum number of CPU cores required."""
+  minCount: Int = null
 
-  """The minimum number of CUDA cores required (cuda selectors)."""
+  """(cpu) The minimum CPU frequency required, in MHz."""
+  frequency: Float = null
+
+  """
+  (cpu) The CPU architecture the image is built for (docker platform / kubernetes.io/arch values, e.g. 'amd64', 'arm64').
+  """
+  arch: String = null
+
+  """(ram) The minimum amount of system memory required, in MB."""
+  min: Int = null
+
+  """
+  (cuda) The minimum CUDA compute capability required (e.g. '8.6') — NVIDIA's standard placement key.
+  """
+  computeCapability: String = null
+
+  """(cuda) The minimum CUDA (driver/runtime) version required."""
+  cudaVersion: String = null
+
+  """(cuda) The minimum GPU memory (VRAM) required, in MB."""
+  memory: Int = null
+
+  """
+  (cuda) The number of GPUs required (a Docker device-reservation count; unset lets the deployer decide).
+  """
+  count: Int = null
+
+  """
+  (cuda) Deprecated: the minimum number of CUDA cores. Prefer computeCapability and memory.
+  """
   cudaCores: Int = null
 
-  """The minimum CPU frequency required, in MHz (cpu selectors)."""
-  frequency: Int = null
+  """(rocm) The minimum ROCm API version required."""
+  apiVersion: String = null
 
-  """The minimum memory required, in MB (cpu selectors)."""
-  memory: Int = null
-}
+  """(rocm) An additional ROCm capability qualifier."""
+  apiThing: String = null
 
-"""Requires the backend to provide a particular service."""
-type ServiceSelector implements Selector {
-  kind: String!
-  required: Boolean!
-  weight: Int!
+  """(oneapi) The minimum oneAPI version required."""
+  oneapiVersion: String = null
+
+  """(label) The qualifier key the backend resource must carry."""
+  key: String = null
+
+  """
+  (label) The value the qualifier must have; null means the key merely has to exist.
+  """
+  value: String = null
 }
 
 type SliderAssignWidget implements AssignWidget {

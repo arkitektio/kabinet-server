@@ -1,7 +1,7 @@
 import datetime
 from pydantic import BaseModel, Field
 from strawberry.experimental import pydantic
-from .enums import PodStatus, ContainerType
+from .enums import PodStatus
 import strawberry
 from rekuest_core.scalars import ActionHash
 from rekuest_core.inputs import types as rtypes
@@ -94,52 +94,6 @@ class DeploySetupInput:
     """Input for deploying a previously created setup."""
 
     setup: strawberry.ID
-
-
-class DeviceFeatureModel(BaseModel):
-    kind: str = Field(description="The kind of feature (e.g. 'gpu', 'cpu').")
-    cpu_count: str = Field(description="The number of CPUs the feature describes.")
-
-
-class EnvironmentInputModel(BaseModel):
-    container_type: ContainerType = Field(description="The container runtime available in the environment.")
-    features: Optional[list[DeviceFeatureModel]] = Field(default=None, description="The hardware features available in the environment.")
-
-
-@pydantic.input(DeviceFeatureModel, description="A single hardware feature of a device to match against.")
-class DeviceFeature:
-    kind: str
-    cpu_count: str
-
-
-@pydantic.input(EnvironmentInputModel, description="The target environment that flavours are matched against.")
-class EnvironmentInput:
-    """The target environment that flavours are matched against."""
-
-    container_type: ContainerType
-    features: Optional[list[DeviceFeature]] = None
-
-
-class MatchFlavoursInputModel(BaseModel):
-    """Input for matching the best flavour for a release in a given environment."""
-
-    environment: EnvironmentInputModel | None = Field(default=None, description="The target environment to match flavours against.")
-    release: strawberry.ID | None = Field(default=None, description="The release whose flavours should be matched.")
-    # Every field here is optional -- matching on release alone, or on actions alone, are
-    # both meaningful queries -- but `actions` and `release` carried no default, so they
-    # rendered as mandatory-and-nullable: a client had to send `actions: null` explicitly
-    # or the resolver raised `MatchFlavoursInput.__init__() missing 1 required
-    # keyword-only argument`. Nullable-but-required is never what anyone means.
-    actions: Optional[list[str]] = Field(default=None, description="The action hashes that the matched flavour must provide.")
-
-
-@pydantic.input(MatchFlavoursInputModel, description="Input for matching the best flavour for a release in a given environment.")
-class MatchFlavoursInput:
-    """Input for matching the best flavour for a release in a given environment."""
-
-    environment: EnvironmentInput | None = None
-    actions: Optional[list[ActionHash]] = None
-    release: Optional[strawberry.ID] = None
 
 
 class CreatePodInputModel(BaseModel):

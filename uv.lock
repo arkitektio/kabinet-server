@@ -933,7 +933,7 @@ wheels = [
 
 [[package]]
 name = "kabinet-server"
-version = "2.0.2"
+version = "2.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -987,7 +987,7 @@ requires-dist = [
     { name = "django-probes", specifier = ">=1.7.0,<2" },
     { name = "django-redis", specifier = ">=5.4.0" },
     { name = "jsonpatch", specifier = "~=1.33" },
-    { name = "kante", specifier = ">=2.1.1" },
+    { name = "kante", specifier = ">=2.2.0" },
     { name = "koherent", specifier = ">4" },
     { name = "pint", specifier = ">=0.25.3" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3" },

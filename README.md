@@ -53,3 +53,5 @@ a user. Thinks: "Napari 0.4.10 on Python 3.8 authorized as John Doe and able to 
 Pod: A Pod is a running instance of a Deployment. Pods are the actual running containers that provide the functionality of an App. They
 are the only model that is actively maintained by the Backend. Pods are identified by a container specific ID and are always associated with a Deployment.
 
+
+Selector: A Selector declares a hardware or capability requirement a Flavour has of a backend (CUDA compute capability, RAM, labels matching a Resource's qualifiers, ...). Kabinet stores and serves selectors; the deployer that places Pods evaluates them. See [docs/selectors.md](docs/selectors.md) for the full vocabulary and its Kubernetes/Compose mapping.

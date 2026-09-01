@@ -1,6 +1,6 @@
 import strawberry
 from strawberry_django.optimizer import DjangoOptimizerExtension
-from bridge.directives import unionElementOf
+from kante.unions import unionElementOf
 from bridge import types
 from bridge import mutations
 from bridge import subscriptions
@@ -30,10 +30,6 @@ class Query:
     pod: types.Pod = strawberry_django.field(resolver=queries.pod, description="Return a single pod by its ID.")
     pod_for_agent = strawberry_django.field(resolver=queries.pod_for_agent, description="Return the pod that a given agent (client) is running for a deployment.")
     me: types.User = strawberry_django.field(resolver=queries.me, description="Return the currently authenticated user.")
-    match_flavour: types.Flavour | None = strawberry_django.field(
-        resolver=queries.match_flavour,
-        description="Return the flavour that best matches the requested release, actions and target environment, or null when nothing matches.",
-    )
     flavours: List[types.Flavour] = strawberry_django.field(description="List all flavours visible to the current organization.")
     releases: List[types.Release] = strawberry_django.field(description="List all app releases visible to the current organization.")
     resources: List[types.Resource] = strawberry_django.field(description="List all backend resources visible to the current organization.")
@@ -146,7 +142,7 @@ schema = strawberry.Schema(
         types.RocmSelector,
         types.RAMSelector,
         types.LabelSelector,
-        types.ServiceSelector,
+        types.OneApiSelector,
     ]
     + interface_types
     + selector_types,

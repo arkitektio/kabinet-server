@@ -11,7 +11,8 @@ from .app_image import create_app_image
 # It was wired into neither Query nor Mutation, so nothing could call it, and its body was
 # wrong in two ways regardless: it filtered `Flavour` by *its own* id using a *release* id,
 # and it queried `Flavour.objects` with no organization scoping. `Query.match_flavour`
-# (`bridge/queries/flavour.py`) is the implementation that is reachable and correct.
+# existed for a while as the reachable implementation and was removed too: selector
+# evaluation is deliberately a deployer concern (see docs/selectors.md).
 
 __all__ = [
     "create_app_image",

@@ -240,7 +240,10 @@ class Selector:
 class CudaSelector(Selector):
     """Requires a CUDA-capable (NVIDIA) GPU on the backend."""
 
+    compute_capability: str | None = None
     cuda_version: str | None = None
+    memory: int | None = None
+    count: int | None = None
     cuda_cores: int | None = None
 
 
@@ -256,24 +259,29 @@ class RocmSelector(Selector):
 
 
 @strawberry.experimental.pydantic.type(
-    selectors.CPUSelector,
+    selectors.OneApiSelector,
+    description="Requires a oneAPI-capable (Intel) accelerator on the backend.",
+)
+class OneApiSelector(Selector):
+    """Requires a oneAPI-capable (Intel) accelerator on the backend."""
+
+    oneapi_version: str | None = None
+
+
+@strawberry.experimental.pydantic.type(
+    selectors.CpuSelector,
     description="Requires CPU resources on the backend.",
 )
 class CPUSelector(Selector):
     """Requires CPU resources on the backend."""
 
-    # Declared as `min` until now, but `selectors.CPUSelector` names the field
-    # `min_count` -- so the GraphQL field pointed at nothing and could never resolve.
     min_count: int | None = None
     frequency: float | None = None
+    arch: str | None = None
 
 
-# `Flavour.selectors` is a non-null list of `Selector`, and `Flavour.get_selectors()`
-# can return any of the six kinds in `selectors.Selector`. Only cuda/rocm/cpu had a
-# GraphQL type, so a flavour carrying a ram, label or service selector failed the whole
-# query with an unresolvable-type error. The union is complete now.
 @strawberry.experimental.pydantic.type(
-    selectors.RAMSelector,
+    selectors.RamSelector,
     description="Requires a minimum amount of system memory on the backend.",
 )
 class RAMSelector(Selector):
@@ -284,27 +292,13 @@ class RAMSelector(Selector):
 
 @strawberry.experimental.pydantic.type(
     selectors.LabelSelector,
-    description="Requires the backend to carry a specific key/value label.",
+    description="Requires the backend resource to carry a qualifier (the nodeSelector analog).",
 )
 class LabelSelector(Selector):
-    """Requires the backend to carry a specific key/value label."""
+    """Requires the backend resource to carry a qualifier."""
 
-    key: str | None = None
+    key: str
     value: str | None = None
-
-
-@strawberry.experimental.pydantic.type(
-    selectors.ServiceSelector,
-    description="Requires the backend to provide a particular service.",
-)
-class ServiceSelector(Selector):
-    """Requires the backend to provide a particular service."""
-
-    # `kind` and `required` are already on the interface, but strawberry's pydantic
-    # integration refuses a type that declares no fields of its own, and a service
-    # selector adds none.
-    kind: str
-    required: bool
 
 
 @strawberry.type(description="A service that a flavour requires in order to run (e.g. mikro, rekuest).")
