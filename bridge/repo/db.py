@@ -77,6 +77,7 @@ def upsert_app_image(
             image=image,
             manifest=manifest.model_dump(),
             requirements=[requirement.model_dump() for requirement in app_image.inspection.requirements],
+            bloks=[blok.model_dump(mode="json") for blok in app_image.inspection.bloks],
         ),
     )
 

@@ -25,7 +25,6 @@ CREATE_APP_IMAGE = """
 """
 
 
-
 def _app_image_input() -> dict:
     """A minimal, valid ``AppImageInput`` for the app in the deployments.yaml fixture.
 
@@ -89,3 +88,27 @@ async def test_create_app_image_is_idempotent(authenticated_context: HttpContext
 
     assert first["id"] == second["id"]
     assert len(second["flavours"]) == 1
+
+
+FLAVOUR_BLOKS = """
+    mutation CreateAppImage($input: AppImageInput!) {
+        createAppImage(input: $input) {
+            flavours { bloks }
+        }
+    }
+"""
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_create_app_image_persists_bloks(authenticated_context: HttpContext) -> None:
+    """Blok manifests in the inspection are stored on the flavour instead of being validated and dropped."""
+    payload = _app_image_input()
+    payload["inspection"]["bloks"] = [{"key": "demo", "components": [{"id": "root", "component": "Text"}]}]
+
+    release = (await execute(FLAVOUR_BLOKS, authenticated_context, {"input": payload}))["createAppImage"]
+
+    bloks = release["flavours"][0]["bloks"]
+    assert len(bloks) == 1
+    assert bloks[0]["key"] == "demo"
+    assert bloks[0]["components"][0]["component"] == "Text"

@@ -151,6 +151,7 @@ class Flavour(models.Model):
     deployed_at = models.DateTimeField(null=True)
     manifest = models.JSONField(default=dict)
     requirements = models.JSONField(default=list)
+    bloks = models.JSONField(default=list, help_text="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput).")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["release", "name"], name="Unique flavour for release")]
