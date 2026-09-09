@@ -112,3 +112,34 @@ async def test_create_app_image_persists_bloks(authenticated_context: HttpContex
     assert len(bloks) == 1
     assert bloks[0]["key"] == "demo"
     assert bloks[0]["components"][0]["component"] == "Text"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_create_app_image_persists_definition_kind_and_port_groups(authenticated_context: HttpContext) -> None:
+    """Definitions used to be stored with an empty kind (unservable as the ActionKind enum) and no port groups."""
+    from bridge.models import Definition
+
+    payload = _app_image_input()
+    payload["inspection"]["implementations"] = [
+        {
+            "interface": "scan",
+            "definition": {
+                "key": "scan",
+                "version": "1",
+                "name": "Scan",
+                "kind": "GENERATOR",
+                "pure": True,
+                "args": [{"key": "exposure", "kind": "FLOAT", "nullable": False}],
+                "returns": [],
+                "portGroups": [{"key": "camera", "ports": ["exposure"]}],
+            },
+        }
+    ]
+
+    await execute(CREATE_APP_IMAGE, authenticated_context, {"input": payload})
+
+    definition = await Definition.objects.aget(name="Scan")
+    assert definition.kind == "GENERATOR"
+    assert definition.pure is True
+    assert definition.port_groups[0]["key"] == "camera"

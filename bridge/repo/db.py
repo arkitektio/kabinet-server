@@ -87,9 +87,13 @@ def upsert_app_image(
             hash=definition.unique_hash,
             organization=organization,
             defaults=dict(
-                description=definition.description,
+                description=definition.description or "",
                 args=[port.model_dump() for port in definition.args],
                 returns=[port.model_dump() for port in definition.returns],
+                port_groups=[group.model_dump() for group in definition.port_groups],
+                kind=definition.kind.value if hasattr(definition.kind, "value") else definition.kind,
+                pure=definition.pure,
+                idempotent=definition.idempotent,
                 name=definition.name,
             ),
         )

@@ -1,3 +1,4 @@
+import re
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import List, Optional
 import datetime
@@ -61,6 +62,18 @@ class DockerImageModel(BaseModel):
         return value
 
 
+_CAMEL = re.compile(r"(?<!^)(?=[A-Z])")
+
+
+def _snake_case_keys(value: object) -> object:
+    """Recursively rename camelCase dict keys to snake_case (values untouched)."""
+    if isinstance(value, dict):
+        return {_CAMEL.sub("_", key).lower() if isinstance(key, str) else key: _snake_case_keys(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_snake_case_keys(item) for item in value]
+    return value
+
+
 class AppImageInputModel(BaseModel):
     """A deployment is a Release of a Build.
     It contains the build_id, the manifest, the builder, the definitions, the image and the deployed_at timestamp.
@@ -77,6 +90,17 @@ class AppImageInputModel(BaseModel):
     image: DockerImageModel
 
     model_config = ConfigDict(validate_by_name=True)
+
+    @field_validator("inspection", mode="before")
+    @classmethod
+    def _snake_case_inspection(cls, value: object) -> object:
+        """Config files write the inspection in camelCase (``portGroups``, ``isDev``, ``isTestFor``).
+
+        ``rekuest_core`` models read snake_case and now forbid unknown keys, so the camelCase
+        variants -- which used to be dropped silently -- are renamed before validation. Data
+        arriving through GraphQL is already snake_case; renaming is a no-op there.
+        """
+        return _snake_case_keys(value)
 
     @field_validator("selectors", mode="before")
     @classmethod
