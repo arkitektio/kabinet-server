@@ -3,61 +3,107 @@ from typing import List, Optional
 from strawberry.experimental import pydantic
 from rekuest_core.inputs.types import BlokImplementationInput, ImplementationInput, StateImplementationInput, LockImplementationInput
 import strawberry
+from kante.unions import merged_input, union_member, union_member_types
+
+from . import selectors
 from .models import (
     DockerImageModel,
     AppImageInputModel,
     ManifestInputModel,
     InspectionInputModel,
     RequirementInputModel,
-    RocmSelectorInputModel,
-    CudaSelectorInputModel,
-    OneApiSelectorInputModel,
-    CpuSelectorInputModel,
-    FlatSelectorInputModel,
 )
-from ..directives import unionElementOf
 
 
-@pydantic.input(RocmSelectorInputModel, directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="rocm")])
-class RocmSelectorInput:
-    api_version: str | None = None
-    api_thing: str | None = None
+# The members are the SAME pydantic models that are stored on the Flavour and
+# served back on Flavour.selectors (bridge/repo/selectors.py) — input, storage
+# and output cannot drift. Every member exposes the shared required/weight
+# hard/soft split alongside its own fields.
 
 
-@pydantic.input(CudaSelectorInputModel, directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cuda")])
-class CudaSelectorInput:
-    cuda_version: str | None = None
-    cuda_cores: int | None = None
-
-
-@pydantic.input(CpuSelectorInputModel, directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="cpu")])
+@union_member("SelectorInput", key="cpu")
+@pydantic.input(selectors.CpuSelector)
 class CpuSelectorInput:
-    frequency: int | None = None
-    memory: int | None = None
-
-
-@pydantic.input(OneApiSelectorInputModel, directives=[unionElementOf(union="SelectorInput", discriminator="kind", key="oneapi")])
-class OneApiSelectorInput:
-    oneapi_version: str | None = None
-
-
-@pydantic.input(FlatSelectorInputModel, directives=[])
-class SelectorInput:
     kind: str
+    required: bool
+    weight: int
+    min_count: int | None = None
+    frequency: float | None = None
+    arch: str | None = None
+
+
+@union_member("SelectorInput", key="ram")
+@pydantic.input(selectors.RamSelector)
+class RamSelectorInput:
+    kind: str
+    required: bool
+    weight: int
+    min: int | None = None
+
+
+@union_member("SelectorInput", key="cuda")
+@pydantic.input(selectors.CudaSelector)
+class CudaSelectorInput:
+    kind: str
+    required: bool
+    weight: int
+    compute_capability: str | None = None
+    cuda_version: str | None = None
+    memory: int | None = None
+    count: int | None = None
+    cuda_cores: int | None = None
+
+
+@union_member("SelectorInput", key="rocm")
+@pydantic.input(selectors.RocmSelector)
+class RocmSelectorInput:
+    kind: str
+    required: bool
+    weight: int
     api_version: str | None = None
     api_thing: str | None = None
+
+
+@union_member("SelectorInput", key="oneapi")
+@pydantic.input(selectors.OneApiSelector)
+class OneApiSelectorInput:
+    kind: str
+    required: bool
+    weight: int
     oneapi_version: str | None = None
-    cuda_cores: int | None = None
-    frequency: int | None = None
-    memory: int | None = None
 
 
-selector_types = [
-    CudaSelectorInput,
-    RocmSelectorInput,
-    CpuSelectorInput,
-    OneApiSelectorInput,
-]
+@union_member("SelectorInput", key="label")
+@pydantic.input(selectors.LabelSelector)
+class LabelSelectorInput:
+    kind: str
+    required: bool
+    weight: int
+    key: str
+    value: str | None = None
+
+
+@merged_input(
+    members=[
+        CpuSelectorInput,
+        RamSelectorInput,
+        CudaSelectorInput,
+        RocmSelectorInput,
+        OneApiSelectorInput,
+        LabelSelectorInput,
+    ],
+    noun="selector",
+    description="A hardware or capability requirement a backend must satisfy to run a flavour, as a discriminated union. required=true is a hard constraint; required=false is a preference scored by weight. Service dependencies are Requirements, never selectors.",
+    descriptions={
+        "kind": "The discriminator identifying which kind of selector this is ('cpu', 'ram', 'cuda', 'rocm', 'oneapi' or 'label')."
+    },
+    spec=selectors.Selector,
+)
+class SelectorInput:
+    """One hardware/capability requirement of a flavour, discriminated by ``kind``."""
+
+
+selector_types = union_member_types(SelectorInput)
 
 
 @pydantic.input(RequirementInputModel)

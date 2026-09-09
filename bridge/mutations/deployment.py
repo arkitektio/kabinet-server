@@ -27,13 +27,18 @@ async def create_deployment(
 async def update_deployment(
     info: Info, input: inputs.UpdateDeploymentInput
 ) -> types.Deployment:
-    """Update an existing deployment, addressed by its ID."""
+    """Update the status of an existing deployment, addressed by its ID.
+
+    The status used to be accepted and silently dropped: the model had no field to put
+    it in, so the resolver re-saved an unmodified row and returned it, and a client had
+    no way to tell a successful update from a no-op. `Deployment.status` exists now and
+    mirrors `Pod.status`.
+    """
     parsed = input.to_pydantic()
 
     deployment = await aget_for_org(models.Deployment, info, id=parsed.deployment)
 
-    # NOTE: the Deployment model has no status field today, so the status from the
-    # input is not persisted; this resolver currently just returns the deployment.
+    deployment.status = parsed.status
     await deployment.asave()
 
     return deployment

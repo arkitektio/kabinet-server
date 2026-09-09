@@ -1,3 +1,5 @@
-from .pod import pod, pods
+"""Subscriptions for the bridge app."""
 
-__all__ = ["pod", "pods"]
+from .pod import PodEvent, pod, pods
+
+__all__ = ["PodEvent", "pod", "pods"]

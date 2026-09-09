@@ -20,7 +20,12 @@ from kante.types import Info
 # visible — it is the tenancy escape hatch. Currently every model is scoped.
 UNSCOPED_MODELS: frozenset[str] = frozenset()
 
-_MAX_PATH_DEPTH = 3
+# `LogDump` reaches its organization through `pod__backend__organization` and `Flavour`
+# through `release__app__organization`, so a depth of 3 was exactly saturated: one more
+# level of indirection anywhere and the walk would return None, which `for_org` reports
+# as a hard error and `build_prescoped_queryset` used to turn into `filter(**{None: ...})`.
+# Kept generous so adding a model is not silently a tenancy decision.
+_MAX_PATH_DEPTH = 5
 
 
 def _find_org_path(model: type[django_models.Model], depth: int) -> str | None:

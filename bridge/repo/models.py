@@ -1,12 +1,10 @@
+import re
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import Dict, List, Optional
-from typing import Any
+from typing import List, Optional
 import datetime
-import semver
-from bridge.repo.selectors import Selector
-import uuid
-from rekuest_core.inputs.models import DefinitionInputModel, ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel
-from typing import Literal, Union
+from rekuest_core.inputs.models import ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel
+
+from .selectors import Selector
 
 
 class RequirementInputModel(BaseModel):
@@ -20,57 +18,10 @@ class RequirementInputModel(BaseModel):
     """ The description is a human readable description of the requirement. Will be show to the user when asking for the requirement."""
 
 
-class RocmSelectorInputModel(BaseModel):
-    kind: Literal["rocm"] = "rocm"
-    api_version: Optional[str] = Field(default=None, alias="apiVersion")
-    api_thing: Optional[str] = Field(default=None, alias="apiThing")
-
-    model_config = ConfigDict(validate_by_name=True)
-
-
-class CudaSelectorInputModel(BaseModel):
-    kind: Literal["cuda"] = "cuda"
-    cuda_version: Optional[str] = Field(default=None, alias="cudaVersion")
-    cuda_cores: Optional[int] = Field(default=None, alias="cudaCores")
-
-    model_config = ConfigDict(validate_by_name=True)
-
-
-class OneApiSelectorInputModel(BaseModel):
-    kind: Literal["oneapi"] = "oneapi"
-    oneapi_version: Optional[str] = Field(default=None, alias="oneapiVersion")
-
-    model_config = ConfigDict(validate_by_name=True)
-
-
-class CpuSelectorInputModel(BaseModel):
-    kind: Literal["cpu"] = "cpu"
-    frequency: Optional[int] = Field(default=None, description="The minimum CPU frequency required, in MHz.")
-    memory: Optional[int] = Field(default=None, description="The minimum memory required, in MB.")
-
-    model_config = ConfigDict(validate_by_name=True)
-
-
-SelectorInputModel = Union[CudaSelectorInputModel, RocmSelectorInputModel, OneApiSelectorInputModel, CpuSelectorInputModel]
-
-
-class FlatSelectorInputModel(BaseModel):
-    """Flat, discriminator-carrying selector input.
-
-    This mirrors the single concrete ``SelectorInput`` GraphQL input that clients
-    actually send; the per-kind fields are all optional and the ``kind`` field
-    selects which ones are relevant.
-    """
-
-    kind: str = Field(description="The discriminator identifying which kind of selector this is (e.g. 'cuda', 'rocm', 'cpu', 'oneapi').")
-    api_version: Optional[str] = Field(default=None, alias="apiVersion", description="The minimum ROCm API version required (rocm selectors).")
-    api_thing: Optional[str] = Field(default=None, alias="apiThing", description="An additional ROCm capability qualifier (rocm selectors).")
-    oneapi_version: Optional[str] = Field(default=None, alias="oneapiVersion", description="The minimum oneAPI version required (oneapi selectors).")
-    cuda_cores: Optional[int] = Field(default=None, alias="cudaCores", description="The minimum number of CUDA cores required (cuda selectors).")
-    frequency: Optional[int] = Field(default=None, description="The minimum CPU frequency required, in MHz (cpu selectors).")
-    memory: Optional[int] = Field(default=None, description="The minimum memory required, in MB (cpu selectors).")
-
-    model_config = ConfigDict(validate_by_name=True)
+# Selectors have ONE model set for input, storage and output — see
+# bridge/repo/selectors.py. The alias below keeps the historic name the rest
+# of this module uses.
+SelectorInputModel = Selector
 
 
 class ManifestInputModel(BaseModel):
@@ -111,6 +62,18 @@ class DockerImageModel(BaseModel):
         return value
 
 
+_CAMEL = re.compile(r"(?<!^)(?=[A-Z])")
+
+
+def _snake_case_keys(value: object) -> object:
+    """Recursively rename camelCase dict keys to snake_case (values untouched)."""
+    if isinstance(value, dict):
+        return {_CAMEL.sub("_", key).lower() if isinstance(key, str) else key: _snake_case_keys(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_snake_case_keys(item) for item in value]
+    return value
+
+
 class AppImageInputModel(BaseModel):
     """A deployment is a Release of a Build.
     It contains the build_id, the manifest, the builder, the definitions, the image and the deployed_at timestamp.
@@ -128,15 +91,27 @@ class AppImageInputModel(BaseModel):
 
     model_config = ConfigDict(validate_by_name=True)
 
+    @field_validator("inspection", mode="before")
+    @classmethod
+    def _snake_case_inspection(cls, value: object) -> object:
+        """Config files write the inspection in camelCase (``portGroups``, ``isDev``, ``isTestFor``).
+
+        ``rekuest_core`` models read snake_case and now forbid unknown keys, so the camelCase
+        variants -- which used to be dropped silently -- are renamed before validation. Data
+        arriving through GraphQL is already snake_case; renaming is a no-op there.
+        """
+        return _snake_case_keys(value)
+
     @field_validator("selectors", mode="before")
     @classmethod
     def _coerce_selectors(cls, value: object) -> object:
         """Normalise selectors to dicts so the discriminated union can resolve them.
 
-        ``AppImageInput.to_pydantic()`` produces flat ``FlatSelectorInputModel``
-        instances; pydantic will not coerce a model instance into a different
-        union member, but it will coerce a dict (matched on ``kind``). Dumping to
-        a dict and dropping unset fields yields a clean, discriminator-keyed dict.
+        ``AppImageInput.to_pydantic()`` already yields the correct member models
+        (kante's merged ``SelectorInput`` dispatches by ``kind``), but selectors
+        also arrive from config files and older callers as dicts or foreign
+        model instances; pydantic will not coerce a model instance into a
+        different union member, but it will coerce a dict (matched on ``kind``).
         """
         if not isinstance(value, (list, tuple)):
             return value

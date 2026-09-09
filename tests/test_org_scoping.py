@@ -12,15 +12,12 @@ back through ``other_org_context`` (``other_org``), which must see nothing.
 import pytest
 
 from kante.context import HttpContext
-from tests.utils import execute
+from tests.utils import execute, execute_raw
 from tests.test_pods import setup_pod
 
-
-async def _execute_raw(query: str, context: HttpContext, variables: dict | None = None):
-    """Execute without asserting success, so we can inspect cross-org errors/null."""
-    from kabinet_server.schema import schema
-
-    return await schema.execute(query, variable_values=variables or {}, context_value=context)
+# `_execute_raw` used to be declared here. It now lives in `tests/utils.py` next to
+# `execute`, so a negative-path test does not have to bring its own.
+_execute_raw = execute_raw
 
 
 @pytest.mark.django_db(transaction=True)

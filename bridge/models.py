@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
@@ -18,8 +19,11 @@ class Repo(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    class Config:
-        constraints = [models.UniqueConstraint(fields=["name", "organization"], name="Unique repo for org")]
+    # This used to declare a unique constraint on ("name", "organization") under
+    # `class Config`, which Django does not read -- so it never applied. It cannot
+    # simply be renamed to `Meta` either: `Repo` has no `organization` field, and the
+    # constraint would fail system checks (models.E012). Organization lives on the
+    # concrete subclasses; `GithubRepo` carries the constraint that matters.
 
 
 class GithubRepo(Repo):
@@ -58,7 +62,9 @@ class GithubRepo(Repo):
     def build_kabinet_url(cls, user: str, repo: str, branch: str) -> str:
         return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt_next/deployments.yaml"
 
-    class Config:
+    class Meta:
+        # Declared as `class Config` until now, which Django ignores, so this was never
+        # enforced -- even though `create_github_repo` upserts on exactly this key.
         constraints = [models.UniqueConstraint(fields=["repo", "user", "branch", "organization"], name="Unique repo for url")]
 
 
@@ -66,7 +72,8 @@ class App(models.Model):
     identifier = models.CharField(max_length=4000)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="apps")
 
-    class Config:
+    class Meta:
+        # Was `class Config`, which Django ignores, so this was never enforced.
         constraints = [models.UniqueConstraint(fields=["identifier", "organization"], name="Unique app for org")]
 
 
@@ -136,14 +143,15 @@ class Flavour(models.Model):
     deployment_id = models.CharField(max_length=400, default=uuid.uuid4)
     flavour = models.CharField(max_length=400, default="vanilla")
     selectors = models.JSONField(default=list)
-    repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="flavours")
+    repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="flavours", null=True, blank=True)
     image = models.ForeignKey(DockerImage, on_delete=models.CASCADE, related_name="flavours")
     builder = models.CharField(max_length=400)
     inspection = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now=True)
     deployed_at = models.DateTimeField(null=True)
     manifest = models.JSONField(default=dict)
-    requirements = models.JSONField(default=dict)
+    requirements = models.JSONField(default=list)
+    bloks = models.JSONField(default=list, help_text="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput).")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["release", "name"], name="Unique flavour for release")]
@@ -281,6 +289,7 @@ class Deployment(models.Model):
     pulled = models.BooleanField(default=False)
     secret_params = models.JSONField(default=dict)
     untyped_params = models.JSONField(default=dict)
+    status = models.CharField(max_length=1000, default="PENDING")
     created_at = models.DateTimeField(auto_now=True)
     local_id = models.CharField(max_length=2000, default="unset")
 
@@ -328,4 +337,6 @@ class LogDump(models.Model):
     created_at = models.DateTimeField(auto_now=True)
 
 
-from .signals import *
+# `from .signals import *` used to close this module. Importing signals from models is
+# the old idiom and it is redundant here: `BridgeConfig.ready()` already imports
+# `bridge.signals`, which is where Django expects receivers to be registered.

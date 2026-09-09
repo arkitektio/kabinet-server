@@ -10,10 +10,23 @@ async def execute(query: str, context: Any, variables: dict | None = None) -> di
     """
     from kabinet_server.schema import schema
 
-    result = await schema.execute(query, variable_values=variables or {}, context_value=context)
+    result = await execute_raw(query, context, variables)
     assert not result.errors, result.errors
     assert result.data is not None
     return result.data
+
+
+async def execute_raw(query: str, context: Any, variables: dict | None = None):
+    """Run a GraphQL document and hand back the raw result, errors and all.
+
+    ``execute`` asserts success, so it cannot express a negative case. Every test that
+    needed one -- a cross-tenant read, a validation failure, a nullable field coming back
+    null -- had to re-declare this escape hatch locally; ``test_org_scoping`` carried its
+    own copy.
+    """
+    from kabinet_server.schema import schema
+
+    return await schema.execute(query, variable_values=variables or {}, context_value=context)
 
 
 def build_relative_dir(path: str) -> str:
