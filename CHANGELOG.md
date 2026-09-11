@@ -1,6 +1,12 @@
 # CHANGELOG
 
 
+## v3.0.0 (2026-09-11)
+
+
+## v2.2.0 (2026-09-01)
+
+
 ## v3.0.0-rc.1 (2026-09-09)
 
 
@@ -35,14 +41,6 @@ Claude-Session: https://claude.ai/code/session_019je4cqXZZqsfXcF5AySTtY
 
 - Update to new artkitekt stuff
   ([`2ce18bf`](https://github.com/arkitektio/kabinet-server/commit/2ce18bf539bbe461df59dce961d50a98bbc17381))
-
-
-## v2.2.0 (2026-09-01)
-
-### Features
-
-- Better kabinet
-  ([`321326f`](https://github.com/arkitektio/kabinet-server/commit/321326f4405cb68f5c6cc7edcced6c596ac1531c))
 
 
 ## v2.1.0 (2026-08-21)
