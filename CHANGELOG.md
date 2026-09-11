@@ -1,6 +1,42 @@
 # CHANGELOG
 
 
+## v3.0.0-rc.1 (2026-09-09)
+
+
+## v2.0.0-rc.1 (2026-07-02)
+
+### Features
+
+- Better kabinet
+  ([`321326f`](https://github.com/arkitektio/kabinet-server/commit/321326f4405cb68f5c6cc7edcced6c596ac1531c))
+
+- New rekeust update
+  ([`a0762ac`](https://github.com/arkitektio/kabinet-server/commit/a0762acd7cad362b0d279c1a1e3c84af28d4dfdb))
+
+- Sync rekuest_core (blok UtilCall for effects, validators and widgets) and persist inspected bloks
+  ([`0cca43a`](https://github.com/arkitektio/kabinet-server/commit/0cca43acd66dcaf1db29d581f41614307eec16ae))
+
+- rekuest_core mirrors rekuest: `call: UtilCall!` replaces `function: ValidatorFunction` on effects
+  and validators; purity and dependency-grammar checks; ActionArgument exactly-one binding; blok
+  manifest coherence validation; catalog vocabulary; arrow-function state paths and `hook`/`ward`
+  widgets replaced by static pointers + pure calls and catalog components; kind-aware widget input
+  validation; `WindowFunction` enum; `DynamicValueInput.literal` added. - `Flavour.bloks` stores the
+  blok manifests an app image declares in its inspection; they were validated and then dropped
+  (migration 0006). Exposed on the Flavour type.
+
+BREAKING CHANGE: `ValidatorFunction` scalar removed; `Effect.function`/`Validator.function` are
+  `call: UtilCall!`; `hook`/`ward`, `subPath`, `stateChoices`, `ReturnWidgetKind.PROXY` removed;
+  `Window.windowFunction` is an enum.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_019je4cqXZZqsfXcF5AySTtY
+
+- Update to new artkitekt stuff
+  ([`2ce18bf`](https://github.com/arkitektio/kabinet-server/commit/2ce18bf539bbe461df59dce961d50a98bbc17381))
+
+
 ## v2.2.0 (2026-09-01)
 
 ### Features

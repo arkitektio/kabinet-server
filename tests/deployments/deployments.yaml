@@ -8,14 +8,7 @@ app_images:
     implementations:
     - definition:
         args:
-        - assignWidget:
-            kind: SEARCH
-            query: "query SearchFiles($search: String, $values: [ID!], $pagination:\
-              \ OffsetPaginationInput) {\n  options: files(\n    filters: {search:\
-              \ $search, ids: $values}\n    pagination: $pagination\n  ) {\n    value:\
-              \ id\n    label: name\n    __typename\n  }\n}"
-            ward: mikro
-          description: The File to be converted
+        - description: The File to be converted
           effects: []
           identifier: '@mikro/file'
           key: file
@@ -23,14 +16,13 @@ app_images:
           label: file
           nullable: false
           validators: []
-        - assignWidget:
+          widget:
             kind: SEARCH
-            query: "query SearchStages($search: String, $values: [ID!], $pagination:\
-              \ OffsetPaginationInput) {\n  options: stages(\n    filters: {search:\
-              \ $search, ids: $values}\n    pagination: $pagination\n  ) {\n    value:\
-              \ id\n    label: name\n    __typename\n  }\n}"
+            query: "query SearchFiles($search: String, $values: [ID!], $pagination: OffsetPaginationInput)\
+              \ {\n  options: files(\n    filters: {search: $search, ids: $values}\n    pagination: $pagination\n\
+              \  ) {\n    value: id\n    label: name\n    __typename\n  }\n}"
             ward: mikro
-          description: The Stage in which to put the Image. Defaults to None.
+        - description: The Stage in which to put the Image. Defaults to None.
           effects: []
           identifier: '@mikro/stage'
           key: stage
@@ -38,46 +30,39 @@ app_images:
           label: stage
           nullable: true
           validators: []
+          widget:
+            kind: SEARCH
+            query: "query SearchStages($search: String, $values: [ID!], $pagination: OffsetPaginationInput)\
+              \ {\n  options: stages(\n    filters: {search: $search, ids: $values}\n    pagination: $pagination\n\
+              \  ) {\n    value: id\n    label: name\n    __typename\n  }\n}"
+            ward: mikro
         collections: []
         description: Converts an Omero File in a set of Mikrodata
-        interfaces: []
         isDev: false
         isTestFor: []
         key: convert_omero
         kind: FUNCTION
-        logo: ome.png
         name: Convert Omero
         portGroups: []
         returns:
         - children:
-          - assignWidget:
-              kind: SEARCH
-              query: "query SearchImages($search: String, $values: [ID!]) {\n  options:\
-                \ images(\n    filters: {name: {contains: $search}, ids: $values}\n\
-                \    pagination: {limit: 10}\n  ) {\n    value: id\n    label: name\n\
-                \    __typename\n  }\n}"
-              ward: mikro
-            effects: []
+          - effects: []
             identifier: '@mikro/image'
             key: '...'
             kind: STRUCTURE
             nullable: false
-            validators: []
           description: The created series in this file
           effects: []
           key: return0
           kind: LIST
           label: return0
           nullable: false
-          validators: []
         stateful: false
+        version: '1'
       dependencies: []
-      dynamic: false
       interface: convert_omero_file
-      logo: ome.png
     requirements:
-    - description: An instance of ArkitektNext Datalayer to make requests to the user's
-        data
+    - description: An instance of ArkitektNext Datalayer to make requests to the user's data
       key: datalayer
       optional: true
       service: live.arkitekt.s3
@@ -85,8 +70,7 @@ app_images:
       key: lok
       optional: false
       service: live.arkitekt.lok
-    - description: An instance of ArkitektNext Mikro to make requests to the user's
-        data
+    - description: An instance of ArkitektNext Mikro to make requests to the user's data
       key: mikro
       optional: true
       service: live.arkitekt.mikro

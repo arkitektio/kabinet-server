@@ -342,6 +342,7 @@ class Flavour:
     deployments: List[Deployment] = strawberry_django.field(description="The deployments that run this flavour.")
     definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
     manifest: scalars.UntypedParams = strawberry_django.field(description="The raw app manifest this flavour was built from.")
+    bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection, as submitted (rekuest_core BlokImplementationInput shape).")
 
     @strawberry_django.field(description="The GitHub repository this flavour was built from, if it came from one.")
     def repo(self, info: Info) -> GithubRepo | None:

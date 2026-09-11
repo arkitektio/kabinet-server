@@ -77,6 +77,7 @@ def upsert_app_image(
             image=image,
             manifest=manifest.model_dump(),
             requirements=[requirement.model_dump() for requirement in app_image.inspection.requirements],
+            bloks=[blok.model_dump(mode="json") for blok in app_image.inspection.bloks],
         ),
     )
 
@@ -86,9 +87,13 @@ def upsert_app_image(
             hash=definition.unique_hash,
             organization=organization,
             defaults=dict(
-                description=definition.description,
+                description=definition.description or "",
                 args=[port.model_dump() for port in definition.args],
                 returns=[port.model_dump() for port in definition.returns],
+                port_groups=[group.model_dump() for group in definition.port_groups],
+                kind=definition.kind.value if hasattr(definition.kind, "value") else definition.kind,
+                pure=definition.pure,
+                idempotent=definition.idempotent,
                 name=definition.name,
             ),
         )
