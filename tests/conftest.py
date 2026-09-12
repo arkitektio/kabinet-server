@@ -28,13 +28,13 @@ def backend_stack():
 
         e.up()
 
-        # `initc` runs `mc alias set ... http://minio:9000` as its first step, but
-        # compose only waits for minio's container to *start* (service_started), not
-        # for it to accept connections — so without this it races minio and dies with
-        # "connection refused". Gate it on minio's /minio/health/live (200 once serving).
+        # `initc` runs `rc alias set ... http://rustfs:9000` as its first step, but
+        # compose only waits for rustfs's container to *start* (service_started), not
+        # for it to accept connections — so without this it races rustfs and dies with
+        # "connection refused". Gate it on rustfs's /health (200 once serving).
         e.add_health_check(
-            url="http://localhost:6890/minio/health/live",
-            service="minio",
+            url="http://localhost:6890/health",
+            service="rustfs",
             max_retries=30,
             timeout=1,  # ~30s total, matching the postgres deadline below
         )
