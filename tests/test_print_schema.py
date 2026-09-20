@@ -47,3 +47,8 @@ def test_schema_snapshot_is_current():
 def test_schema_sdl_is_not_empty():
     """Guard against a schema that builds but renders to nothing."""
     assert render_sdl().strip(), "Schema SDL should not be empty"
+
+
+def test_embedding_columns_stay_out_of_the_schema():
+    """The vector columns are storage, not API: no type or input may expose them."""
+    assert "embedding" not in render_sdl().lower()

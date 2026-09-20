@@ -64,6 +64,19 @@ def backend_stack():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def embedding_model_warm():
+    """Load the embedding model once per session, outside any test's DB transaction.
+
+    Every save of a Definition embeds its text, so the first one would otherwise pay the
+    model load (a one-time download into the Hugging Face cache on a cold box) inside a test.
+    """
+    from embeddings import engine
+
+    engine.warm_up()
+    yield
+
+
 @pytest.fixture(scope="session")
 def django_db_modify_db_settings(backend_stack):
     """Start the backend services before pytest-django configures the test DB."""

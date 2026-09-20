@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.db import models
+from embeddings.models import EmbeddedDescriptionMixin, embedding_indexes
 from django.contrib.auth import get_user_model
 import uuid
 from bridge.fields import S3Field
@@ -184,8 +185,11 @@ class Protocol(models.Model):
         return self.name
 
 
-class Definition(models.Model):
+class Definition(EmbeddedDescriptionMixin, models.Model):
     """Actions are abstraction of RPC Tasks. They provide a common API to deal with creating tasks.
+
+    Carries an embedding of its name + description (``EmbeddedDescriptionMixin``) so the
+    catalog's ``search`` finds definitions by what they do, not only by a substring of their name.
 
     See online Documentation"""
 
@@ -247,6 +251,8 @@ class Definition(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["hash", "organization"], name="Unique definition for org")]
+        # The embedding healer's "any row not by the current model?" probe.
+        indexes = [*embedding_indexes("definition")]
 
     def __str__(self) -> str:
         return f"{self.name}"
