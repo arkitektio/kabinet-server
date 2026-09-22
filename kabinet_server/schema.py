@@ -12,6 +12,7 @@ from typing import List
 from rekuest_core.constants import interface_types, input_union_types
 from rekuest_core.scalars import scalar_map as rscalar_map
 from bridge.scalars import scalar_map as bscalar_map
+from embeddings.strawberry import scalar_map as escalar_map
 from bridge.repo.types import selector_types
 from strawberry.schema.config import StrawberryConfig
 
@@ -20,6 +21,7 @@ from strawberry.schema.config import StrawberryConfig
 class Query:
     """The root query type"""
 
+    app: types.App = strawberry_django.field(resolver=queries.app, description="Return a single app by its ID.")
     github_repo: types.GithubRepo = strawberry_django.field(resolver=queries.github_repo, description="Return a single tracked GitHub repository by its ID.")
     definition: types.Definition = strawberry_django.field(resolver=queries.definition, description="Return a single action definition by its ID.")
     release: types.Release = strawberry_django.field(resolver=queries.release, description="Return a single app release by its ID.")
@@ -31,6 +33,7 @@ class Query:
     pod_for_agent = strawberry_django.field(resolver=queries.pod_for_agent, description="Return the pod that a given agent (client) is running for a deployment.")
     me: types.User = strawberry_django.field(resolver=queries.me, description="Return the currently authenticated user.")
     flavours: List[types.Flavour] = strawberry_django.field(description="List all flavours visible to the current organization.")
+    apps: List[types.App] = strawberry_django.field(description="List all apps visible to the current organization.")
     releases: List[types.Release] = strawberry_django.field(description="List all app releases visible to the current organization.")
     resources: List[types.Resource] = strawberry_django.field(description="List all backend resources visible to the current organization.")
     deployments: List[types.Deployment] = strawberry_django.field(description="List all deployments visible to the current organization.")
@@ -147,5 +150,5 @@ schema = strawberry.Schema(
     + interface_types
     + input_union_types
     + selector_types,
-    config=StrawberryConfig(scalar_map={**rscalar_map, **bscalar_map}),
+    config=StrawberryConfig(scalar_map={**rscalar_map, **bscalar_map, **escalar_map}),
 )

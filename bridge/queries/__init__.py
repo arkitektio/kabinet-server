@@ -1,5 +1,6 @@
 """Queries for the bridge app."""
 
+from .app import app
 from .repos import github_repo
 from .me import me
 from .definition import definition
@@ -11,6 +12,7 @@ from .backend import backend
 from .resource import resource
 
 __all__ = [
+    "app",
     "backend",
     "definition",
     "deployment",

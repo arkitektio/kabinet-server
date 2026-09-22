@@ -9,9 +9,10 @@ instead of only as a behaviour change.
     python manage.py printschema --check    # exit 1 if it is out of date
     python manage.py printschema --stdout   # print the SDL instead of writing
 
-Consumers regenerate from this file: the turms client in ``packages/kabinet`` and
-the snapshot mounted into the rekuest container at
-``deployments/next/configs/schemas/kabinet_v1.graphql``.
+One consumer regenerates from this file: the turms client in ``packages/kabinet``.
+A second copy used to live at ``deployments/next/configs/schemas/kabinet_v1.graphql``,
+hand-synced into the rekuest container by a bind mount that nothing ever read; it has
+been deleted rather than kept in step.
 """
 
 from __future__ import annotations

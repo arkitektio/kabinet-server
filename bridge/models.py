@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.db import models
+from embeddings import engine as embedding_engine
 from embeddings.models import EmbeddedDescriptionMixin, embedding_indexes
 from django.contrib.auth import get_user_model
 import uuid
@@ -9,13 +10,29 @@ from django.conf import settings
 
 # Create your models here.
 from bridge.repo import selectors as rselectors
+from bridge.repo.layout import DEPLOYMENTS_PATH, MANIFEST_PATH, raw_url
 from typing import List
 from authentikate.models import Client, Organization
 
 
-class Repo(models.Model):
+class Repo(EmbeddedDescriptionMixin, models.Model):
+    """A source of app images.
+
+    Carries an embedding of its name (``EmbeddedDescriptionMixin``), which is all the text a
+    repo has: ``user/repo:branch``. That is a weak signal compared to a definition's name and
+    description, and the semantic leg of a repo search will behave accordingly.
+    """
+
     name = models.CharField(max_length=400)
     created_at = models.DateTimeField(auto_now=True)
+
+    #: A repo has no description; its name is the whole of its text.
+    embedding_source_fields = ("name",)
+
+    class Meta:
+        # The vector lives on the base table, so `GithubRepo` inherits the column and the
+        # index rather than carrying its own.
+        indexes = [*embedding_indexes("repo")]
 
     def __str__(self) -> str:
         return self.name
@@ -41,15 +58,15 @@ class GithubRepo(Repo):
 
     @property
     def pyproject_url(self) -> str:
-        return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/pyproject.toml"
+        return raw_url(self.user, self.repo, self.branch, "pyproject.toml")
 
     @property
     def readme_url(self) -> str:
-        return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/README.md"
+        return raw_url(self.user, self.repo, self.branch, "README.md")
 
     @property
     def manifest_url(self) -> str:
-        return f"https://raw.githubusercontent.com/{self.user}/{self.repo}/{self.branch}/.arkitekt-next/manifest.yaml"
+        return raw_url(self.user, self.repo, self.branch, MANIFEST_PATH)
 
     @property
     def issue_url(self) -> str:
@@ -61,7 +78,7 @@ class GithubRepo(Repo):
 
     @classmethod
     def build_kabinet_url(cls, user: str, repo: str, branch: str) -> str:
-        return f"https://raw.githubusercontent.com/{user}/{repo}/{branch}/.arkitekt_next/deployments.yaml"
+        return raw_url(user, repo, branch, DEPLOYMENTS_PATH)
 
     class Meta:
         # Declared as `class Config` until now, which Django ignores, so this was never
@@ -69,13 +86,22 @@ class GithubRepo(Repo):
         constraints = [models.UniqueConstraint(fields=["repo", "user", "branch", "organization"], name="Unique repo for url")]
 
 
-class App(models.Model):
+class App(EmbeddedDescriptionMixin, models.Model):
+    """An application, identified by its reverse-domain identifier.
+
+    The identifier is the only text an app has, so it is what gets embedded: enough for
+    ``live.arkitekt.segmentation`` to sit near a search for segmentation, and no more.
+    """
+
     identifier = models.CharField(max_length=4000)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="apps")
+
+    embedding_source_fields = ("identifier",)
 
     class Meta:
         # Was `class Config`, which Django ignores, so this was never enforced.
         constraints = [models.UniqueConstraint(fields=["identifier", "organization"], name="Unique app for org")]
+        indexes = [*embedding_indexes("app")]
 
 
 class S3Store(models.Model):
@@ -138,7 +164,15 @@ class DockerImage(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
 
 
-class Flavour(models.Model):
+class Flavour(EmbeddedDescriptionMixin, models.Model):
+    """One built variant of a release (``vanilla``, ``cuda``, ...).
+
+    A flavour's own text is its name and the manifest it was built from. The name alone
+    ("vanilla") carries almost no meaning, so the manifest -- which names the app and its
+    author -- is embedded with it. Definitions remain where a semantic catalogue search is
+    actually answered; this is here so a flavour list can be ranked at all.
+    """
+
     release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="flavours")
     name = models.CharField(max_length=400)
     deployment_id = models.CharField(max_length=400, default=uuid.uuid4)
@@ -154,9 +188,19 @@ class Flavour(models.Model):
     requirements = models.JSONField(default=list)
     bloks = models.JSONField(default=list, help_text="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput).")
 
+    #: ``manifest`` is JSON, so the text pulled out of it is assembled below; it is listed
+    #: here so the healer loads the column and so a manifest change re-embeds the row.
+    embedding_source_fields = ("name", "manifest")
+
+    def embedding_source_text(self) -> str | None:
+        """The flavour's name, plus the app identifier and author its manifest names."""
+        manifest = self.manifest or {}
+        return embedding_engine.source_text(self.name, manifest.get("identifier"), manifest.get("author"))
+
     class Meta:
         constraints = [models.UniqueConstraint(fields=["release", "name"], name="Unique flavour for release")]
         ordering = ["-created_at"]
+        indexes = [*embedding_indexes("flavour")]
 
     def get_selectors(self) -> List[rselectors.Selector]:
         field_json = rselectors.SelectorFieldJson(**{"selectors": self.selectors})

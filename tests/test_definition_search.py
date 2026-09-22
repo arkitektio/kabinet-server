@@ -91,7 +91,10 @@ async def test_semantic_match_without_substring(authenticated_context: HttpConte
 @pytest.mark.asyncio
 async def test_lexical_only_when_disabled(authenticated_context: HttpContext) -> None:
     await _definition(authenticated_context, "Detect cells")
-    await _definition(authenticated_context, "Segment nuclei", "detect cells in an image")
+    # Close in meaning to the query, but sharing no substring with it in either field --
+    # the lexical leg reads the description too, so a row saying "detect cells" there
+    # would match with embeddings off and prove nothing.
+    await _definition(authenticated_context, "Segment nuclei", "Find cell nuclei in a fluorescence image")
     with override_settings(EMBEDDINGS={**engine._settings(), "ENABLED": False}):
         assert await _names(authenticated_context, QUERY) == ["Detect cells"]
 

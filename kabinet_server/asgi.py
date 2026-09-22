@@ -40,7 +40,9 @@ _routed_application = router(schema=schema, django_asgi_app=django_asgi_app, sch
 # event loop is up. The scope wrapper below is the server-agnostic fallback; both are
 # idempotent. Off under the test suite (``EMBEDDINGS_HEALER_ENABLED``), which drives the
 # healer explicitly.
-_EMBEDDED_MODELS = (models.Definition,)
+# `Repo` and not `GithubRepo`: the vector column lives on the base table, and
+# `bulk_update` only writes a model's own concrete fields.
+_EMBEDDED_MODELS = (models.Definition, models.App, models.Flavour, models.Repo)
 
 
 def _start_healer() -> None:

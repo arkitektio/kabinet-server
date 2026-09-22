@@ -40,7 +40,7 @@ def stub_manifest(monkeypatch):
     with open(build_relative_dir("deployments/deployments.yaml")) as f:
         config = KabinetConfigFile(**yaml.safe_load(f))
 
-    async def fake_fetch(kabinet_url: str) -> KabinetConfigFile:
+    async def fake_fetch(kabinet_url: str, coordinates: object = None) -> KabinetConfigFile:
         return config
 
     monkeypatch.setattr(repo_mutations, "aget_kabinet_config", fake_fetch)

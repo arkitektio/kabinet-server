@@ -19,15 +19,18 @@ change. Regenerate it with:
 python manage.py printschema
 ```
 
-Two copies live downstream and neither is generated from this repo, so a schema change is
-not finished until both are refreshed:
+One copy lives downstream and it is not generated from this repo, so a schema change is
+not finished until it is refreshed:
 
 - `packages/kabinet` — the generated Python client. Its documents under `graphql/` are
   what actually pins the fields this service may not remove.
-- `deployments/next/configs/schemas/kabinet_v1.graphql` — mounted into the rekuest
-  container. This drifted for roughly ten months (it still had `order:` where the server
-  had long since renamed the argument to `ordering:`, and a `podForAgent(instanceId:)`
-  that no longer exists) because nothing regenerated it and nothing compared it.
+
+There used to be a second, at `deployments/next/configs/schemas/kabinet_v1.graphql`,
+bind-mounted into the rekuest container. It drifted for roughly ten months (it still had
+`order:` where the server had long since renamed the argument to `ordering:`, and a
+`podForAgent(instanceId:)` that no longer exists) because nothing regenerated it and
+nothing compared it — and nothing read it either, so it has been deleted along with the
+mount rather than kept in step.
 
 ## Usage
 

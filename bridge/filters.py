@@ -1,16 +1,26 @@
+import datetime
+
 import strawberry
 from bridge import managers
 from bridge import inputs
 from bridge import models
+from bridge import scoping
 import strawberry_django
 from kante.types import Info
 from django.db.models import Q, QuerySet
+from rekuest_core import enums as rkenums
+
+from embeddings import search
 from embeddings.search import hybrid_search
 
 
-@strawberry_django.order_type(models.Definition)
+@strawberry_django.order_type(models.Definition, description="Order for action definitions.")
 class DefinitionOrder:
+    """Order for action definitions."""
+
     defined_at: strawberry.auto
+    name: strawberry.auto
+    kind: strawberry.auto
 
 
 @strawberry_django.filter_type(models.GithubRepo, description="Filter for tracked GitHub repositories.")
@@ -21,9 +31,9 @@ class GithubRepoFilter:
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the repository name.")
-    def search(self, value: str, prefix: str) -> Q:
-        return Q(**{f"{prefix}name__icontains": value})
+    @strawberry_django.filter_field(description="Search by name: a case-insensitive substring, or semantic similarity of the query to the repository's name. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
+    def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
+        return hybrid_search(queryset, prefix, value, Q(**{f"{prefix}name__icontains": value}))
 
     @strawberry_django.filter_field(description="Case-insensitive match on the GitHub repository name.")
     def repo(self, value: str, prefix: str) -> Q:
@@ -46,10 +56,104 @@ class DefinitionFilter:
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Search by name: a case-insensitive substring, or semantic similarity of the query to the definition's name and description. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
+    @strawberry_django.filter_field(description="Search by text: a case-insensitive substring of the name or the description, or semantic similarity of the query to both. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
     def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
-        """Annotate the distance and OR the semantic predicate onto the substring one."""
-        return hybrid_search(queryset, prefix, value, Q(**{f"{prefix}name__icontains": value}))
+        """Annotate the distance and OR the semantic predicate onto the substring one.
+
+        The substring leg covers the description as well as the name. A definition is found
+        by what it says it does far more often than by what it is called, and the semantic
+        leg -- which embeds both fields -- already behaved that way, so a query whose exact
+        words appeared in a description used to be answered *only* by the fuzzy half.
+        """
+        lexical = Q(**{f"{prefix}name__icontains": value}) | Q(**{f"{prefix}description__icontains": value})
+        return hybrid_search(queryset, prefix, value, lexical)
+
+    @strawberry_django.filter_field(description="Order by closeness in meaning to the given definition, nearest first, keeping only definitions that can be compared to it (the same grouping as `Definition.similar`). Nothing is cut off at a fixed neighbourhood size, so this composes with the other filters and with pagination; an explicit `ordering` replaces the ranking. Empty when the given definition cannot be found in this organization, or has not been indexed for similarity yet. Combined with `search` it ranks that search\'s matches by closeness instead -- the two rankings do not stack.")
+    def similar_to(self, info: Info, queryset: QuerySet, value: strawberry.ID, prefix: str) -> tuple[QuerySet, Q]:
+        """Restrict to the neighbourhood of one definition, found through the same helper the field uses."""
+        if prefix:
+            # Nested through another type, the annotation and the slice cannot be expressed
+            # as a predicate on this queryset; fall back to no restriction rather than
+            # silently scoping the wrong rows.
+            return queryset, Q()
+
+        # Through `for_org`, not `Definition.objects`: reading the anchor's vector out of
+        # another organization's row would make this filter an oracle for what that row
+        # means, even though the rows it returns stay correctly scoped.
+        anchor = scoping.for_org(models.Definition, info).filter(pk=value).values_list("embedding", flat=True).first()
+        return search.neighbourhood(queryset, anchor, exclude_pk=value)
+
+    @strawberry_django.filter_field(description="Keep only definitions of these kinds (function, generator, ...).")
+    def kinds(self, value: list[rkenums.ActionKind], prefix: str) -> Q:
+        return Q(**{f"{prefix}kind__in": [kind.value for kind in value]})
+
+    @strawberry_django.filter_field(description="Keep only definitions with one of these data scopes.")
+    def scopes(self, value: list[rkenums.ActionScope], prefix: str) -> Q:
+        return Q(**{f"{prefix}scope__in": [scope.value for scope in value]})
+
+    @strawberry_django.filter_field(description="Keep only pure definitions (their result can be cached), or only impure ones.")
+    def pure(self, value: bool, prefix: str) -> Q:
+        return Q(**{f"{prefix}pure": value})
+
+    @strawberry_django.filter_field(description="Keep only idempotent definitions, or only non-idempotent ones.")
+    def idempotent(self, value: bool, prefix: str) -> Q:
+        return Q(**{f"{prefix}idempotent": value})
+
+    @strawberry_django.filter_field(description="Keep only definitions in these collections.")
+    def collections(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+        # A join over a to-many relation repeats a row once per match, so a definition in
+        # two of the listed collections would be returned twice -- and counted twice by
+        # pagination.
+        return queryset.distinct(), Q(**{f"{prefix}collections__id__in": value})
+
+    @strawberry_django.filter_field(description="Keep only definitions implementing these protocols.")
+    def protocols(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+        # A join over a to-many relation repeats a row once per match, so a definition in
+        # two of the listed collections would be returned twice -- and counted twice by
+        # pagination.
+        return queryset.distinct(), Q(**{f"{prefix}protocols__id__in": value})
+
+    @strawberry_django.filter_field(description="Keep only definitions provided by these flavours.")
+    def flavours(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+        # A join over a to-many relation repeats a row once per match, so a definition in
+        # two of the listed collections would be returned twice -- and counted twice by
+        # pagination.
+        return queryset.distinct(), Q(**{f"{prefix}flavours__id__in": value})
+
+    @strawberry_django.filter_field(description="Keep only definitions provided by these apps.")
+    def apps(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+        # A join over a to-many relation repeats a row once per match, so a definition in
+        # two of the listed collections would be returned twice -- and counted twice by
+        # pagination.
+        return queryset.distinct(), Q(**{f"{prefix}flavours__release__app__id__in": value})
+
+    @strawberry_django.filter_field(description="Keep only definitions that declare all of these interfaces.")
+    def interfaces(self, value: list[str], prefix: str) -> Q:
+        # `interfaces` is a JSONB list, so `__contains` is containment of a list, not
+        # membership of a scalar: one term per interface, ANDed.
+        query = Q()
+        for interface in value:
+            query &= Q(**{f"{prefix}interfaces__contains": [interface]})
+        return query
+
+    @strawberry_django.filter_field(description="Keep only definitions that are tests for these definitions.")
+    def is_test_for(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+        # A join over a to-many relation repeats a row once per match, so a definition in
+        # two of the listed collections would be returned twice -- and counted twice by
+        # pagination.
+        return queryset.distinct(), Q(**{f"{prefix}is_test_for__id__in": value})
+
+    @strawberry_django.filter_field(description="Keep only definitions that have at least one test, or only those that have none.")
+    def has_tests(self, queryset: QuerySet, value: bool, prefix: str) -> tuple[QuerySet, Q]:
+        return queryset.distinct(), Q(**{f"{prefix}tests__isnull": not value})
+
+    @strawberry_django.filter_field(description="Keep only definitions first defined at or after this moment.")
+    def defined_after(self, value: datetime.datetime, prefix: str) -> Q:
+        return Q(**{f"{prefix}defined_at__gte": value})
+
+    @strawberry_django.filter_field(description="Keep only definitions first defined at or before this moment.")
+    def defined_before(self, value: datetime.datetime, prefix: str) -> Q:
+        return Q(**{f"{prefix}defined_at__lte": value})
 
     @strawberry_django.filter_field(
         description="Keep only definitions whose ports satisfy all of the given demands.",
@@ -102,9 +206,9 @@ class FlavourFilter:
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the flavour name.")
-    def search(self, value: str, prefix: str) -> Q:
-        return Q(**{f"{prefix}name__icontains": value})
+    @strawberry_django.filter_field(description="Search by name: a case-insensitive substring, or semantic similarity of the query to the flavour's name and the app it was built from. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
+    def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
+        return hybrid_search(queryset, prefix, value, Q(**{f"{prefix}name__icontains": value}))
 
     @strawberry_django.filter_field(description="Keep only flavours that provide one of the given definitions.")
     def has_definitions(self, value: list[strawberry.ID], prefix: str) -> Q:
@@ -169,6 +273,20 @@ class ReleaseFilter:
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}version__icontains": value})
 
+    @strawberry_django.filter_field(description="Keep only the releases of this app.")
+    def app(self, value: strawberry.ID, prefix: str) -> Q:
+        # A release belongs to exactly one app, so this is a to-one join: no duplicate
+        # rows and no `distinct()` needed, unlike the many-to-many facets on definitions.
+        return Q(**{f"{prefix}app__id": value})
+
+    @strawberry_django.filter_field(description="Keep only the releases of these apps.")
+    def apps(self, value: list[strawberry.ID], prefix: str) -> Q:
+        return Q(**{f"{prefix}app__id__in": value})
+
+    @strawberry_django.filter_field(description="Keep only releases whose app identifier contains this text, case-insensitively.")
+    def identifier(self, value: str, prefix: str) -> Q:
+        return Q(**{f"{prefix}app__identifier__icontains": value})
+
 
 @strawberry_django.filter_type(models.App, description="Filter for apps.")
 class AppFilter:
@@ -176,9 +294,9 @@ class AppFilter:
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the app identifier.")
-    def search(self, value: str, prefix: str) -> Q:
-        return Q(**{f"{prefix}identifier__icontains": value})
+    @strawberry_django.filter_field(description="Search by identifier: a case-insensitive substring, or semantic similarity of the query to it. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
+    def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
+        return hybrid_search(queryset, prefix, value, Q(**{f"{prefix}identifier__icontains": value}))
 
 
 @strawberry_django.filter_type(models.DockerImage, description="Filter for Docker images.")

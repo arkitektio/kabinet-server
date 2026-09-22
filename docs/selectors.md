@@ -87,7 +87,7 @@ label selector matches against them — the two halves of a Kubernetes
 
 ## Authoring
 
-In a flavour's config (`.arkitekt_next/flavours/<name>/config.yaml`, or a
+In a flavour's config (`.arkitekt/flavours/<name>/config.yaml`, or a
 repo's `kabinet.yml` app image):
 
 ```yaml

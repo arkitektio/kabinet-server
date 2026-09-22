@@ -6,50 +6,24 @@ The three call sites below used to disagree about what a failed scan means: two 
 none of those handlers ever ran -- and a `scanRepo` that failed still answered with a
 repo, as though it had worked. They share one contract now: a scan that could not be
 applied is an error, except in `rescanRepos`, where one bad repo must not abort the rest.
+
+Fetching and diagnosing the config file itself lives in ``bridge.repo.fetch``.
 """
 
 import asyncio
 import logging
 import re
 
-import aiohttp
-import yaml
 from asgiref.sync import sync_to_async
 from authentikate.models import Organization, User
 from kante.types import Info
 
 from bridge import inputs, models, types
 from bridge.repo.db import parse_config
-from bridge.repo.models import KabinetConfigFile
+from bridge.repo.fetch import RepoCoordinates, aget_kabinet_config
 from bridge.scoping import aget_for_org, for_org
 
 logger = logging.getLogger(__name__)
-
-#: A manifest fetch is a request to a third party made inside a GraphQL request. Without
-#: a bound, one unreachable host holds a worker until the client gives up -- and
-#: `rescanRepos` makes one of these per repo.
-FETCH_TIMEOUT_SECONDS = 30
-
-
-async def aget_kabinet_config(kabinet_url: str) -> KabinetConfigFile:
-    """Fetch and parse a repository's ``kabinet.yml``.
-
-    The status check was an ``assert``, which ``python -O`` strips -- leaving a 404 body
-    to be handed to the YAML parser.
-    """
-    timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT_SECONDS)
-    async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}, timeout=timeout) as session:
-        async with session.get(kabinet_url) as response:
-            if response.status != 200:
-                raise ValueError(f"This does not look like an Arkitekt repository: fetching {kabinet_url} returned HTTP {response.status}.")
-
-            body = await response.text()
-
-    parsed = yaml.safe_load(body)
-    if not isinstance(parsed, dict):
-        raise ValueError(f"{kabinet_url} did not contain a YAML mapping, so it is not a valid kabinet.yml.")
-
-    return KabinetConfigFile(**parsed)
 
 
 async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo:
@@ -57,7 +31,7 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     parsed = input.to_pydantic()
     repo = await aget_for_org(models.GithubRepo, info, id=parsed.id)
 
-    config = await aget_kabinet_config(repo.kabinet_url)
+    config = await aget_kabinet_config(repo.kabinet_url, RepoCoordinates(repo.user, repo.repo, repo.branch))
 
     await sync_to_async(parse_config)(config, repo, info.context.request.organization)
 
@@ -108,7 +82,7 @@ async def _create_github_repo(
 
     dep_url = models.GithubRepo.build_kabinet_url(user, repo, branch)
 
-    config = await aget_kabinet_config(dep_url)
+    config = await aget_kabinet_config(dep_url, RepoCoordinates(user, repo, branch))
 
     repo, _ = await models.GithubRepo.objects.aget_or_create(
         user=user,
@@ -134,12 +108,12 @@ async def create_github_repo(info: Info, input: inputs.CreateGithubRepoInput) ->
 async def _rescan_one(repo: models.GithubRepo, organization: Organization) -> None:
     """Rescan a single repo, logging rather than raising when it cannot be scanned."""
     try:
-        config = await aget_kabinet_config(repo.kabinet_url)
+        config = await aget_kabinet_config(repo.kabinet_url, RepoCoordinates(repo.user, repo.repo, repo.branch))
         await sync_to_async(parse_config)(config, repo, organization)
-    except Exception:
+    except Exception as e:
         # One unreachable or malformed repo must not take the other N down with it. This
         # is the one place where swallowing a scan failure is the right answer.
-        logger.warning("Could not rescan %s", repo, exc_info=True)
+        logger.warning("Could not rescan %s: %s", repo, e, exc_info=True)
 
 
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:

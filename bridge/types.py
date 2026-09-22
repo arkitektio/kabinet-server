@@ -6,7 +6,11 @@ import strawberry.django
 import strawberry_django
 from authentikate import models as auth_models
 from bridge import enums, filters, models, scalars, scoping, types
+from bridge import filters as filters_module
+from strawberry_django.filters import apply as apply_filters
 from bridge.repo import selectors
+from embeddings import search
+from embeddings.strawberry import Embedding, embedding_of
 from kante.types import Info
 from rekuest_core import enums as rkenums
 from rekuest_core import scalars as rkscalars
@@ -14,6 +18,17 @@ from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
 from strawberry import auto
 from .type_gen import create_stats_type
+
+
+def stored_logo(store: models.MediaStore | None) -> Optional[str]:
+    """The path of an ingested logo, or None when none has been ingested.
+
+    A logo lives in the datalayer as a ``MediaStore`` row, but the API has always declared
+    it a ``String``. Its path is the string that identifies it; turning that into a
+    presigned URL needs the datalayer and a request host, which is the same piece of work
+    as ingesting the manifest's logo in the first place (see ``bridge/repo/db.py``).
+    """
+    return store.path if store is not None else None
 
 
 def build_prescoped_queryset(info: Info, queryset, field: str | None = None):
@@ -103,6 +118,10 @@ class GithubRepo:
     added_at: datetime.datetime = strawberry_django.field(description="When this repository was first added to Kabinet.")
     organization: Organization = strawberry_django.field(description="The organization that owns this repository.")
 
+    @strawberry_django.field(description="This repository's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
+    def embedding(self) -> Embedding | None:
+        return embedding_of(self)
+
     @strawberry_django.field(description="The URL for opening a new issue against this repository on GitHub.")
     def issue_url(self) -> str:
         return self.issue_url
@@ -137,6 +156,11 @@ GithubRepoStats, GithubRepoStatsResolver = create_stats_type(
 class App:
     id: auto
     identifier: str = strawberry_django.field(description="The globally unique, reverse-domain identifier of the app.")
+    releases: List["Release"] = strawberry_django.field(description="The versions of this app. Filter, order and paginate them exactly like the root `releases` query -- an app page reads them from here instead of fetching every release and grouping client-side. There is no implicit ordering; ask for `releasedAt` to get them newest first.")
+
+    @strawberry_django.field(description="This app's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
+    def embedding(self) -> Embedding | None:
+        return embedding_of(self)
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -155,10 +179,20 @@ class Release:
     version: str = strawberry_django.field(description="The semantic version of this release.")
     app: App = strawberry_django.field(description="The app this release belongs to.")
     scopes: List[str] = strawberry_django.field(description="The OAuth2 scopes this release requires.")
-    logo: Optional[str] = strawberry_django.field(description="The stored logo of this release.")
     original_logo: Optional[str] = strawberry_django.field(description="The original (upstream) logo URL of this release.")
     entrypoint: str = strawberry_django.field(description="The entrypoint used to start the app.")
     flavours: List["Flavour"] = strawberry_django.field(description="The flavours (buildable variants) available for this release.")
+
+    @strawberry_django.field(
+        description="The stored logo of this release: the path of the ingested media, or null while none has been ingested.",
+        select_related=["logo"],
+    )
+    def logo(self) -> Optional[str]:
+        # `Release.logo` is a ForeignKey to `MediaStore`, but the field was declared as a
+        # `String`. Nothing has ever populated it -- `parse_config` writes the manifest's
+        # URL to `original_logo` -- so the mismatch never surfaced; the first release to
+        # get a stored logo would have handed a `MediaStore` to a String field.
+        return stored_logo(self.logo)
     deployments: List["Deployment"] = strawberry_django.field(description="The deployments that run a flavour of this release.")
 
     # `installed`, `description` and `colour` used to sit here and were placeholders
@@ -335,14 +369,35 @@ class DockerImage:
 class Flavour:
     id: auto
     name: str = strawberry_django.field(description="The name of this flavour (e.g. 'vanilla', 'cuda').")
-    logo: Optional[str] = strawberry_django.field(description="The stored logo of this flavour.")
     image: DockerImage = strawberry_django.field(description="The Docker image this flavour deploys.")
-    original_logo: Optional[str] = strawberry_django.field(description="The original (upstream) logo URL of this flavour.")
     release: Release = strawberry_django.field(description="The release this flavour belongs to.")
     deployments: List[Deployment] = strawberry_django.field(description="The deployments that run this flavour.")
     definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
     manifest: scalars.UntypedParams = strawberry_django.field(description="The raw app manifest this flavour was built from.")
     bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection, as submitted (rekuest_core BlokImplementationInput shape).")
+
+    @strawberry_django.field(description="This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
+    def embedding(self) -> Embedding | None:
+        return embedding_of(self)
+
+    @strawberry_django.field(
+        description="The stored logo of this flavour, which is its release's.",
+        select_related=["release__logo"],
+    )
+    def logo(self) -> Optional[str]:
+        # Declared as a model field until now -- but `logo` has only ever existed on
+        # `Release`, so *selecting* this raised `'Flavour' object has no attribute 'logo'`
+        # for every client that asked. A flavour is one build of a release and shows the
+        # release's logo, so it is read from there rather than dropped from the API.
+        return stored_logo(self.release.logo)
+
+    @strawberry_django.field(
+        # Without the hint, a list of flavours fetches each one's release on its own.
+        description="The original (upstream) logo URL of this flavour, which is its release's.",
+        select_related=["release"],
+    )
+    def original_logo(self) -> Optional[str]:
+        return self.release.original_logo
 
     @strawberry_django.field(description="The GitHub repository this flavour was built from, if it came from one.")
     def repo(self, info: Info) -> GithubRepo | None:
@@ -442,6 +497,37 @@ class Definition:
     @strawberry_django.field(description="The output ports (return values) of this action.")
     def returns(self) -> list[rtypes.ReturnPort]:
         return [rmodels.ReturnPortModel(**i) for i in self.returns]
+
+    @strawberry_django.field(description="This definition's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
+    def embedding(self) -> Embedding | None:
+        return embedding_of(self)
+
+    @strawberry_django.field(
+        description=(
+            "Other action definitions closest to this one in meaning, nearest first (cosine "
+            "distance between their vectors, this definition excluded) -- the same action "
+            "shipped under two names, or the neighbourhood a definition belongs to. `filters` "
+            "narrows the candidates like `definitions` does; `maxDistance` (0 identical, 1 "
+            "unrelated) cuts the tail, otherwise the nearest `limit` come back however far "
+            "away they are. Empty while this definition has no vector yet or semantic indexing "
+            "is off. One vector scan per definition resolved, so ask for it on a definition, "
+            "not on every row of a long list."
+        )
+    )
+    def similar_definitions(
+        self,
+        info: Info,
+        filters: filters_module.DefinitionFilter | None = None,
+        limit: int = search.DEFAULT_NEIGHBOURS,
+        max_distance: float | None = None,
+    ) -> list["Definition"]:
+        # Scoped through the same helper as every other read of this type: a hand-rolled
+        # `filter(organization=...)` here is how a neighbourhood starts reaching across
+        # tenants. Named and shaped like rekuest's `Action.similarActions`, which answers
+        # the same question about the same kind of row.
+        queryset = build_prescoped_queryset(info, models.Definition.objects.all())
+        queryset = apply_filters(filters, queryset, info)
+        return list(search.neighbours(queryset, self.embedding, exclude_pk=self.pk, limit=limit, threshold=max_distance))
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
