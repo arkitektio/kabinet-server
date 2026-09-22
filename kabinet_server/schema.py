@@ -1,4 +1,5 @@
 import strawberry
+from kabinet_server.logs import QuietErrorsSchema
 from strawberry_django.optimizer import DjangoOptimizerExtension
 from kante.unions import unionElementOf
 from bridge import types
@@ -132,7 +133,11 @@ class Subscription:
     )
 
 
-schema = strawberry.Schema(
+class Schema(QuietErrorsSchema, strawberry.Schema):
+    """strawberry.Schema, logging expected resolver errors as one line and bugs with a traceback (see logs.py)."""
+
+
+schema = Schema(
     query=Query,
     mutation=Mutation,
     subscription=Subscription,
