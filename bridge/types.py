@@ -211,6 +211,31 @@ class Release:
     def name(self, info: Info) -> str:
         return self.app.identifier + ":" + self.version
 
+    approvals: List["ReleaseApproval"] = strawberry_django.field(description="Standing approvals to run this release, newest first.")
+
+    @strawberry_django.field(description="The digest an approval of this release is pinned to (identity, scopes, requirements, images). Changes whenever the release is re-published differently.")
+    def approval_digest(self, info: Info) -> str:
+        from bridge.approvals import release_digest
+
+        return release_digest(self)
+
+    @strawberry_django.field(description="Whether every flavour image is addressed by content digest. If not, a rebuild pushed under the same tag is not detected by the approval digest.")
+    def digest_pinned(self, info: Info) -> bool:
+        from bridge.approvals import release_is_pinned
+
+        return release_is_pinned(self)
+
+    @strawberry_django.field(description="The subject manifest to pre-authorize in lok (createMandate): identifier, version, scopes and the union of flavour requirements.")
+    def mandate_manifest(self, info: Info) -> scalars.UntypedParams:
+        from bridge.approvals import release_requirements
+
+        return {
+            "identifier": self.app.identifier,
+            "version": self.version,
+            "scopes": list(self.scopes or []),
+            "requirements": release_requirements(self),
+        }
+
     @classmethod
     def get_queryset(cls, queryset, info: Info):
         # Release has no direct organization; it inherits it via app__organization.
@@ -230,6 +255,7 @@ class Deployment:
     backend: "Backend" = strawberry_django.field(description="The backend this deployment runs on.")
     local_id: strawberry.ID = strawberry_django.field(description="The identifier of this deployment as known to the backend.")
     status: enums.PodStatus = strawberry_django.field(description="The current lifecycle status of this deployment.")
+    approval: Optional["ReleaseApproval"] = strawberry_django.field(description="The approval this deployment was made under.")
 
     # `api_token` used to be declared here as a non-null `String!`. The Deployment model
     # has no such field, so selecting it raised `AttributeError` -- and had it resolved,
@@ -625,3 +651,41 @@ class Pod:
     def get_queryset(cls, queryset, info: Info):
         # Pod has no direct organization; it inherits it from its backend.
         return build_prescoped_queryset(info, queryset, field="backend__organization")
+
+
+@strawberry_django.type(
+    models.ReleaseApproval,
+    filters=filters.ReleaseApprovalFilter,
+    pagination=True,
+    description="A user's standing approval to run a release, backed by a lok mandate that lets a deployer provision it as them.",
+)
+class ReleaseApproval:
+    id: auto
+    release: Release = strawberry_django.field(description="The approved release.")
+    approver: User = strawberry_django.field(description="The user the deployed release will act as.")
+    mandate_id: strawberry.ID = strawberry_django.field(description="The lok mandate backing this approval.")
+    agent: str = strawberry_django.field(description="The deployer app the mandate names.")
+    digest: str = strawberry_django.field(description="The release digest at approval time.")
+    backends: List[Backend] = strawberry_django.field(description="Backends allowed to deploy under this approval. Empty means any.")
+    created_at: datetime.datetime
+    revoked_at: Optional[datetime.datetime] = strawberry_django.field(description="When the approval was withdrawn.")
+
+    @strawberry_django.field(description="The release changed since approval; nothing new may be deployed from this approval.")
+    def is_stale(self, info: Info) -> bool:
+        from bridge.approvals import is_stale
+
+        return is_stale(self)
+
+    @strawberry_django.field(description="A display name: the approved release and who approved it.", select_related=["release__app", "approver"])
+    def name(self, info: Info) -> str:
+        return f"{self.release.app.identifier}:{self.release.version} (approved by {self.approver.username})"
+
+    @strawberry_django.field(description="Not revoked and not stale: deployable.")
+    def is_active(self, info: Info) -> bool:
+        from bridge.approvals import is_active
+
+        return is_active(self)
+
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset, field="organization")

@@ -135,6 +135,7 @@ class CreateDeploymentInputModel(BaseModel):
 
     local_id: str = Field(description="The identifier of the deployment as known to the backend.")
     flavour: str = Field(description="The ID of the flavour to deploy.")
+    approval: str = Field(description="The release approval this deployment is made under.")
     last_pulled: datetime.datetime | None = Field(default=None, description="When the flavour's image was last pulled, if known.")
     secret_params: Dict[str, str] | None = Field(default=None, description="Secret parameters passed to the deployment (e.g. credentials).")
 
@@ -145,6 +146,7 @@ class CreateDeploymentInput:
 
     local_id: strawberry.ID
     flavour: strawberry.ID
+    approval: strawberry.ID
     last_pulled: datetime.datetime | None = None
     secret_params: scalars.UntypedParams | None = None
 
@@ -304,3 +306,30 @@ class SchemaDemandInput:
     hash: ActionHash | None = None
     matches: list[rtypes.PortMatchInput] | None = None
     protocols: list[strawberry.ID] | None = None
+
+class ApproveReleaseInputModel(BaseModel):
+    """Input for recording a standing approval of a release."""
+
+    release: str = Field(description="The release to approve.")
+    mandate: str = Field(description="The lok mandate (createMandate) that lets the agent provision this release as you.")
+    agent: str = Field(description="Identifier of the deployer app the mandate names.")
+    digest: str = Field(description="The release's approvalDigest you reviewed; refused if the release changed since.")
+    backends: list[str] | None = Field(default=None, description="Backends allowed to deploy under this approval. Omit for any.")
+
+
+@pydantic.input(ApproveReleaseInputModel, description="Record that you pre-authorized a release (via a lok mandate) so deployers may install it.")
+class ApproveReleaseInput:
+    release: strawberry.ID
+    mandate: strawberry.ID
+    agent: str
+    digest: str
+    backends: list[strawberry.ID] | None = None
+
+
+class RevokeApprovalInputModel(BaseModel):
+    id: str
+
+
+@pydantic.input(RevokeApprovalInputModel, description="Withdraw a release approval. Revoke the lok mandate as well to stop running pods.")
+class RevokeApprovalInput:
+    id: strawberry.ID

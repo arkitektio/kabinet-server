@@ -30,6 +30,37 @@ CREATE_DEPLOYMENT = """
     }
 """
 
+APPROVAL_TARGET = """
+    query ($id: ID!) { flavour(id: $id) { release { id approvalDigest mandateManifest } } }
+"""
+
+APPROVE_RELEASE = """
+    mutation ($input: ApproveReleaseInput!) {
+        approveRelease(input: $input) { id digest isStale isActive agent mandateId approver { sub } backends { id } }
+    }
+"""
+
+
+async def approve(context: HttpContext, flavour_id: str, *, backends: list[str] | None = None, mandate: str = "mandate-1") -> dict:
+    """Approve the flavour's release the way the frontend does after creating the lok mandate."""
+    release = (await execute(APPROVAL_TARGET, context, {"id": flavour_id}))["flavour"]["release"]
+    return (
+        await execute(
+            APPROVE_RELEASE,
+            context,
+            {
+                "input": {
+                    "release": release["id"],
+                    "mandate": mandate,
+                    "agent": "live.arkitekt.deployer",
+                    "digest": release["approvalDigest"],
+                    "backends": backends,
+                }
+            },
+        )
+    )["approveRelease"]
+
+
 DECLARE_RESOURCE = """
     mutation DeclareResource($input: DeclareResourceInput!) {
         declareResource(input: $input) { id name resourceId qualifiers }
@@ -73,8 +104,9 @@ async def setup_pod(
     GraphQL and return the created ids (and the create_pod payload)."""
     backend = (await execute(DECLARE_BACKEND, context, {"input": {"name": "my-backend", "kind": "docker"}}))["declareBackend"]
 
+    approval = await approve(context, flavour_id)
     deployment = (
-        await execute(CREATE_DEPLOYMENT, context, {"input": {"flavour": flavour_id, "localId": "dep-1"}})
+        await execute(CREATE_DEPLOYMENT, context, {"input": {"flavour": flavour_id, "localId": "dep-1", "approval": approval["id"]}})
     )["createDeployment"]
 
     resource = (

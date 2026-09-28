@@ -4,7 +4,7 @@ from .app import app
 from .repos import github_repo
 from .me import me
 from .definition import definition
-from .release import release
+from .release import release, release_approval
 from .flavour import flavour
 from .pod import pod, pod_for_agent, my_pod_at
 from .deployment import deployment
@@ -23,5 +23,6 @@ __all__ = [
     "pod",
     "pod_for_agent",
     "release",
+    "release_approval",
     "resource",
 ]

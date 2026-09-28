@@ -288,6 +288,25 @@ class ReleaseFilter:
         return Q(**{f"{prefix}app__identifier__icontains": value})
 
 
+@strawberry_django.filter_type(models.ReleaseApproval, description="Filter for release approvals.")
+class ReleaseApprovalFilter:
+    @strawberry_django.filter_field(description="Keep only approvals whose ID is in this list.")
+    def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
+        return Q(**{f"{prefix}id__in": value})
+
+    @strawberry_django.filter_field(description="Case-insensitive search on the approved app identifier or version.")
+    def search(self, value: str, prefix: str) -> Q:
+        return Q(**{f"{prefix}release__app__identifier__icontains": value}) | Q(**{f"{prefix}release__version__icontains": value})
+
+    @strawberry_django.filter_field(description="Keep only approvals of this release.")
+    def release(self, value: strawberry.ID, prefix: str) -> Q:
+        return Q(**{f"{prefix}release__id": value})
+
+    @strawberry_django.filter_field(description="Keep only approvals that are not revoked. Staleness depends on the live release and is read from `isStale`.")
+    def revoked(self, value: bool, prefix: str) -> Q:
+        return Q(**{f"{prefix}revoked_at__isnull": not value})
+
+
 @strawberry_django.filter_type(models.App, description="Filter for apps.")
 class AppFilter:
     @strawberry_django.filter_field(description="Keep only apps whose ID is in this list.")

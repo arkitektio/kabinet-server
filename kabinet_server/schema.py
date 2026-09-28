@@ -43,6 +43,8 @@ class Query:
     pods: List[types.Pod] = strawberry_django.field(description="List all pods visible to the current organization.")
 
     backends: List[types.Backend] = strawberry_django.field(description="List all backends visible to the current organization.")
+    release_approvals: List[types.ReleaseApproval] = strawberry_django.field(description="List all release approvals of the current organization.")
+    release_approval: types.ReleaseApproval = strawberry_django.field(resolver=queries.release_approval, description="Return a single release approval by its ID.")
 
     my_pod_at = strawberry_django.field(resolver=queries.my_pod_at, description="Let a backend discover one of its own pods by local identifier.")
 
@@ -111,6 +113,14 @@ class Mutation:
     delete_backend = strawberry_django.mutation(
         resolver=mutations.delete_backend,
         description="Delete a backend and return its ID.",
+    )
+    approve_release: types.ReleaseApproval = strawberry_django.mutation(
+        resolver=mutations.approve_release,
+        description="Record a standing approval of a release (backed by a lok mandate) so deployers may install it.",
+    )
+    revoke_approval: types.ReleaseApproval = strawberry_django.mutation(
+        resolver=mutations.revoke_approval,
+        description="Withdraw a release approval.",
     )
 
 

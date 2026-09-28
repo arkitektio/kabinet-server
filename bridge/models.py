@@ -329,6 +329,30 @@ class Backend(models.Model):
     name = models.CharField(max_length=1000, default="unset")
 
 
+class ReleaseApproval(models.Model):
+    """A user's standing approval to run one release, backed by a lok mandate.
+
+    The approver granted a lok ``Mandate`` letting ``agent`` (a deployer app)
+    provision this release as them; kabinet keeps the pointer plus the release
+    ``digest`` it was approved at. A release can be re-published under the same
+    version, so the digest is re-checked on every deployment: once it drifts the
+    approval is *stale* and nothing new may be deployed from it.
+    """
+
+    release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="approvals")
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="release_approvals")
+    approver = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="release_approvals")
+    mandate_id = models.CharField(max_length=1000, help_text="The lok mandate that lets the agent provision this release as the approver.")
+    agent = models.CharField(max_length=1000, help_text="Identifier of the agent app (deployer) the mandate names.")
+    digest = models.CharField(max_length=200, help_text="The release digest at approval time (see bridge.approvals.release_digest).")
+    backends = models.ManyToManyField(Backend, blank=True, related_name="approvals", help_text="Backends allowed to deploy under this approval. Empty means any backend of the organization.")
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class Deployment(models.Model):
     flavour = models.ForeignKey(
         Flavour,
@@ -336,6 +360,14 @@ class Deployment(models.Model):
         related_name="deployments",
     )
     backend = models.ForeignKey(Backend, on_delete=models.CASCADE)
+    approval = models.ForeignKey(
+        ReleaseApproval,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deployments",
+        help_text="The approval this deployment was made under.",
+    )
     pulled = models.BooleanField(default=False)
     secret_params = models.JSONField(default=dict)
     untyped_params = models.JSONField(default=dict)

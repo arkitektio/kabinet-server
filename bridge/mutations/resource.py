@@ -1,13 +1,19 @@
 from kante.types import Info
 from bridge import types, inputs, models
-from bridge.scoping import aget_for_org
+from graphql import GraphQLError
+from bridge.utils import aget_backend_for_info
 
 
 async def declare_resource(info: Info, input: inputs.DeclareResourceInput) -> types.Resource:
     """Declare (register or update) a resource on one of your backends."""
     parsed = input.to_pydantic()
 
-    backend = await aget_for_org(models.Backend, info, id=parsed.backend)
+    # Only on your own backend: resources are what a deployer places pods on, so another
+    # member must not be able to plant or rewrite them.
+    own = await aget_backend_for_info(info)
+    if str(own.id) != str(parsed.backend):
+        raise GraphQLError("You can only declare resources on your own backend.")
+    backend = own
 
     resource, _ = await models.Resource.objects.aupdate_or_create(
         backend=backend,

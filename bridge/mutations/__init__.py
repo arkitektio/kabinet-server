@@ -6,6 +6,7 @@ from .pod import create_pod, update_pod, dump_logs, delete_pod
 from .backend import declare_backend, delete_backend
 from .resource import declare_resource
 from .app_image import create_app_image
+from .approval import approve_release, revoke_approval
 
 # `match_flavours` used to be imported and exported here from `bridge/mutations/flavour.py`.
 # It was wired into neither Query nor Mutation, so nothing could call it, and its body was
@@ -15,6 +16,8 @@ from .app_image import create_app_image
 # evaluation is deliberately a deployer concern (see docs/selectors.md).
 
 __all__ = [
+    "approve_release",
+    "revoke_approval",
     "create_app_image",
     "create_deployment",
     "create_github_repo",
