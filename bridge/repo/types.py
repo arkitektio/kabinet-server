@@ -133,7 +133,9 @@ class ManifestInput:
     author: str = strawberry.field(description="The author of the app")
     logo: str | None = strawberry.field(description="The logo of the app")
     scopes: list[str] = strawberry.field(description="A list of required scopes for the app")
-    entrypoint: str | None = strawberry.field(description="The entrypoint of the app, defaults to 'app'")
+    # Optional in the schema, so it needs a default here too: without one the
+    # generated __init__ required it and every manifest omitting it raised.
+    entrypoint: str | None = strawberry.field(default=None, description="The entrypoint of the app, defaults to 'app'")
 
 
 @pydantic.input(DockerImageModel)

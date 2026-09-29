@@ -1875,13 +1875,12 @@ type LogDump {
 }
 
 input ManifestInput {
-  """The entrypoint of the app, defaults to 'app'"""
-  entrypoint: String
   identifier: String!
   version: String!
   author: String! = "unknown"
   logo: String = null
   scopes: [String!]! = []
+  entrypoint: String = null
 }
 
 type MessageEffect implements Effect {

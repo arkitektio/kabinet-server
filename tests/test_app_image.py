@@ -90,6 +90,37 @@ async def test_create_app_image_is_idempotent(authenticated_context: HttpContext
     assert len(second["flavours"]) == 1
 
 
+
+ENTRYPOINT = """
+    mutation CreateAppImage($input: AppImageInput!) {
+        createAppImage(input: $input) { id entrypoint }
+    }
+"""
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_manifest_without_an_entrypoint_defaults_to_app(authenticated_context: HttpContext):
+    """``entrypoint`` is optional in the schema; omitting it used to raise in the input's __init__."""
+    payload = _app_image_input()
+    payload["manifest"].pop("entrypoint", None)
+
+    release = (await execute(ENTRYPOINT, authenticated_context, {"input": payload}))["createAppImage"]
+
+    assert release["entrypoint"] == "app"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_given_entrypoint_is_kept(authenticated_context: HttpContext):
+    """It used to be accepted and dropped: the release always said 'app'."""
+    payload = _app_image_input()
+    payload["manifest"]["entrypoint"] = "my_app.main"
+
+    release = (await execute(ENTRYPOINT, authenticated_context, {"input": payload}))["createAppImage"]
+
+    assert release["entrypoint"] == "my_app.main"
+
 FLAVOUR_BLOKS = """
     mutation CreateAppImage($input: AppImageInput!) {
         createAppImage(input: $input) {

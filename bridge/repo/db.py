@@ -57,6 +57,7 @@ def upsert_app_image(
             # into the datalayer, the upstream URL is what we have, and `original_logo`
             # is the field that holds it.
             original_logo=manifest.logo,
+            entrypoint=manifest.entrypoint or "app",
         ),
     )
 

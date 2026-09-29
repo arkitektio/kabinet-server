@@ -31,6 +31,8 @@ class ManifestInputModel(BaseModel):
     logo: Optional[str] = None
     scopes: List[str] = Field(default_factory=list)
     """ The requirements are a list of requirements that the client needs to run on (e.g. needs GPU)"""
+    entrypoint: Optional[str] = None
+    """The entrypoint the image starts the app with; None means the default, 'app'."""
 
     def to_console_string(self) -> str:
         return f"📦 {self.identifier} ({self.version}) by {self.author}"
