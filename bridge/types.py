@@ -156,7 +156,12 @@ GithubRepoStats, GithubRepoStatsResolver = create_stats_type(
 class App:
     id: auto
     identifier: str = strawberry_django.field(description="The globally unique, reverse-domain identifier of the app.")
-    releases: List["Release"] = strawberry_django.field(description="The versions of this app. Filter, order and paginate them exactly like the root `releases` query -- an app page reads them from here instead of fetching every release and grouping client-side. There is no implicit ordering; ask for `releasedAt` to get them newest first.")
+    releases: List["Release"] = strawberry_django.field(description=(
+        "The versions of this app. Filter, order and paginate them exactly like the root "
+        "`releases` query -- an app page reads them from here instead of fetching every "
+        "release and grouping client-side. There is no implicit ordering; ask for "
+        "`releasedAt` to get them newest first."
+    ))
 
     @strawberry_django.field(description="This app's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
