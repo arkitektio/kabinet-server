@@ -22,15 +22,8 @@ from kante.path import dynamicpath
 from django.http import HttpResponse
 from health_check.views import MainView
 from django.views.decorators.csrf import csrf_exempt
+from rekuest_service.views import answers_challenge
 from kabinet_server.service import service as rekuest_service
-
-def fakts_challenge(request):
-    """
-    Placeholder view for the .well-known/fakts-challenge endpoint.
-    This should be replaced with the actual logic to handle the challenge.
-    """
-    return HttpResponse("Fakts Challenge Endpoint", status=200)
-
 
 def graphql_schema(request):
     return HttpResponse(content=schema.as_str(), content_type="text/plain")
@@ -40,8 +33,7 @@ urlpatterns = [
     dynamicpath("admin/", admin.site.urls),
     dynamicpath("schema", graphql_schema),
     dynamicpath("api/", include("bridge.urls")),
-    dynamicpath("ht",  csrf_exempt(MainView.as_view()), name="health_check"),
-    dynamicpath(".well-known/fakts-challenge", fakts_challenge, name="fakts-challenge"),
+    dynamicpath("ht",  answers_challenge(csrf_exempt(MainView.as_view())), name="health_check"),
     # The hub's rekuest runs this service's periodic work through here (internal network only).
     *rekuest_service.urls,
 ]
