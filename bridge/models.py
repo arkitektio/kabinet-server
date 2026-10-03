@@ -28,6 +28,9 @@ class Repo(EmbeddedDescriptionMixin, models.Model):
 
     #: A repo has no description; its name is the whole of its text.
     embedding_source_fields = ("name",)
+    #: A repo has no organization of its own: the concrete `GithubRepo` row holds it. A per-organization
+    #: sweep therefore reaches the repos that are GitHub repos, which is every repo there is today.
+    embedding_organization_path = "githubrepo__organization"
 
     class Meta:
         # The vector lives on the base table, so `GithubRepo` inherits the column and the
@@ -52,6 +55,9 @@ class GithubRepo(Repo):
     updated_at = models.DateTimeField(auto_now=True)
     added_at = models.DateTimeField(auto_now_add=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="repos")
+
+    #: Its own column, not the base table's way round (`Repo.embedding_organization_path`).
+    embedding_organization_path = "organization"
 
     def __str__(self) -> str:
         return f"{self.user}/{self.repo}:{self.branch}"
@@ -191,6 +197,8 @@ class Flavour(EmbeddedDescriptionMixin, models.Model):
     #: ``manifest`` is JSON, so the text pulled out of it is assembled below; it is listed
     #: here so the healer loads the column and so a manifest change re-embeds the row.
     embedding_source_fields = ("name", "manifest")
+    #: A flavour belongs to the organization of its release's app.
+    embedding_organization_path = "release__app__organization"
 
     def embedding_source_text(self) -> str | None:
         """The flavour's name, plus the app identifier and author its manifest names."""

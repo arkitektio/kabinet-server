@@ -4,6 +4,7 @@ from typing import List, Optional
 import strawberry
 import strawberry.django
 import strawberry_django
+from strawberry.scalars import JSON
 from authentikate import models as auth_models
 from bridge import enums, filters, models, scalars, scoping, types
 from bridge import filters as filters_module
@@ -29,6 +30,20 @@ def stored_logo(store: models.MediaStore | None) -> Optional[str]:
     as ingesting the manifest's logo in the first place (see ``bridge/repo/db.py``).
     """
     return store.path if store is not None else None
+
+
+DESCRIPTORS_DESCRIPTION = (
+    "This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test "
+    "(e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. "
+    "Empty for a structure that declares none"
+)
+
+
+def resolve_descriptors(root) -> JSON:  # noqa: ANN001 - the model instance behind any hosted type
+    """The descriptors of a hosted object, from its structure's declaration (``kabinet_server.service``)."""
+    from kabinet_server.service import service  # the declaration imports bridge.models
+
+    return service.describe(root)
 
 
 def build_prescoped_queryset(info: Info, queryset, field: str | None = None):
@@ -117,6 +132,7 @@ class GithubRepo:
     updated_at: datetime.datetime = strawberry_django.field(description="When this repository was last updated.")
     added_at: datetime.datetime = strawberry_django.field(description="When this repository was first added to Kabinet.")
     organization: Organization = strawberry_django.field(description="The organization that owns this repository.")
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION)
 
     @strawberry_django.field(description="This repository's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
@@ -156,6 +172,7 @@ GithubRepoStats, GithubRepoStatsResolver = create_stats_type(
 class App:
     id: auto
     identifier: str = strawberry_django.field(description="The globally unique, reverse-domain identifier of the app.")
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION)
     releases: List["Release"] = strawberry_django.field(description=(
         "The versions of this app. Filter, order and paginate them exactly like the root "
         "`releases` query -- an app page reads them from here instead of fetching every "
@@ -187,6 +204,7 @@ class Release:
     original_logo: Optional[str] = strawberry_django.field(description="The original (upstream) logo URL of this release.")
     entrypoint: str = strawberry_django.field(description="The entrypoint used to start the app.")
     flavours: List["Flavour"] = strawberry_django.field(description="The flavours (buildable variants) available for this release.")
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["version"])
 
     @strawberry_django.field(
         description="The stored logo of this release: the path of the ingested media, or null while none has been ingested.",
@@ -261,6 +279,7 @@ class Deployment:
     local_id: strawberry.ID = strawberry_django.field(description="The identifier of this deployment as known to the backend.")
     status: enums.PodStatus = strawberry_django.field(description="The current lifecycle status of this deployment.")
     approval: Optional["ReleaseApproval"] = strawberry_django.field(description="The approval this deployment was made under.")
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["status"])
 
     # `api_token` used to be declared here as a non-null `String!`. The Deployment model
     # has no such field, so selecting it raised `AttributeError` -- and had it resolved,
@@ -406,6 +425,7 @@ class Flavour:
     definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
     manifest: scalars.UntypedParams = strawberry_django.field(description="The raw app manifest this flavour was built from.")
     bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection, as submitted (rekuest_core BlokImplementationInput shape).")
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["flavour", "builder"])
 
     @strawberry_django.field(description="This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
@@ -520,6 +540,7 @@ class Definition:
     tests: list["Definition"] = strawberry_django.field(description="The action definitions that act as tests for this definition.")
     protocols: list["Protocol"] = strawberry_django.field(description="The protocols this action implements.")
     defined_at: datetime.datetime = strawberry_django.field(description="When this action definition was first defined.")
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["kind", "scope", "pure", "idempotent"])
 
     @strawberry_django.field(description="The input ports (arguments) of this action.")
     def args(self) -> list[rtypes.ArgPort]:
@@ -647,6 +668,7 @@ class Pod:
     pod_id: str = strawberry_django.field(description="The identifier of this pod as known to the backend.")
     client_id: str | None = strawberry_django.field(description="The OAuth2 client ID this pod authenticates as, if any.")
     status: enums.PodStatus = strawberry_django.field(description="The current lifecycle status of this pod.")
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["status"])
 
     @strawberry_django.field(description="The display name of this pod, combining backend, flavour and app identifier.")
     def name(self) -> str:

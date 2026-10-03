@@ -101,6 +101,21 @@ def test_the_manifest_declares_every_model_signal():
     assert {s["identifier"]: s["kinds"] for s in service.manifest()["signals"]} == EXPECTED
 
 
+def test_the_manifest_lists_what_kabinet_hosts_with_its_descriptors():
+    hosted = {s["identifier"]: s for s in service.manifest()["structures"]}
+    # Everything kabinet hosts is signalled, and nothing else is.
+    assert set(hosted) == set(EXPECTED)
+    assert hosted["@kabinet/pod"]["label"] == "Pod"
+    assert hosted["@kabinet/pod"]["descriptors"] == [{"key": "@kabinet/status", "type": "STRING", "description": "Its lifecycle status"}]
+    assert {d["key"]: d["type"] for d in hosted["@kabinet/definition"]["descriptors"]} == {
+        "@kabinet/kind": "STRING",
+        "@kabinet/scope": "STRING",
+        "@kabinet/pure": "BOOL",
+        "@kabinet/idempotent": "BOOL",
+    }
+    assert hosted["@kabinet/app"]["descriptors"] == hosted["@kabinet/githubrepo"]["descriptors"] == []
+
+
 @pytest.mark.django_db(transaction=True)
 def test_a_save_is_signalled_signed_by_this_instance(intake):
     from bridge.models import App
