@@ -14,7 +14,8 @@ from kante.context import HttpContext
 from bridge import models
 from embeddings import engine
 from embeddings.healer import stale_queryset
-from kabinet_server.service import agent, service
+from kabinet_server.hook_agent import agent
+from kabinet_server.service import service
 from tests.test_pods import setup_pod
 from tests.test_signals import intake  # noqa: F401  the fixture
 from tests.utils import execute
