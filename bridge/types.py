@@ -151,6 +151,32 @@ class GithubRepo:
         return build_prescoped_queryset(info, queryset, field="organization")
 
 
+@strawberry_django.type(
+    models.OciRepo,
+    description="A repository on an OCI registry that carries an app's releases beside its images. Importing it is how an app is installed.",
+    pagination=True,
+)
+class OciRepo:
+    id: auto
+    name: str = strawberry_django.field(description="The repository, as it was imported.")
+    registry: str = strawberry_django.field(description="The registry host, e.g. ghcr.io.")
+    repository: str = strawberry_django.field(description="The repository path on the registry, e.g. org/app.")
+    channels: List[str] = strawberry_django.field(description="The channels followed besides the releases.")
+    flavours: List["Flavour"] = strawberry_django.field(description="The flavours read from this repository.")
+    scanned_at: Optional[datetime.datetime] = strawberry_django.field(description="When the registry was last read.")
+    updated_at: datetime.datetime = strawberry_django.field(description="When this repository was last updated.")
+    added_at: datetime.datetime = strawberry_django.field(description="When this repository was imported.")
+    organization: Organization = strawberry_django.field(description="The organization that imported this repository.")
+
+    @strawberry_django.field(description="The repository as an image reference starts: `registry/repository`.")
+    def reference(self) -> str:
+        return self.reference
+
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset, field="organization")
+
+
 GithubRepoStats, GithubRepoStatsResolver = create_stats_type(
     model=models.GithubRepo,
     filters=filters.GithubRepoFilter,
@@ -203,6 +229,8 @@ class Release:
     scopes: List[str] = strawberry_django.field(description="The OAuth2 scopes this release requires.")
     original_logo: Optional[str] = strawberry_django.field(description="The original (upstream) logo URL of this release.")
     entrypoint: str = strawberry_django.field(description="The entrypoint used to start the app.")
+    channel: Optional[str] = strawberry_django.field(description="The channel this is the latest build of. Null for a release proper, which never changes.")
+    revision: Optional[str] = strawberry_django.field(description="The source revision this release was built from, when its publisher said.")
     flavours: List["Flavour"] = strawberry_django.field(description="The flavours (buildable variants) available for this release.")
     descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["version"])
 
@@ -460,6 +488,13 @@ class Flavour:
         if repo is None:
             return None
         return getattr(repo, "githubrepo", None)
+
+    @strawberry_django.field(description="The imported OCI repository this flavour was read from, if it came from one.")
+    def source(self, info: Info) -> OciRepo | None:
+        repo = self.repo
+        if repo is None:
+            return None
+        return getattr(repo, "ocirepo", None)
 
     @strawberry_django.field(description="The hardware/capability selectors a backend must satisfy to run this flavour.")
     def selectors(self, info: Info) -> List[types.Selector]:

@@ -19,7 +19,7 @@ from django.db import transaction
 from bridge import models
 
 from .errors import DBError
-from .models import AppImageInputModel, KabinetConfigFile
+from .models import AppImageInputModel, KabinetConfigFile, ReleaseDescriptorModel
 
 
 def upsert_app_image(
@@ -126,3 +126,43 @@ def parse_config(
         return [upsert_app_image(app_image, organization, repo=repo) for app_image in config.app_images]
     except Exception as e:
         raise DBError(f"Could not create models from the app images of {repo}: {e}") from e
+
+
+@transaction.atomic
+def apply_release(
+    descriptor: ReleaseDescriptorModel,
+    repo: models.OciRepo,
+    organization: models.Organization,
+) -> models.Release:
+    """Write the release a descriptor describes, as coming from the repository it was read in.
+
+    An app belongs to the repository that first provided it. Importing is the user's act of
+    trust in a registry namespace, so a second repository cannot publish under an identifier
+    the first one holds: it is refused here, whatever its descriptor claims.
+
+    A channel has one release at a time. Writing its next build removes the previous one,
+    unless something was deployed from it: a running deployment keeps its release.
+    """
+    manifest = descriptor.manifest
+    if not descriptor.flavours:
+        raise DBError(f"The release {manifest.identifier} {manifest.version} in {repo} has no flavour.")
+
+    app, _ = models.App.objects.select_for_update().get_or_create(identifier=manifest.identifier, organization=organization)
+    if app.source_id is None:
+        app.source = repo
+        app.save(update_fields=["source"])
+    elif app.source_id != repo.pk:
+        raise DBError(f"The app '{manifest.identifier}' comes from {app.source}; {repo} cannot publish releases of it.")
+
+    for flavour in descriptor.flavours:
+        release = upsert_app_image(flavour.to_app_image(manifest), organization, repo=repo).release
+
+    release.channel = descriptor.channel
+    release.revision = descriptor.revision
+    release.save(update_fields=["channel", "revision"])
+
+    if descriptor.channel is not None:
+        superseded = models.Release.objects.filter(app=app, channel=descriptor.channel).exclude(pk=release.pk)
+        superseded.exclude(flavours__deployments__isnull=False).delete()
+
+    return release

@@ -24,6 +24,7 @@ class Query:
 
     app: types.App = strawberry_django.field(resolver=queries.app, description="Return a single app by its ID.")
     github_repo: types.GithubRepo = strawberry_django.field(resolver=queries.github_repo, description="Return a single tracked GitHub repository by its ID.")
+    oci_repo: types.OciRepo = strawberry_django.field(resolver=queries.oci_repo, description="Return a single imported OCI repository by its ID.")
     definition: types.Definition = strawberry_django.field(resolver=queries.definition, description="Return a single action definition by its ID.")
     release: types.Release = strawberry_django.field(resolver=queries.release, description="Return a single app release by its ID.")
     resource: types.Resource = strawberry_django.field(resolver=queries.resource, description="Return a single backend resource by its ID.")
@@ -39,6 +40,7 @@ class Query:
     resources: List[types.Resource] = strawberry_django.field(description="List all backend resources visible to the current organization.")
     deployments: List[types.Deployment] = strawberry_django.field(description="List all deployments visible to the current organization.")
     github_repos: List[types.GithubRepo] = strawberry_django.field(description="List all tracked GitHub repositories visible to the current organization.")
+    oci_repos: List[types.OciRepo] = strawberry_django.field(description="List all imported OCI repositories visible to the current organization.")
     definitions: List[types.Definition] = strawberry_django.field(description="List all action definitions visible to the current organization.")
     pods: List[types.Pod] = strawberry_django.field(description="List all pods visible to the current organization.")
 
@@ -66,6 +68,11 @@ class Mutation:
     rescan_repos: List[types.GithubRepo] = strawberry_django.mutation(
         resolver=mutations.rescan_repos,
         description="Rescan every tracked GitHub repository for new or updated app manifests.",
+    )
+
+    import_repo: types.OciRepo = strawberry_django.mutation(
+        resolver=mutations.import_repo,
+        description="Import an OCI repository that carries an app's releases (e.g. ghcr.io/org/app), or read an imported one again.",
     )
 
     create_app_image = strawberry_django.mutation(

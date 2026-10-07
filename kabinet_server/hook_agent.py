@@ -10,7 +10,10 @@ when an action runs (a schedule, a trigger, by hand) is the organization's own a
 Nothing here loops or waits: each run is one pass rekuest started.
 """
 
+from asgiref.sync import async_to_sync
+
 from bridge import models
+from bridge.repo import oci
 from embeddings.healer import reembed_all
 from arkitekt_service.hook import HookAgent
 
@@ -30,3 +33,19 @@ _EMBEDDED_MODELS = (models.Definition, models.App, models.Flavour, models.Repo)
 def reembed_stale(organization: str) -> dict:
     """One pass over the organization's embedded rows, in row-locked batches (N replicas may run it at once)."""
     return {"reembedded": reembed_all(_EMBEDDED_MODELS, max_batches=50, organization=organization)}
+
+
+@agent.action(
+    interface="rescan_sources",
+    name="Read imported repositories again",
+    description="Read every OCI repository the organization imported, and write the releases and channel builds published since.",
+)
+def rescan_sources(organization: str) -> dict:
+    """One pass over the organization's imported repositories. A repository that cannot be read is counted, not fatal."""
+    releases, unreadable = 0, 0
+    for repo in models.OciRepo.objects.filter(organization__slug=organization):
+        try:
+            releases += len(async_to_sync(oci.scan)(repo).releases)
+        except oci.RegistryError:
+            unreadable += 1
+    return {"releases": releases, "unreadable": unreadable}

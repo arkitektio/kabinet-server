@@ -1,6 +1,6 @@
 import re
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import List, Optional
+from typing import List, Literal, Optional
 import datetime
 from rekuest_core.inputs.models import ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel
 
@@ -137,3 +137,55 @@ class KabinetConfigFile(BaseModel):
 
     app_images: List[AppImageInputModel] = []
     latest_app_image: Optional[str] = None
+
+
+class ReleaseFlavourModel(BaseModel):
+    """One flavour of a release descriptor: an image named by digest, and where it may run."""
+
+    name: str
+    description: str | None = None
+    image: str
+    platforms: list[str] = Field(default_factory=list)
+    selectors: list[SelectorInputModel] = Field(default_factory=list)
+    inspection: InspectionInputModel
+    built_at: datetime.datetime | None = None
+
+    @field_validator("image")
+    @classmethod
+    def _pinned(cls, value: str) -> str:
+        if "@sha256:" not in value:
+            raise ValueError(f"A flavour's image is named by digest, and '{value}' is not.")
+        return value
+
+    @field_validator("inspection", mode="before")
+    @classmethod
+    def _snake_case_inspection(cls, value: object) -> object:
+        """Descriptors write the inspection in camelCase, as `deployments.yaml` did."""
+        return _snake_case_keys(value)
+
+    def to_app_image(self, manifest: ManifestInputModel) -> AppImageInputModel:
+        """The app image this flavour is, in the shape the catalogue is written from."""
+        return AppImageInputModel(
+            flavour_name=self.name,
+            manifest=manifest,
+            selectors=self.selectors,
+            # The digest is the one thing that names this build and nothing else.
+            app_image_id=self.image.rsplit("@sha256:", 1)[1],
+            inspection=self.inspection,
+            image=DockerImageModel(image_string=self.image, build_at=self.built_at),
+        )
+
+
+class ReleaseDescriptorModel(BaseModel):
+    """A release as its registry repository carries it (the format is arkitekt-spec's ``release``).
+
+    Unknown keys are ignored, so a newer producer can add a field. A change this reader must
+    not survive arrives as another ``spec_version``, which fails validation here.
+    """
+
+    spec_version: Literal[1] = 1
+    manifest: ManifestInputModel
+    channel: str | None = None
+    revision: str | None = None
+    source: str | None = None
+    flavours: list[ReleaseFlavourModel] = Field(default_factory=list)

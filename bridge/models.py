@@ -92,6 +92,39 @@ class GithubRepo(Repo):
         constraints = [models.UniqueConstraint(fields=["repo", "user", "branch", "organization"], name="Unique repo for url")]
 
 
+class OciRepo(Repo):
+    """A repository on an OCI registry that carries an app's releases beside its images.
+
+    This is what a user imports to install an app: ``ghcr.io/org/app``. Each release is a
+    descriptor pushed under its version, naming its images by digest; a channel is a tag that
+    moves to the latest build of a branch. Nothing about it is specific to one forge.
+    """
+
+    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
+    registry = models.CharField(max_length=1000, help_text="The registry host, e.g. ghcr.io")
+    repository = models.CharField(max_length=2000, help_text="The repository path on the registry, e.g. org/app")
+    channels = models.JSONField(default=list, help_text="The channel tags followed besides the releases, e.g. ['main']")
+    seen = models.JSONField(default=dict, help_text="Every tag already read, with the digest it pointed at then")
+    scanned_at = models.DateTimeField(null=True, blank=True, help_text="When the registry was last read")
+    updated_at = models.DateTimeField(auto_now=True)
+    added_at = models.DateTimeField(auto_now_add=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="oci_repos")
+
+    #: Its own column, as on `GithubRepo`.
+    embedding_organization_path = "organization"
+
+    def __str__(self) -> str:
+        return self.reference
+
+    @property
+    def reference(self) -> str:
+        """The repository as an image reference starts: ``registry/repository``."""
+        return f"{self.registry}/{self.repository}"
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["registry", "repository", "organization"], name="Unique oci repo for org")]
+
+
 class App(EmbeddedDescriptionMixin, models.Model):
     """An application, identified by its reverse-domain identifier.
 
@@ -101,6 +134,14 @@ class App(EmbeddedDescriptionMixin, models.Model):
 
     identifier = models.CharField(max_length=4000)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="apps")
+    source = models.ForeignKey(
+        Repo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="apps",
+        help_text="The imported repository this app's releases come from. Another repository claiming the identifier is refused.",
+    )
 
     embedding_source_fields = ("identifier",)
 
@@ -155,6 +196,8 @@ class Release(models.Model):
     logo = models.ForeignKey(MediaStore, on_delete=models.CASCADE, related_name="releases", null=True, blank=True)
     original_logo = models.CharField(max_length=1000, null=True, blank=True, help_text="The original logo url")
     entrypoint = models.CharField(max_length=4000, default="app")
+    channel = models.CharField(max_length=400, null=True, blank=True, help_text="The channel this is the latest build of. Null for a release proper, which never changes.")
+    revision = models.CharField(max_length=400, null=True, blank=True, help_text="The source revision this was built from")
     released_at = models.DateTimeField(auto_now_add=True, help_text="When this release was created")
     created_at = models.DateTimeField(auto_now=True, help_text="When this release was created")
 

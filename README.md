@@ -85,11 +85,11 @@ runs is the organization's own automation in rekuest.
 The image is `jhnnsrs/kabinet`. It has no default command, and starting it takes two steps:
 
 ```sh
-python -m arkitekt_service migrate   # wait for the database, migrate, ensure the configured repos
-bash run.sh                          # serve on :80 (daphne), and nothing else
+arkitekt-service run migrate   # wait for the database, migrate, ensure the configured repos
+arkitekt-service serve                          # serve on :80 (daphne), and nothing else
 ```
 
-`run-debug.sh` does both in one go with Django's autoreloading server, for development.
+`arkitekt-service debug` does both in one go with Django's autoreloading server, for development.
 
 It needs Postgres with pgvector ([`jhnnsrs/daten`](https://github.com/arkitektio/daten-server)),
 Redis and an S3 store (RustFS), and it reaches GitHub to scan repos.

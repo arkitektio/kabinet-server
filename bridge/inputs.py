@@ -24,6 +24,21 @@ class ScanRepoInput:
     id: str
 
 
+class ImportRepoInputModel(BaseModel):
+    """Input for importing an OCI repository that carries an app's releases."""
+
+    reference: str = Field(description="The repository, e.g. 'ghcr.io/org/app'. No tag, no digest.")
+    channels: list[str] | None = Field(default=None, description="The channels to follow besides the releases, e.g. ['main']. Omit to keep what is followed.")
+
+
+@pydantic.input(ImportRepoInputModel, description="Input for importing an OCI repository, or reading an imported one again.")
+class ImportRepoInput:
+    """Input for importing an OCI repository that carries an app's releases."""
+
+    reference: str
+    channels: list[str] | None = None
+
+
 class CreateGithubRepoInputModel(BaseModel):
     """Input for tracking a new GitHub repository."""
 

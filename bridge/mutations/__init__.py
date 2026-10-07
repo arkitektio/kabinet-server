@@ -1,6 +1,7 @@
 """Mutations for the bridge app."""
 
 from .repo import scan_repo, create_github_repo, rescan_repos
+from .source import import_repo
 from .deployment import create_deployment, update_deployment
 from .pod import create_pod, update_pod, dump_logs, delete_pod
 from .backend import declare_backend, delete_backend
@@ -27,6 +28,7 @@ __all__ = [
     "delete_backend",
     "delete_pod",
     "dump_logs",
+    "import_repo",
     "rescan_repos",
     "scan_repo",
     "update_deployment",

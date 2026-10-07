@@ -1577,6 +1577,11 @@ type Flavour {
   repo: GithubRepo
 
   """
+  The imported OCI repository this flavour was read from, if it came from one.
+  """
+  source: OciRepo
+
+  """
   The hardware/capability selectors a backend must satisfy to run this flavour.
   """
   selectors: [Selector!]!
@@ -1807,6 +1812,19 @@ input ImplementationInput {
   effect: EffectClass! = NONE
 }
 
+"""
+Input for importing an OCI repository, or reading an imported one again.
+"""
+input ImportRepoInput {
+  """The repository, e.g. 'ghcr.io/org/app'. No tag, no digest."""
+  reference: String!
+
+  """
+  The channels to follow besides the releases, e.g. ['main']. Omit to keep what is followed.
+  """
+  channels: [String!] = null
+}
+
 input InspectionInput {
   size: Int
   locks: [LockImplementationInput!]!
@@ -1936,6 +1954,11 @@ type Mutation {
   """
   rescanRepos: [GithubRepo!]!
 
+  """
+  Import an OCI repository that carries an app's releases (e.g. ghcr.io/org/app), or read an imported one again.
+  """
+  importRepo(input: ImportRepoInput!): OciRepo!
+
   """Start tracking a new GitHub repository so it can be scanned for apps."""
   createGithubRepo(input: CreateGithubRepoInput!): GithubRepo!
 
@@ -1978,6 +2001,43 @@ type Mutation {
 
   """Delete a backend and return its ID."""
   deleteBackend(id: ID!): ID!
+}
+
+"""
+A repository on an OCI registry that carries an app's releases beside its images. Importing it is how an app is installed.
+"""
+type OciRepo {
+  id: ID!
+
+  """The repository, as it was imported."""
+  name: String!
+
+  """The registry host, e.g. ghcr.io."""
+  registry: String!
+
+  """The repository path on the registry, e.g. org/app."""
+  repository: String!
+
+  """The channels followed besides the releases."""
+  channels: [String!]!
+
+  """The flavours read from this repository."""
+  flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
+
+  """When the registry was last read."""
+  scannedAt: DateTime
+
+  """When this repository was last updated."""
+  updatedAt: DateTime!
+
+  """When this repository was imported."""
+  addedAt: DateTime!
+
+  """The organization that imported this repository."""
+  organization: Organization!
+
+  """The repository as an image reference starts: `registry/repository`."""
+  reference: String!
 }
 
 input OffsetPaginationInput {
@@ -2385,6 +2445,9 @@ type Query {
   """Return a single tracked GitHub repository by its ID."""
   githubRepo(id: ID!): GithubRepo!
 
+  """Return a single imported OCI repository by its ID."""
+  ociRepo(id: ID!): OciRepo!
+
   """Return a single action definition by its ID."""
   definition(id: ID = null, hash: ActionHash = null): Definition!
 
@@ -2428,6 +2491,11 @@ type Query {
   List all tracked GitHub repositories visible to the current organization.
   """
   githubRepos(filters: GithubRepoFilter, ordering: [GithubRepoOrder!]! = [], pagination: OffsetPaginationInput): [GithubRepo!]!
+
+  """
+  List all imported OCI repositories visible to the current organization.
+  """
+  ociRepos(pagination: OffsetPaginationInput): [OciRepo!]!
 
   """List all action definitions visible to the current organization."""
   definitions(filters: DefinitionFilter, ordering: [DefinitionOrder!]! = [], pagination: OffsetPaginationInput): [Definition!]!
@@ -2510,6 +2578,16 @@ type Release {
 
   """The entrypoint used to start the app."""
   entrypoint: String!
+
+  """
+  The channel this is the latest build of. Null for a release proper, which never changes.
+  """
+  channel: String
+
+  """
+  The source revision this release was built from, when its publisher said.
+  """
+  revision: String
 
   """The flavours (buildable variants) available for this release."""
   flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
