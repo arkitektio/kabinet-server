@@ -159,7 +159,8 @@ contract = Contract(
     serve=Start(("daphne", "-b", "0.0.0.0", "-p", "80", "--websocket_timeout", "-1", "kabinet_server.asgi:application")),
     debug=Start(("python", "manage.py", "runserver", "0.0.0.0:80")),
     jobs={
+        "ensureadmin": Job(("ensureadmin",), "Create the operator account the config names"),
         "ensurerepos": Job(("ensurerepos",), "Register the repositories the config names"),
     },
-    setup=("ensurerepos",),
+    setup=("ensureadmin", "ensurerepos"),
 )
