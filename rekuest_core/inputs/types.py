@@ -398,7 +398,6 @@ class AgentDependencyInput:
     max_viable_instances: int | None = None
     mutually_exclusive_keys: list[str] | None = None
     prefered_instances: int | None = None
-    assign_policy: enums.AssignPolicy = enums.AssignPolicy.BALANCED
 
 
 @pydantic.input(
@@ -443,7 +442,7 @@ class DefinitionInput:
     )
     pure: bool = strawberry.field(
         default=False,
-        description="Whether the action is pure: same args always produce the same result and no side effects — its results are replayable/cacheable. Implies idempotent. Incompatible with stateful and with a PHYSICAL effect class.",
+        description="Whether the action is pure: same args always produce the same result and no side effects — its results are replayable/cacheable. Implies idempotent. Incompatible with stateful and with IRREVERSIBLE effects.",
     )
     idempotent: bool = strawberry.field(
         default=False,
@@ -511,7 +510,9 @@ class ImplementationInput:
     manipulates: list[str] | None = None
     needs_token: bool = True
     provenance_audience: list[str] | None = None
-    effect: enums.EffectClass = enums.EffectClass.NONE
+    effects: enums.Effects = enums.Effects.UNKNOWN
+    execution: enums.Execution = enums.Execution.PLAIN
+    code_hash: str | None = None
     dependencies: list[AgentDependencyInput] = strawberry.field(default_factory=list)
 
 

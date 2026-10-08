@@ -73,10 +73,18 @@ class EffectKind(str, Enum):
     CUSTOM = "CUSTOM"
 
 
-@strawberry.enum(description=("The effect class of an implementation — declared by the implementation, never the caller. NONE work is freely retryable/reclaimable; PHYSICAL work touches the real world (no UPSERT), so an ambiguous failure is terminal and must not be retried."))
-class EffectClass(str, Enum):
+@strawberry.enum(description="What running an implementation again would do to the world. Purely informational: shown to whoever decides about a lost task.")
+class Effects(str, Enum):
     NONE = "NONE"
-    PHYSICAL = "PHYSICAL"
+    REPEATABLE = "REPEATABLE"
+    UNKNOWN = "UNKNOWN"
+    IRREVERSIBLE = "IRREVERSIBLE"
+
+
+@strawberry.enum(description="How an implementation runs: a WORKFLOW may call other actions and is resumed from its journal when its agent dies; a PLAIN one's task ends LOST.")
+class Execution(str, Enum):
+    PLAIN = "PLAIN"
+    WORKFLOW = "WORKFLOW"
 
 
 @strawberry.enum(description="The kind of action scope.")
@@ -103,15 +111,6 @@ class DescriptorOperator(str, Enum):
 # Requires and provides descriptors share one operator vocabulary; the old names stay as aliases.
 RequiresOperator = DescriptorOperator
 ProvidesOperator = DescriptorOperator
-
-
-@strawberry.enum
-class AssignPolicy(str, Enum):
-    AUTOMATIC = "AUTOMATIC"
-    BALANCED = "BALANCED"
-    ROUND_ROBIN = "ROUND_ROBIN"
-    LEAST_BUSY = "LEAST_BUSY"
-    FASTEST_RESPONSE = "FASTEST_RESPONSE"
 
 
 @strawberry.enum

@@ -58,6 +58,11 @@ def _value_path_root(value_path: str) -> str:
     return value_path.lstrip("/").split("/", 1)[0]
 
 
+def _blok_path_root(path: str) -> str:
+    """First segment of a blok path, split on '/' and '.' like the renderer's splitPathSegments ('self.scope.x' -> 'self', '/exposure/current' -> 'exposure')."""
+    return next((segment for segment in re.split(r"[/.]", path) if segment), "")
+
+
 def _resolve_port_path(path: str, ports: list["PortInputModel"]) -> bool:
     """True if a port path ('a..b..c') resolves through ``children`` from the given root ports."""
     candidates: list[PortInputModel] = ports
@@ -466,7 +471,7 @@ def _check_descriptor(descriptor: "RequiresInputModel | ProvidesInputModel", own
 
 
 class RequiresInputModel(BaseModel):
-    key: str = Field(min_length=1, description="The key of the requirement: the path into the object the constraint reads")
+    key: str = Field(min_length=1, description="The key of the requirement: the descriptor name the constraint reads, matched verbatim as one flat key of the candidate object (any non-empty string, e.g. 'axes' or '@mikro/n_space_axes')")
     operator: enums.DescriptorOperator = Field(description="The operator for the requirement")
     value: Any = Field(default=None, description="The value of the requirement. This can be any JSON serializable value; IN/NOT_IN take a list, LTE/GTE a number, EXISTS none")
 
@@ -480,7 +485,7 @@ class RequiresInputModel(BaseModel):
 
 
 class ProvidesInputModel(BaseModel):
-    key: str = Field(min_length=1, description="The key of the provision: the path into the object the constraint reads")
+    key: str = Field(min_length=1, description="The key of the provision: the descriptor name the constraint reads, matched verbatim as one flat key of the candidate object (any non-empty string, e.g. 'axes' or '@mikro/n_space_axes')")
     operator: enums.DescriptorOperator = Field(description="The operator for the provision")
     value: Any = Field(default=None, description="The value of the provision. This can be any JSON serializable value; IN/NOT_IN take a list, LTE/GTE a number, EXISTS none")
 
@@ -513,6 +518,9 @@ IDENTIFIER_PATTERN = re.compile(r"^@[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 """A structure identifier: ``@package/key``, e.g. ``@mikro/image``."""
 
 _IDENTIFIED_KINDS = {enums.PortKind.STRUCTURE, enums.PortKind.MEMORY_STRUCTURE, enums.PortKind.INTERFACE}
+"""Kinds that must declare an identifier: it is the only identity the value has."""
+_IDENTIFIABLE_KINDS = {enums.PortKind.MODEL, enums.PortKind.ENUM}
+"""Kinds that may declare one: a MODEL naming its class, an ENUM naming the enum its choices came from."""
 _CHILD_COUNT: dict[enums.PortKind, tuple[int, int | None]] = {
     enums.PortKind.LIST: (1, 1),
     enums.PortKind.DICT: (1, None),
@@ -545,7 +553,7 @@ def _check_port_shape(port: "PortInputModel") -> None:
             raise ValueError(f"{owner} must declare an identifier (@package/key)")
         if not IDENTIFIER_PATTERN.match(port.identifier):
             raise ValueError(f"{owner}: identifier {port.identifier!r} is not of the form @package/key")
-    elif port.identifier is not None and port.kind != enums.PortKind.MODEL:
+    elif port.identifier is not None and port.kind not in _IDENTIFIABLE_KINDS:
         raise ValueError(f"{owner} must not declare an identifier")
     elif port.identifier is not None and not IDENTIFIER_PATTERN.match(port.identifier):
         raise ValueError(f"{owner}: identifier {port.identifier!r} is not of the form @package/key")
@@ -563,7 +571,7 @@ class PortInputModel(BaseModel):
     label: str | None = Field(default=None, description="The label of the port. This is the text that is displayed in the UI")
     kind: enums.PortKind = Field(description="The kind of the port. This is the type of the port. Can be either int, string, structure, list, bool, dict, float, date, union or model")
     description: str | None = Field(default=None, description="The description of the port. This is the text that is displayed in the UI when the user hovers over the port")
-    identifier: str | None = Field(default=None, description="The identifier of a structure port. This is used to uniquely identify a specific type of structure.")
+    identifier: str | None = Field(default=None, description="The identifier of the port's type, of the form @package/key. Required for STRUCTURE, MEMORY_STRUCTURE and INTERFACE, where it is the only identity a value has; optional for MODEL and ENUM, where it names the class or enum the port was built from so that agents can map a value back to it.")
     nullable: bool = Field(default=False, description="Whether the port is nullable or not. If the port is nullable, it can be set to null. If the port is not nullable, it cannot be set to null")
     effects: list[EffectInputModel] | None = Field(default=None, description="The effects of the port")
     choices: list[ChoiceInputModel] | None = Field(default=None, description="The values the port accepts (required for ENUM; optional for INT, FLOAT, STRING). Rendered by CHOICE widgets.")
@@ -756,7 +764,6 @@ class AgentDependencyInputModel(BaseModel):
     min_viable_instances: int | None = Field(default=None, description="The minimum amount of viable instances for the agent. This is used to identify the demand in the system.")
     max_viable_instances: int | None = Field(default=None, description="The maximum amount of viable instances for the agent. This is used to identify the demand in the system.")
     prefered_instances: int | None = Field(default=None, description="The prefered amount of instances for the agent. This is used to identify the demand in the system.")
-    assign_policy: enums.AssignPolicy = Field(default=enums.AssignPolicy.BALANCED, description="The policy used to pick which instance of the agent to assign to.")
 
 
 class TestTargetInputModel(BaseModel):
@@ -919,9 +926,9 @@ class ImplementationInputModel(BaseModel):
     manipulates: list[str] | None = Field(default=None, description="The states that the implementation manipulates. This is used to identify which states are manipulated by the implementation, and can be use to enhance state safety in the system")
     needs_token: bool = Field(default=True, description="Whether Rekuest should mint a signed provenance token when this implementation is assigned. Default true (provenance-by-default); set false for trivial/internal tasks that never produce external provenance.")
     provenance_audience: list[str] | None = Field(default=None, description="The downstream service(s) the provenance token should be scoped to (the token's `aud`). If omitted, Rekuest derives the audience from the structures the assignment acts on.")
-    effect: enums.EffectClass = Field(
-        default=enums.EffectClass.NONE, description="The effect class of this implementation. NONE work is freely retryable/reclaimable; PHYSICAL work touches the real world and an ambiguous failure is terminal (never retried). Declared by the implementation here — never by the caller."
-    )
+    effects: enums.Effects = Field(default=enums.Effects.UNKNOWN, description="What running this implementation again would do to the world. Informational: shown to whoever decides about a lost task.")
+    execution: enums.Execution = Field(default=enums.Execution.PLAIN, description="How this implementation runs: a WORKFLOW may call other actions and is resumed from its journal when its agent dies.")
+    code_hash: str | None = Field(default=None, description="A hash of the implementation's code. A workflow is only resumed by an implementation with the same hash.")
 
     @model_validator(mode="after")
     def check_widget_targets(self) -> Self:
@@ -1130,7 +1137,7 @@ def check_blok_manifest(components: Optional[List[ComponentNodeInputModel]], dep
     def check_root(path: Optional[str], owner: str) -> None:
         if path is None or roots is None:
             return
-        root = _value_path_root(path)
+        root = _blok_path_root(path)
         if root not in roots:
             raise ValueError(f"{owner} references {root!r} but it is neither a demo_state key, a declared value nor a dependency key")
 
