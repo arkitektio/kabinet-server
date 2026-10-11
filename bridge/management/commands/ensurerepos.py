@@ -5,6 +5,11 @@
 Reads ``settings.REPO_MAP`` (``repo_map`` in the config; see CONFIG.md), creates each
 organization if needed, and tracks every repository listed under it. Idempotent: a repo
 that already exists is scanned again rather than duplicated.
+
+An entry is a GitHub repository (``user/repo``, ``user/repo:branch`` or a github.com URL)
+or an OCI repository (``ghcr.io/org/app``, or ``oci://`` and any reference a registry
+host starts). A repository that cannot be read is reported and skipped; one that is
+already tracked has why recorded on it (its ``scanState``).
 """
 
 from asgiref.sync import async_to_sync
@@ -15,6 +20,21 @@ from pydantic import BaseModel
 
 from bridge import inputs
 from bridge.mutations.repo import _create_github_repo
+from bridge.mutations.source import aimport_oci_repo
+
+
+def is_oci_reference(identifier: str) -> bool:
+    """Whether a ``repo_map`` entry names an OCI repository rather than a GitHub one.
+
+    A GitHub owner cannot contain a dot, so a first segment that looks like a host
+    (``ghcr.io``, ``localhost:5000``) is a registry.
+    """
+    if identifier.startswith("oci://"):
+        return True
+    if identifier.startswith("https://github.com/"):
+        return False
+    head = identifier.split("/", 1)[0]
+    return "/" in identifier and ("." in head or ":" in head or head == "localhost")
 
 
 class RepoMap(BaseModel):
@@ -36,6 +56,13 @@ async def create_github_repos(repo_map: list[RepoMap]) -> None:
         organization, _ = await Organization.objects.aget_or_create(slug=entry.organization)
 
         for repo_identifier in entry.repos:
+            if is_oci_reference(repo_identifier):
+                try:
+                    await aimport_oci_repo(repo_identifier, organization, None)
+                except Exception as e:
+                    print(f"Error importing repo {repo_identifier} for {entry.organization}: {e}")
+                continue
+
             # `_create_github_repo` takes the *pydantic* input model, not the strawberry
             # one. This used to pass `inputs.CreateGithubRepoInput`, so the command could
             # not have worked -- and the failure was hidden behind an `except: raise e`

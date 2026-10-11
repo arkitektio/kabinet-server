@@ -27,7 +27,8 @@ anything is recreated — and runs everything else as a job the image offers by 
 What this service declares:
 
 - Setup, in order: `ensureadmin`, `ensurerepos`.
-- Other jobs: none.
+- Other jobs: `rescanrepos` (reads every GitHub and OCI repository again; the hook action
+  `rescan_sources` runs the same pass for one organization).
 - Not jobs, on purpose: `printschema` regenerates the committed `schema.graphql`: a developer's tool, run in a checkout.
 
 `tests/test_prepared.py` holds the contract to this: migrations committed, every job a command

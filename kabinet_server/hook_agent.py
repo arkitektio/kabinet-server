@@ -12,8 +12,10 @@ Nothing here loops or waits: each run is one pass rekuest started.
 
 from asgiref.sync import async_to_sync
 
+from authentikate.models import Organization
+
 from bridge import models
-from bridge.repo import oci
+from bridge.repo.rescan import RescanSummary, arescan_organization
 from embeddings.healer import reembed_all
 from arkitekt_service.hook import HookAgent
 
@@ -37,15 +39,12 @@ def reembed_stale(organization: str) -> dict:
 
 @agent.action(
     interface="rescan_sources",
-    name="Read imported repositories again",
-    description="Read every OCI repository the organization imported, and write the releases and channel builds published since.",
+    name="Read every repository again",
+    description="Read every repository the organization imported or tracks (OCI and GitHub), and write the releases and channel builds published since. How each went is recorded on the repository.",
 )
 def rescan_sources(organization: str) -> dict:
-    """One pass over the organization's imported repositories. A repository that cannot be read is counted, not fatal."""
-    releases, unreadable = 0, 0
-    for repo in models.OciRepo.objects.filter(organization__slug=organization):
-        try:
-            releases += len(async_to_sync(oci.scan)(repo).releases)
-        except oci.RegistryError:
-            unreadable += 1
-    return {"releases": releases, "unreadable": unreadable}
+    """One pass over the organization's repositories. A repository that cannot be read is counted, not fatal."""
+    org = Organization.objects.filter(slug=organization).first()
+    if org is None:
+        return RescanSummary().as_dict()
+    return async_to_sync(arescan_organization)(org).as_dict()

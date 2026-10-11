@@ -115,6 +115,29 @@ class Organization:
     slug: str = strawberry_django.field(description="Slug of the organization.")
 
 
+@strawberry.type(description="Something a repository carries that its last scan refused, and why.")
+class ScanProblem:
+    key: str = strawberry.field(description="What was refused: a tag of an OCI repository, or an app image of a GitHub one.")
+    message: str = strawberry.field(description="Why it was refused.")
+
+
+@strawberry_django.interface(models.Repo, description="What the last scan of a repository came to. Every scan is recorded, whether it succeeded or not.")
+class Scanned:
+    scan_attempted_at: Optional[datetime.datetime] = strawberry_django.field(description="When a scan was last attempted, whether or not it succeeded. Null until the repository is scanned.")
+
+    @strawberry_django.field(only=["scan_error", "scan_attempted_at", "scan_problems"], description="What the last scan came to.")
+    def scan_state(self) -> enums.ScanState:
+        return enums.scan_state(self)
+
+    @strawberry_django.field(only=["scan_error"], description="Why the last scan failed as a whole: the repository could not be read. Null when it was read.")
+    def scan_error(self) -> Optional[str]:
+        return self.scan_error or None
+
+    @strawberry_django.field(only=["scan_problems"], description="What the repository carries that kabinet refused, and why. Empty when everything was taken.")
+    def scan_problems(self) -> List[ScanProblem]:
+        return [ScanProblem(key=key, message=message) for key, message in sorted((self.scan_problems or {}).items())]
+
+
 @strawberry_django.type(
     models.GithubRepo,
     description="A GitHub repository tracked by Kabinet and scanned for deployable Arkitekt apps.",
@@ -122,7 +145,7 @@ class Organization:
     ordering=filters.GithubRepoOrder,
     pagination=True,
 )
-class GithubRepo:
+class GithubRepo(Scanned):
     id: auto
     name: str = strawberry_django.field(description="The human-readable name of the repository.")
     repo: str = strawberry_django.field(description="The repository name on GitHub (the part after the owner).")
@@ -132,6 +155,7 @@ class GithubRepo:
     updated_at: datetime.datetime = strawberry_django.field(description="When this repository was last updated.")
     added_at: datetime.datetime = strawberry_django.field(description="When this repository was first added to Kabinet.")
     organization: Organization = strawberry_django.field(description="The organization that owns this repository.")
+    scanned_at: Optional[datetime.datetime] = strawberry_django.field(description="When the repository was last read successfully.")
     descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION)
 
     @strawberry_django.field(description="This repository's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
@@ -154,9 +178,11 @@ class GithubRepo:
 @strawberry_django.type(
     models.OciRepo,
     description="A repository on an OCI registry that carries an app's releases beside its images. Importing it is how an app is installed.",
+    filters=filters.OciRepoFilter,
+    ordering=filters.OciRepoOrder,
     pagination=True,
 )
-class OciRepo:
+class OciRepo(Scanned):
     id: auto
     name: str = strawberry_django.field(description="The repository, as it was imported.")
     registry: str = strawberry_django.field(description="The registry host, e.g. ghcr.io.")

@@ -185,9 +185,9 @@ the YAML file rather than via environment variables.
 
 | Key | Env var | Type | Default | Description |
 |---|---|---|---|---|
-| `ensured_repos` | — (use YAML) | list[str] | `[]` | Container repos cloned/ensured on boot (`owner/repo:ref`). |
-| `repo_map` | — (use YAML) | list[object] | `[]` | Per-organization repository mappings. |
-| `default_repos` | — (use YAML) | list[str] | `[]` | Default repositories provisioned for new installs (`owner/repo:ref`). |
+| `ensured_repos` | — (use YAML) | list[str] | `[]` | GitHub repos every new organization starts out tracking (`owner/repo:ref`). Added unscanned; `rescanrepos` (or the `rescan_sources` hook) reads them. |
+| `repo_map` | — (use YAML) | list[object] | `[]` | Repositories `ensurerepos` tracks per organization: `[{organization: slug, repos: [...]}]`. An entry is a GitHub repo (`owner/repo:ref`) or an OCI repo (`ghcr.io/org/app`). |
+| `default_repos` | — (use YAML) | list[str] | `[]` | Like `ensured_repos`: GitHub repos every new organization starts out tracking, unscanned (`owner/repo:ref`). |
 
 ### `embeddings` — semantic search
 

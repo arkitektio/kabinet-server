@@ -1615,7 +1615,24 @@ input FlavourOrder @oneOf {
 """
 A GitHub repository tracked by Kabinet and scanned for deployable Arkitekt apps.
 """
-type GithubRepo {
+type GithubRepo implements Scanned {
+  """
+  When a scan was last attempted, whether or not it succeeded. Null until the repository is scanned.
+  """
+  scanAttemptedAt: DateTime
+
+  """What the last scan came to."""
+  scanState: ScanState!
+
+  """
+  Why the last scan failed as a whole: the repository could not be read. Null when it was read.
+  """
+  scanError: String
+
+  """
+  What the repository carries that kabinet refused, and why. Empty when everything was taken.
+  """
+  scanProblems: [ScanProblem!]!
   id: ID!
 
   """The human-readable name of the repository."""
@@ -1641,6 +1658,9 @@ type GithubRepo {
 
   """The organization that owns this repository."""
   organization: Organization!
+
+  """When the repository was last read successfully."""
+  scannedAt: DateTime
 
   """
   This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test (e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
@@ -1687,6 +1707,11 @@ input GithubRepoFilter {
 
   """Case-insensitive match on the branch name."""
   branch: String
+
+  """
+  Keep only repositories whose last scan came to one of these, e.g. [FAILED, PROBLEMS] for the ones that need attention.
+  """
+  scanStates: [ScanState!]
 }
 
 input GithubRepoOrder @oneOf {
@@ -1694,6 +1719,8 @@ input GithubRepoOrder @oneOf {
   name: Ordering
   addedAt: Ordering
   updatedAt: Ordering
+  scannedAt: Ordering
+  scanAttemptedAt: Ordering
 }
 
 type GithubRepoStats {
@@ -1832,6 +1859,11 @@ input ImportRepoInput {
   The channels to follow besides the releases, e.g. ['main']. Omit to keep what is followed.
   """
   channels: [String!] = null
+
+  """
+  Read every tag again, including the ones already read. A release tag is otherwise read once, so a refused release pushed again under its tag is only taken this way.
+  """
+  reread: Boolean! = false
 }
 
 input InspectionInput {
@@ -2015,7 +2047,24 @@ type Mutation {
 """
 A repository on an OCI registry that carries an app's releases beside its images. Importing it is how an app is installed.
 """
-type OciRepo {
+type OciRepo implements Scanned {
+  """
+  When a scan was last attempted, whether or not it succeeded. Null until the repository is scanned.
+  """
+  scanAttemptedAt: DateTime
+
+  """What the last scan came to."""
+  scanState: ScanState!
+
+  """
+  Why the last scan failed as a whole: the repository could not be read. Null when it was read.
+  """
+  scanError: String
+
+  """
+  What the repository carries that kabinet refused, and why. Empty when everything was taken.
+  """
+  scanProblems: [ScanProblem!]!
   id: ID!
 
   """The repository, as it was imported."""
@@ -2047,6 +2096,33 @@ type OciRepo {
 
   """The repository as an image reference starts: `registry/repository`."""
   reference: String!
+}
+
+"""Filter for imported OCI repositories."""
+input OciRepoFilter {
+  AND: OciRepoFilter
+  OR: OciRepoFilter
+  NOT: OciRepoFilter
+  DISTINCT: Boolean
+
+  """Keep only repositories whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive match on the reference, `registry/repository`."""
+  search: String
+
+  """
+  Keep only repositories whose last scan came to one of these, e.g. [FAILED, PROBLEMS] for the ones that need attention.
+  """
+  scanStates: [ScanState!]
+}
+
+input OciRepoOrder @oneOf {
+  id: Ordering
+  name: Ordering
+  addedAt: Ordering
+  scannedAt: Ordering
+  scanAttemptedAt: Ordering
 }
 
 input OffsetPaginationInput {
@@ -2504,7 +2580,7 @@ type Query {
   """
   List all imported OCI repositories visible to the current organization.
   """
-  ociRepos(pagination: OffsetPaginationInput): [OciRepo!]!
+  ociRepos(filters: OciRepoFilter, ordering: [OciRepoOrder!]! = [], pagination: OffsetPaginationInput): [OciRepo!]!
 
   """List all action definitions visible to the current organization."""
   definitions(filters: DefinitionFilter, ordering: [DefinitionOrder!]! = [], pagination: OffsetPaginationInput): [Definition!]!
@@ -2976,10 +3052,54 @@ input RocmSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "
   apiThing: String = null
 }
 
+"""Something a repository carries that its last scan refused, and why."""
+type ScanProblem {
+  """
+  What was refused: a tag of an OCI repository, or an app image of a GitHub one.
+  """
+  key: String!
+
+  """Why it was refused."""
+  message: String!
+}
+
 """Input for scanning a tracked GitHub repository for app manifests."""
 input ScanRepoInput {
   """The ID of the GitHub repository to scan."""
   id: String!
+}
+
+"""
+What the last scan of a repository came to. NEVER: not scanned yet. OK: read, and everything it carries was taken. PROBLEMS: read, but some of what it carries was refused (see `scanProblems`). FAILED: it could not be read at all (see `scanError`).
+"""
+enum ScanState {
+  NEVER
+  OK
+  PROBLEMS
+  FAILED
+}
+
+"""
+What the last scan of a repository came to. Every scan is recorded, whether it succeeded or not.
+"""
+interface Scanned {
+  """
+  When a scan was last attempted, whether or not it succeeded. Null until the repository is scanned.
+  """
+  scanAttemptedAt: DateTime
+
+  """What the last scan came to."""
+  scanState: ScanState!
+
+  """
+  Why the last scan failed as a whole: the repository could not be read. Null when it was read.
+  """
+  scanError: String
+
+  """
+  What the repository carries that kabinet refused, and why. Empty when everything was taken.
+  """
+  scanProblems: [ScanProblem!]!
 }
 
 type SearchAssignWidget implements AssignWidget {

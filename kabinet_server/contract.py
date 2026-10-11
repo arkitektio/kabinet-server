@@ -161,6 +161,7 @@ contract = Contract(
     jobs={
         "ensureadmin": Job(("ensureadmin",), "Create the operator account the config names"),
         "ensurerepos": Job(("ensurerepos",), "Register the repositories the config names"),
+        "rescanrepos": Job(("rescanrepos",), "Read every repository again and write the releases published since"),
     },
     setup=("ensureadmin", "ensurerepos"),
 )

@@ -19,6 +19,7 @@ from kante.context import HttpContext
 
 from bridge import models
 from bridge.repo.oci import RELEASE_MEDIA_TYPE
+from bridge.management.commands.ensurerepos import RepoMap, create_github_repos, is_oci_reference
 from kabinet_server.hook_agent import rescan_sources
 from tests.utils import build_relative_dir, execute, execute_raw
 
@@ -274,8 +275,8 @@ async def test_the_hook_action_reads_every_imported_repository_again(authenticat
     registry.release("org/ome", "1.1.0", "1.1.0")
     del registry.manifests["org/other"]
 
-    assert await sync_to_async(rescan_sources)("static_org") == {"releases": 1, "unreadable": 1}
-    assert await sync_to_async(rescan_sources)("another_org") == {"releases": 0, "unreadable": 0}
+    assert await sync_to_async(rescan_sources)("static_org") == {"repos": 2, "releases": 1, "unreadable": 1}
+    assert await sync_to_async(rescan_sources)("another_org") == {"repos": 0, "releases": 0, "unreadable": 0}
     assert await models.Release.objects.filter(app__identifier="ome").acount() == 2
 
 
@@ -292,3 +293,118 @@ def test_the_descriptor_arkitekt_spec_writes_is_read_here():
     app_image = flavour.to_app_image(descriptor.manifest)
     assert app_image.image.image_string == flavour.image
     assert app_image.inspection.implementations[0].definition.name == "Segment Fluorescent Nuclei"
+
+
+SCAN = """
+    query Repos($filters: OciRepoFilter) {
+        ociRepos(filters: $filters) { reference scanState scanError scanAttemptedAt scanProblems { key message } }
+    }
+"""
+
+
+async def scanned(context: HttpContext, filters: dict | None = None) -> list[dict]:
+    return (await execute(SCAN, context, {"filters": filters}))["ociRepos"]
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_clean_import_is_recorded_as_ok(authenticated_context: HttpContext, registry: FakeRegistry):
+    registry.release("org/ome", "1.0.0", "1.0.0")
+    await import_repo(authenticated_context, registry.reference("org/ome"))
+
+    (repo,) = await scanned(authenticated_context)
+    assert (repo["scanState"], repo["scanError"], repo["scanProblems"]) == ("OK", None, [])
+    assert repo["scanAttemptedAt"] is not None
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_what_a_scan_refuses_is_kept_on_the_repository(authenticated_context: HttpContext, registry: FakeRegistry):
+    """A refused tag used to be a log line. It is recorded, and still stands on the next scan, which does not read it again."""
+    registry.release("org/ome", "1.0.0", "1.0.0")
+    registry.release("org/ome", "1.1.0", "2.0.0")
+    await import_repo(authenticated_context, registry.reference("org/ome"))
+
+    (repo,) = await scanned(authenticated_context)
+    assert repo["scanState"] == "PROBLEMS"
+    assert [problem["key"] for problem in repo["scanProblems"]] == ["1.1.0"]
+    assert "2.0.0" in repo["scanProblems"][0]["message"]
+
+    requests = len(registry.requests)
+    await import_repo(authenticated_context, registry.reference("org/ome"))
+    assert not [path for path in registry.requests[requests:] if "/manifests/" in path], "nothing new, so no tag is read again"
+    (repo,) = await scanned(authenticated_context)
+    assert [problem["key"] for problem in repo["scanProblems"]] == ["1.1.0"]
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_refused_tag_that_is_pushed_again_is_taken_on_a_reread(authenticated_context: HttpContext, registry: FakeRegistry):
+    """A release tag is read once. One pushed again over a refused one is taken when the repository is read again in full."""
+    registry.release("org/ome", "1.1.0", "2.0.0")
+    await import_repo(authenticated_context, registry.reference("org/ome"))
+
+    registry.release("org/ome", "1.1.0", "1.1.0")
+    await import_repo(authenticated_context, registry.reference("org/ome"))
+    (repo,) = await scanned(authenticated_context)
+    assert repo["scanState"] == "PROBLEMS"
+
+    await execute(IMPORT, authenticated_context, {"input": {"reference": registry.reference("org/ome"), "reread": True}})
+
+    (repo,) = await scanned(authenticated_context)
+    assert (repo["scanState"], repo["scanProblems"]) == ("OK", [])
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_reread_reads_every_tag_again(authenticated_context: HttpContext, registry: FakeRegistry):
+    registry.release("org/ome", "1.0.0", "1.0.0")
+    await import_repo(authenticated_context, registry.reference("org/ome"))
+
+    requests = len(registry.requests)
+    await execute(IMPORT, authenticated_context, {"input": {"reference": registry.reference("org/ome"), "reread": True}})
+
+    assert [path for path in registry.requests[requests:] if path.endswith("/manifests/1.0.0")]
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_repository_that_can_no_longer_be_read_is_recorded_as_failed(authenticated_context: HttpContext, registry: FakeRegistry):
+    registry.release("org/ome", "1.0.0", "1.0.0")
+    registry.release("org/ome", "1.1.0", "2.0.0")
+    await import_repo(authenticated_context, registry.reference("org/ome"))
+
+    del registry.manifests["org/ome"]
+    result = await execute_raw(IMPORT, authenticated_context, {"input": {"reference": registry.reference("org/ome")}})
+    assert result.errors
+
+    (repo,) = await scanned(authenticated_context)
+    assert repo["scanState"] == "FAILED"
+    assert "could not be read" in repo["scanError"]
+    assert [problem["key"] for problem in repo["scanProblems"]] == ["1.1.0"], "what it refused before was not looked at again, so it stands"
+
+    (failing,) = await scanned(authenticated_context, {"scanStates": ["FAILED", "PROBLEMS"]})
+    assert failing["reference"] == registry.reference("org/ome")
+    assert await scanned(authenticated_context, {"scanStates": ["OK", "NEVER"]}) == []
+
+
+def test_a_repo_map_entry_is_told_apart_by_its_host():
+    assert is_oci_reference("ghcr.io/org/app")
+    assert is_oci_reference("localhost:5000/org/app")
+    assert is_oci_reference("oci://docker.io/org/app")
+    assert not is_oci_reference("jhnnsrs/final")
+    assert not is_oci_reference("jhnnsrs/final:main")
+    assert not is_oci_reference("https://github.com/jhnnsrs/final/tree/dev")
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_ensurerepos_imports_an_oci_repository(registry: FakeRegistry):
+    registry.release("org/ome", "1.0.0", "1.0.0")
+
+    await create_github_repos([RepoMap(organization="provisioned", repos=[registry.reference("org/ome"), registry.reference("org/missing")])])
+    await create_github_repos([RepoMap(organization="provisioned", repos=[registry.reference("org/ome")])])
+
+    repos = [repo async for repo in models.OciRepo.objects.filter(organization__slug="provisioned")]
+    assert [repo.reference for repo in repos] == [registry.reference("org/ome")], "a missing repository is skipped, a known one not doubled"
+    assert await models.Release.objects.filter(app__organization__slug="provisioned").acount() == 1

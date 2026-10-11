@@ -16,7 +16,7 @@ from aiohttp import web
 
 from bridge.repo import fetch, layout
 from bridge.repo.fetch import InspectionError, RepoCoordinates, aget_kabinet_config
-from tests.utils import build_relative_dir, execute_raw
+from tests.utils import build_relative_dir, execute, execute_raw
 
 COORDINATES = RepoCoordinates("arkitektio-apps", "ome", "main")
 
@@ -235,3 +235,60 @@ async def test_create_github_repo_surfaces_the_diagnosis(fake_github, authentica
     message = str(result.errors[0].message)
     assert ".arkitekt_next/deployments.yaml" in message
     assert "rename" in message.lower()
+
+
+SCAN_STATE = """
+    query { githubRepos { name scanState scanError scannedAt scanAttemptedAt } }
+"""
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_github_scan_records_how_it_went(fake_github, authenticated_context):
+    """Tracked, read again fine, then read again broken: the repo says so, and the mutation still fails."""
+    tree = {layout.DEPLOYMENTS_PATH: VALID_CONFIG}
+    await fake_github(tree)
+    identifier = f"{COORDINATES.user}/{COORDINATES.repo}"
+    create = """
+        mutation CreateGithubRepo($input: CreateGithubRepoInput!) { createGithubRepo(input: $input) { id } }
+    """
+
+    await execute(create, authenticated_context, {"input": {"identifier": identifier}})
+    (repo,) = (await execute(SCAN_STATE, authenticated_context))["githubRepos"]
+    assert (repo["scanState"], repo["scanError"]) == ("OK", None)
+    read_at = repo["scannedAt"]
+    assert read_at is not None
+
+    tree[layout.DEPLOYMENTS_PATH] = "app_images: [}"
+    result = await execute_raw(create, authenticated_context, {"input": {"identifier": identifier}})
+    assert result.errors
+
+    (repo,) = (await execute(SCAN_STATE, authenticated_context))["githubRepos"]
+    assert repo["scanState"] == "FAILED"
+    assert "not valid YAML" in repo["scanError"]
+    assert repo["scannedAt"] == read_at, "the last successful read is still when it was"
+    assert repo["scanAttemptedAt"] > read_at
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_rescan_records_a_repo_it_could_not_read(fake_github, authenticated_context):
+    from bridge.management.commands.rescanrepos import Command
+    from asgiref.sync import sync_to_async
+    from io import StringIO
+
+    tree = {layout.DEPLOYMENTS_PATH: VALID_CONFIG}
+    await fake_github(tree)
+    await execute(
+        "mutation C($input: CreateGithubRepoInput!) { createGithubRepo(input: $input) { id } }",
+        authenticated_context,
+        {"input": {"identifier": f"{COORDINATES.user}/{COORDINATES.repo}"}},
+    )
+    del tree[layout.DEPLOYMENTS_PATH]
+
+    out = StringIO()
+    await sync_to_async(Command(stdout=out).handle)(organization="static_org")
+
+    assert "1 repositories, 0 new releases, 1 unreadable" in out.getvalue()
+    (repo,) = (await execute(SCAN_STATE, authenticated_context))["githubRepos"]
+    assert repo["scanState"] == "FAILED"

@@ -6,6 +6,7 @@ The three call sites below used to disagree about what a failed scan means: two 
 none of those handlers ever ran -- and a `scanRepo` that failed still answered with a
 repo, as though it had worked. They share one contract now: a scan that could not be
 applied is an error, except in `rescanRepos`, where one bad repo must not abort the rest.
+Either way the outcome is recorded on the repo (``bridge.repo.status``).
 
 Fetching and diagnosing the config file itself lives in ``bridge.repo.fetch``.
 """
@@ -21,9 +22,24 @@ from kante.types import Info
 from bridge import inputs, models, types
 from bridge.repo.db import parse_config
 from bridge.repo.fetch import RepoCoordinates, aget_kabinet_config
+from bridge.repo.status import arecord_scan
 from bridge.scoping import aget_for_org, for_org
 
 logger = logging.getLogger(__name__)
+
+
+async def ascan_github_repo(repo: models.GithubRepo, organization: Organization) -> None:
+    """Read a tracked repository's deployments again and write them, recording how that went on the repo.
+
+    A failure is recorded and then raised: the caller decides whether it is the caller's error.
+    """
+    try:
+        config = await aget_kabinet_config(repo.kabinet_url, RepoCoordinates(repo.user, repo.repo, repo.branch))
+        await sync_to_async(parse_config)(config, repo, organization)
+    except Exception as e:
+        await arecord_scan(repo, error=str(e))
+        raise
+    await arecord_scan(repo)
 
 
 async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo:
@@ -31,9 +47,7 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     parsed = input.to_pydantic()
     repo = await aget_for_org(models.GithubRepo, info, id=parsed.id)
 
-    config = await aget_kabinet_config(repo.kabinet_url, RepoCoordinates(repo.user, repo.repo, repo.branch))
-
-    await sync_to_async(parse_config)(config, repo, info.context.request.organization)
+    await ascan_github_repo(repo, info.context.request.organization)
 
     return repo
 
@@ -80,8 +94,15 @@ async def _create_github_repo(
 ) -> models.GithubRepo:
     user, repo, branch, name = infer_repo_info(input)
 
+    tracked = await models.GithubRepo.objects.filter(user=user, repo=repo, branch=branch, organization=organization).afirst()
+    if tracked is not None:
+        # Tracking a tracked repo reads it again; whatever comes of that is recorded on it.
+        await ascan_github_repo(tracked, organization)
+        return tracked
+
     dep_url = models.GithubRepo.build_kabinet_url(user, repo, branch)
 
+    # Read before it is stored: a repository that cannot be read is not tracked.
     config = await aget_kabinet_config(dep_url, RepoCoordinates(user, repo, branch))
 
     repo, _ = await models.GithubRepo.objects.aget_or_create(
@@ -95,7 +116,12 @@ async def _create_github_repo(
         ),
     )
 
-    await sync_to_async(parse_config)(config, repo, organization)
+    try:
+        await sync_to_async(parse_config)(config, repo, organization)
+    except Exception as e:
+        await arecord_scan(repo, error=str(e))
+        raise
+    await arecord_scan(repo)
 
     return repo
 
@@ -105,15 +131,17 @@ async def create_github_repo(info: Info, input: inputs.CreateGithubRepoInput) ->
     return await _create_github_repo(parsed, info.context.request.organization, info.context.request.user)
 
 
-async def _rescan_one(repo: models.GithubRepo, organization: Organization) -> None:
-    """Rescan a single repo, logging rather than raising when it cannot be scanned."""
+async def arescan_one(repo: models.GithubRepo, organization: Organization) -> bool:
+    """Rescan a single repo, logging rather than raising when it cannot be scanned. Whether it could."""
     try:
-        config = await aget_kabinet_config(repo.kabinet_url, RepoCoordinates(repo.user, repo.repo, repo.branch))
-        await sync_to_async(parse_config)(config, repo, organization)
+        await ascan_github_repo(repo, organization)
     except Exception as e:
         # One unreachable or malformed repo must not take the other N down with it. This
-        # is the one place where swallowing a scan failure is the right answer.
+        # is the one place where swallowing a scan failure is the right answer: it is
+        # recorded on the repo, where whoever looks at it sees why.
         logger.warning("Could not rescan %s: %s", repo, e, exc_info=True)
+        return False
+    return True
 
 
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:
@@ -127,6 +155,6 @@ async def rescan_repos(info: Info) -> list[types.GithubRepo]:
 
     repos = [repo async for repo in for_org(models.GithubRepo, info)]
 
-    await asyncio.gather(*(_rescan_one(repo, organization) for repo in repos))
+    await asyncio.gather(*(arescan_one(repo, organization) for repo in repos))
 
     return repos

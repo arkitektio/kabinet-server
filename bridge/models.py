@@ -25,6 +25,11 @@ class Repo(EmbeddedDescriptionMixin, models.Model):
 
     name = models.CharField(max_length=400)
     created_at = models.DateTimeField(auto_now=True)
+    # What the last scan of this repo came to, whichever kind of repo it is (`bridge.repo.status`).
+    # Defaults in the database as well, so a build that does not know these columns still inserts.
+    scan_attempted_at = models.DateTimeField(null=True, blank=True, help_text="When a scan of this repo was last attempted, whether or not it succeeded")
+    scan_error = models.TextField(blank=True, default="", db_default="", help_text="Why the last scan failed as a whole; empty when it succeeded")
+    scan_problems = models.JSONField(null=True, blank=True, help_text="What the last scan could not take, keyed by tag or app image, with the reason")
 
     #: A repo has no description; its name is the whole of its text.
     embedding_source_fields = ("name",)
@@ -55,6 +60,7 @@ class GithubRepo(Repo):
     updated_at = models.DateTimeField(auto_now=True)
     added_at = models.DateTimeField(auto_now_add=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="repos")
+    scanned_at = models.DateTimeField(null=True, blank=True, help_text="When the repository was last read successfully")
 
     #: Its own column, not the base table's way round (`Repo.embedding_organization_path`).
     embedding_organization_path = "organization"

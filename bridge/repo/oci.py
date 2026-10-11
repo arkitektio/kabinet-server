@@ -29,6 +29,7 @@ from bridge import models
 from .db import apply_release
 from .errors import DBError
 from .models import ReleaseDescriptorModel
+from .status import arecord_scan
 
 logger = logging.getLogger(__name__)
 
@@ -231,8 +232,13 @@ async def scan(repo: models.OciRepo, session: aiohttp.ClientSession | None = Non
                 # Not remembered: the registry may answer the next scan.
                 report.problems[tag] = str(e)
 
-    tags = await registry.tags()
-    await asyncio.gather(*(read(tag) for tag in tags if tag in repo.channels or tag not in seen))
+    try:
+        tags = await registry.tags()
+    except RegistryError as e:
+        await arecord_scan(repo, error=str(e))
+        raise
+    to_read = [tag for tag in tags if tag in repo.channels or tag not in seen]
+    await asyncio.gather(*(read(tag) for tag in to_read))
 
     # Written one after the other: two releases of one app must not race for its row.
     for tag in sorted(found):
@@ -255,4 +261,10 @@ async def scan(repo: models.OciRepo, session: aiohttp.ClientSession | None = Non
     repo.seen = seen
     repo.scanned_at = timezone.now()
     await repo.asave(update_fields=["seen", "scanned_at"])
+
+    # A tag this scan did not read (a release tag is read once) was not looked at again, so
+    # its problem still stands: carried over, or the next scan would call the repository healthy.
+    unread = set(tags) - set(to_read)
+    standing = {tag: problem for tag, problem in (repo.scan_problems or {}).items() if tag in unread}
+    await arecord_scan(repo, problems={**standing, **report.problems})
     return report

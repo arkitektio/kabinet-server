@@ -29,6 +29,7 @@ class ImportRepoInputModel(BaseModel):
 
     reference: str = Field(description="The repository, e.g. 'ghcr.io/org/app'. No tag, no digest.")
     channels: list[str] | None = Field(default=None, description="The channels to follow besides the releases, e.g. ['main']. Omit to keep what is followed.")
+    reread: bool = Field(default=False, description="Read every tag again, including the ones already read. A release tag is otherwise read once, so a refused release pushed again under its tag is only taken this way.")
 
 
 @pydantic.input(ImportRepoInputModel, description="Input for importing an OCI repository, or reading an imported one again.")
@@ -37,6 +38,7 @@ class ImportRepoInput:
 
     reference: str
     channels: list[str] | None = None
+    reread: bool = False
 
 
 class CreateGithubRepoInputModel(BaseModel):

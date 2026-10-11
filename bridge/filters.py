@@ -1,6 +1,7 @@
 import datetime
 
 import strawberry
+from bridge import enums
 from bridge import managers
 from bridge import inputs
 from bridge import models
@@ -21,6 +22,26 @@ class DefinitionOrder:
     defined_at: strawberry.auto
     name: strawberry.auto
     kind: strawberry.auto
+
+
+SCAN_STATES_DESCRIPTION = "Keep only repositories whose last scan came to one of these, e.g. [FAILED, PROBLEMS] for the ones that need attention."
+
+
+def scan_states_q(states: list[enums.ScanState], prefix: str) -> Q:
+    """The repositories whose recorded scan amounts to one of ``states`` (as ``enums.scan_state`` reads it)."""
+    failed = ~Q(**{f"{prefix}scan_error": ""})
+    attempted = Q(**{f"{prefix}scan_attempted_at__isnull": False})
+    no_problems = Q(**{f"{prefix}scan_problems__isnull": True}) | Q(**{f"{prefix}scan_problems": {}})
+    by_state = {
+        enums.ScanState.FAILED: failed,
+        enums.ScanState.NEVER: ~failed & ~attempted,
+        enums.ScanState.OK: ~failed & attempted & no_problems,
+        enums.ScanState.PROBLEMS: ~failed & attempted & ~no_problems,
+    }
+    q = Q(**{f"{prefix}pk__in": []})
+    for state in states:
+        q |= by_state[state]
+    return q
 
 
 @strawberry_django.filter_type(models.GithubRepo, description="Filter for tracked GitHub repositories.")
@@ -46,6 +67,27 @@ class GithubRepoFilter:
     @strawberry_django.filter_field(description="Case-insensitive match on the branch name.")
     def branch(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}branch__icontains": value})
+
+    @strawberry_django.filter_field(description=SCAN_STATES_DESCRIPTION)
+    def scan_states(self, value: list[enums.ScanState], prefix: str) -> Q:
+        return scan_states_q(value, prefix)
+
+
+@strawberry_django.filter_type(models.OciRepo, description="Filter for imported OCI repositories.")
+class OciRepoFilter:
+    """Filter for imported OCI repositories."""
+
+    @strawberry_django.filter_field(description="Keep only repositories whose ID is in this list.")
+    def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
+        return Q(**{f"{prefix}id__in": value})
+
+    @strawberry_django.filter_field(description="Case-insensitive match on the reference, `registry/repository`.")
+    def search(self, value: str, prefix: str) -> Q:
+        return Q(**{f"{prefix}name__icontains": value})
+
+    @strawberry_django.filter_field(description=SCAN_STATES_DESCRIPTION)
+    def scan_states(self, value: list[enums.ScanState], prefix: str) -> Q:
+        return scan_states_q(value, prefix)
 
 
 @strawberry_django.filter_type(models.Definition, description="Filter for action definitions.")
@@ -382,6 +424,17 @@ class GithubRepoOrder:
     name: strawberry.auto
     added_at: strawberry.auto
     updated_at: strawberry.auto
+    scanned_at: strawberry.auto
+    scan_attempted_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.OciRepo)
+class OciRepoOrder:
+    id: strawberry.auto
+    name: strawberry.auto
+    added_at: strawberry.auto
+    scanned_at: strawberry.auto
+    scan_attempted_at: strawberry.auto
 
 
 @strawberry_django.order_type(models.App)
