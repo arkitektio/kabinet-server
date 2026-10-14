@@ -191,6 +191,10 @@ async def test_pod_queries_and_lookups(authenticated_context: HttpContext, flavo
     my_pod = (await execute("query($localId: ID!){ myPodAt(localId: $localId){ id podId } }", authenticated_context, {"localId": "pod-1"}))["myPodAt"]
     assert my_pod["id"] == ids["pod"]
 
+    # No pod at that local id is an answer (null), not an error.
+    missing = (await execute("query($localId: ID!){ myPodAt(localId: $localId){ id } }", authenticated_context, {"localId": "nope"}))["myPodAt"]
+    assert missing is None
+
     for_agent = (await execute("query($clientId: ID!){ podForAgent(clientId: $clientId){ id clientId } }", authenticated_context, {"clientId": "client-1"}))["podForAgent"]
     assert for_agent["id"] == ids["pod"]
 
@@ -210,6 +214,22 @@ async def test_update_pod_and_dump_logs(authenticated_context: HttpContext, flav
     dump = (await execute(DUMP_LOGS, authenticated_context, {"input": {"pod": pod_id, "logs": "hello logs"}}))["dumpLogs"]
     assert dump["id"] is not None
     assert dump["logs"] == "hello logs"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_update_pod_omitting_the_other_identifier(authenticated_context: HttpContext, flavour_id: str) -> None:
+    """Both identifiers are nullable, so a client may leave either out entirely."""
+    setup = await setup_pod(authenticated_context, flavour_id)
+    pod_id = setup["pod"]["id"]
+
+    by_local_id = (
+        await execute(UPDATE_POD, authenticated_context, {"input": {"localId": "pod-1", "status": "RUNNING"}})
+    )["updatePod"]
+    assert by_local_id == {"id": pod_id, "status": "RUNNING"}
+
+    by_pod = (await execute(UPDATE_POD, authenticated_context, {"input": {"pod": pod_id, "status": "STOPPED"}}))["updatePod"]
+    assert by_pod == {"id": pod_id, "status": "STOPPED"}
 
 
 @pytest.mark.django_db(transaction=True)

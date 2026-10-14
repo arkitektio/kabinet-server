@@ -121,7 +121,7 @@ class InspectionInput:
     implementations: List[ImplementationInput] = strawberry.field(description="The implementations are a list of functionality the the app will provide")
     requirements: List[RequirementInput] = strawberry.field(description="The requirements are a list of services that the app needs to connect to (think: mikro, rekuest, ettc..)")
     bloks: list[BlokImplementationInput] = strawberry.field(description="The bloks are a list of Blok implementations that the app provides")
-    size: Optional[int] = strawberry.field(description="The size of the app in MB")
+    size: Optional[int] = strawberry.field(default=None, description="The size of the app in MB")
 
 
 @pydantic.input(ManifestInputModel)
@@ -148,7 +148,7 @@ class DockerImageInput:
 class AppImageInput:
     """Input describing a built app image to register."""
 
-    flavour_name: str | None = strawberry.field(description="The flavour name associated with this deployment")
+    flavour_name: str | None = strawberry.field(default=None, description="The flavour name associated with this deployment")
     manifest: ManifestInput
     selectors: list[SelectorInput] = strawberry.field(description="The selectors are used to place this image on the actions")
     app_image_id: str = strawberry.field(description="The unique identifier for the app_image")

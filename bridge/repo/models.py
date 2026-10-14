@@ -41,7 +41,7 @@ class ManifestInputModel(BaseModel):
 
 
 class InspectionInputModel(BaseModel):
-    size: int
+    size: int | None = None
     locks: List[LockImplementationInputModel] = Field(alias="locks")
     implementations: List[ImplementationInputModel] = Field(alias="implementations")
     states: List[StateImplementationInputModel] = Field(alias="states")
@@ -84,7 +84,7 @@ class AppImageInputModel(BaseModel):
 
     """
 
-    flavour_name: str | None = Field(alias="flavourName")
+    flavour_name: str | None = Field(default=None, alias="flavourName")
     manifest: ManifestInputModel
     selectors: list[SelectorInputModel]
     app_image_id: str = Field(alias="appImageId")

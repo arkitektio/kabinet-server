@@ -918,7 +918,7 @@ class ImplementationInputModel(BaseModel):
     definition: DefinitionInputModel = Field(description="The definition of the implementation. This is used to uniquely identify the implementation")
     dependencies: list[AgentDependencyInputModel] = Field(default_factory=list, description="The agent dependencies required by this implementation.")
     tracks: list[TrackInputModel] | None = Field(default=None, description="The tracks of the definition. This is used to track values over time during the runtime of an action. This is the state of a dependency")
-    interface: str = Field(description="The interface of the implementation. This is used to group implementations together in the UI")
+    interface: str | None = Field(default=None, description="The interface of the implementation. This is used to group implementations together in the UI")
     params: dict[str, Any] | None = Field(default=None, description="The params of the implementation. This is used to pass parameters to the implementation")
     instance_id: str | None = Field(default=None, description="The instance id of the agent this implementation is bound to.")
     locks: list[str] | None = Field(default=None, description="The locks of the implementation. This is used to specify which resources the implementation needs to run")

@@ -19,8 +19,15 @@ def pod_for_agent(info: Info, client_id: strawberry.ID) -> types.Pod | None:
         return None
 
 
-async def my_pod_at(info: Info, local_id: strawberry.ID) -> types.Pod:
-    """Let a backend discover its own pod by local id"""
+async def my_pod_at(info: Info, local_id: strawberry.ID) -> types.Pod | None:
+    """Let a backend discover its own pod by local id; null when it has none there.
+
+    A backend decides from this whether something it runs is still wanted, so "no
+    such pod" is an answer, not an error it would have to tell apart from a failure.
+    """
     backend = await aget_backend_for_info(info)
 
-    return await aget_for_org(models.Pod, info, backend=backend, pod_id=local_id)
+    try:
+        return await aget_for_org(models.Pod, info, backend=backend, pod_id=local_id)
+    except models.Pod.DoesNotExist:
+        return None

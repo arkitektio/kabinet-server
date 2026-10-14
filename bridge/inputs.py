@@ -131,8 +131,8 @@ class CreatePodInput:
 class UpdatePodInputModel(BaseModel):
     """Input for updating a pod's status."""
 
-    pod: strawberry.ID | None = Field(description="The ID of the pod to update; required unless 'local_id' is given.")
-    local_id: strawberry.ID | None = Field(description="The backend-local identifier of the pod to update.")
+    pod: strawberry.ID | None = Field(default=None, description="The ID of the pod to update; required unless 'local_id' is given.")
+    local_id: strawberry.ID | None = Field(default=None, description="The backend-local identifier of the pod to update.")
     status: str = Field(description="The new status of the pod.")
 
 
@@ -140,8 +140,8 @@ class UpdatePodInputModel(BaseModel):
 class UpdatePodInput:
     """Input for updating a pod's status."""
 
-    pod: strawberry.ID | None
-    local_id: strawberry.ID | None
+    pod: strawberry.ID | None = None
+    local_id: strawberry.ID | None = None
     status: PodStatus
 
 

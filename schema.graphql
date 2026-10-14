@@ -297,7 +297,7 @@ input AppFilter {
 Input describing a built app image to register (its manifest, image, selectors and inspection).
 """
 input AppImageInput {
-  flavourName: String
+  flavourName: String = null
   manifest: ManifestInput!
   selectors: [SelectorInput!]!
   appImageId: String!
@@ -1785,7 +1785,7 @@ input ImplementationInput {
   """
   The interface of the implementation. This is used to group implementations together in the UI
   """
-  interface: String
+  interface: String = null
 
   """
   The params of the implementation. This is used to pass parameters to the implementation
@@ -1850,7 +1850,7 @@ input ImportRepoInput {
 }
 
 input InspectionInput {
-  size: Int
+  size: Int = null
   locks: [LockImplementationInput!]!
   implementations: [ImplementationInput!]!
   states: [StateImplementationInput!]!
@@ -2550,7 +2550,7 @@ type Query {
   podForAgent(clientId: ID!): Pod
 
   """Let a backend discover one of its own pods by local identifier."""
-  myPodAt(localId: ID!): Pod!
+  myPodAt(localId: ID!): Pod
 }
 
 """Requires a minimum amount of system memory on the backend."""
@@ -3432,10 +3432,10 @@ input UpdateDeploymentInput {
 """Input for updating a pod's status."""
 input UpdatePodInput {
   """The ID of the pod to update; required unless 'local_id' is given."""
-  pod: ID
+  pod: ID = null
 
   """The backend-local identifier of the pod to update."""
-  localId: ID
+  localId: ID = null
 
   """The new status of the pod."""
   status: PodStatus!
