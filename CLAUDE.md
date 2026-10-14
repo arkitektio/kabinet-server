@@ -48,6 +48,11 @@ it points to: a deployment's and a pod's `@kabinet/backend_kind` is its backend'
 (`update()`, `bulk_update`) of a field a descriptor reads restores the rows too; the embedding
 healer's `bulk_update` writes only embedding columns, which no descriptor reads.
 
+The other direction, an object's descriptors asked of a definition's ports (`demands` with
+`descriptors`, what the install menu sends), reads each port's `requires` / `provides` off the
+`args` / `returns` JSON: `bridge/managers.py` compiles them in SQL to the JSONPath rekuest
+compiles at write time (`facade/descriptors.py`), so the two answer alike. Change one, change both.
+
 A flavour's hardware descriptors (`gpu`, `arch`, `min_ram_mb`, `min_vram_mb`) read its
 `required` selectors only: a preference is no minimum. `@kabinet/gpu` is `none` without a
 required accelerator and `multiple` when more than one vendor's is required (no single
