@@ -40,7 +40,7 @@ DESCRIPTORS_DESCRIPTION = (
 
 
 def resolve_descriptors(root) -> JSON:  # noqa: ANN001 - the model instance behind any hosted type
-    """The descriptors of a hosted object, from its structure's declaration (``kabinet_server.service``)."""
+    """The descriptors of a hosted object, as they are stored on it (``kabinet_server.service``)."""
     from kabinet_server.service import service  # the declaration imports bridge.models
 
     return service.describe(root)
@@ -232,7 +232,7 @@ class Release:
     channel: Optional[str] = strawberry_django.field(description="The channel this is the latest build of. Null for a release proper, which never changes.")
     revision: Optional[str] = strawberry_django.field(description="The source revision this release was built from, when its publisher said.")
     flavours: List["Flavour"] = strawberry_django.field(description="The flavours (buildable variants) available for this release.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["version"])
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 
     @strawberry_django.field(
         description="The stored logo of this release: the path of the ingested media, or null while none has been ingested.",
@@ -307,7 +307,7 @@ class Deployment:
     local_id: strawberry.ID = strawberry_django.field(description="The identifier of this deployment as known to the backend.")
     status: enums.PodStatus = strawberry_django.field(description="The current lifecycle status of this deployment.")
     approval: Optional["ReleaseApproval"] = strawberry_django.field(description="The approval this deployment was made under.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["status"])
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 
     # `api_token` used to be declared here as a non-null `String!`. The Deployment model
     # has no such field, so selecting it raised `AttributeError` -- and had it resolved,
@@ -453,7 +453,7 @@ class Flavour:
     definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
     manifest: scalars.UntypedParams = strawberry_django.field(description="The raw app manifest this flavour was built from.")
     bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection, as submitted (rekuest_core BlokImplementationInput shape).")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["flavour", "builder"])
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 
     @strawberry_django.field(description="This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
@@ -575,7 +575,7 @@ class Definition:
     tests: list["Definition"] = strawberry_django.field(description="The action definitions that act as tests for this definition.")
     protocols: list["Protocol"] = strawberry_django.field(description="The protocols this action implements.")
     defined_at: datetime.datetime = strawberry_django.field(description="When this action definition was first defined.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["kind", "scope", "pure", "idempotent"])
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 
     @strawberry_django.field(description="The input ports (arguments) of this action.")
     def args(self) -> list[rtypes.ArgPort]:
@@ -703,7 +703,7 @@ class Pod:
     pod_id: str = strawberry_django.field(description="The identifier of this pod as known to the backend.")
     client_id: str | None = strawberry_django.field(description="The OAuth2 client ID this pod authenticates as, if any.")
     status: enums.PodStatus = strawberry_django.field(description="The current lifecycle status of this pod.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["status"])
+    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 
     @strawberry_django.field(description="The display name of this pod, combining backend, flavour and app identifier.")
     def name(self) -> str:

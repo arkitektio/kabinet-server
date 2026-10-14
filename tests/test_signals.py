@@ -89,6 +89,9 @@ def intake(settings):
     }
     yield server
     server.server.shutdown()
+    # Closed, not only stopped: a signal still queued for this intake is refused at once
+    # instead of holding the one sender thread until its timeout.
+    server.server.server_close()
 
 
 def _organization():
@@ -106,13 +109,27 @@ def test_the_manifest_lists_what_kabinet_hosts_with_its_descriptors():
     # Everything kabinet hosts is signalled, and nothing else is.
     assert set(hosted) == set(EXPECTED)
     assert hosted["@kabinet/pod"]["label"] == "Pod"
-    assert hosted["@kabinet/pod"]["descriptors"] == [{"key": "@kabinet/status", "type": "STRING", "description": "Its lifecycle status"}]
-    assert {d["key"]: d["type"] for d in hosted["@kabinet/definition"]["descriptors"]} == {
-        "@kabinet/kind": "STRING",
-        "@kabinet/scope": "STRING",
-        "@kabinet/pure": "BOOL",
-        "@kabinet/idempotent": "BOOL",
-    }
+    assert [(d["key"], d["type"]) for d in hosted["@kabinet/pod"]["descriptors"]] == [("@kabinet/status", "STRING"), ("@kabinet/backend_kind", "STRING")]
+    assert hosted["@kabinet/deployment"]["descriptors"] == hosted["@kabinet/pod"]["descriptors"]
+    assert [(d["key"], d["type"]) for d in hosted["@kabinet/definition"]["descriptors"]] == [
+        ("@kabinet/kind", "STRING"),
+        ("@kabinet/pure", "BOOL"),
+        ("@kabinet/idempotent", "BOOL"),
+        ("@kabinet/n_args", "INT"),
+        ("@kabinet/n_returns", "INT"),
+    ]
+    assert [(d["key"], d["type"]) for d in hosted["@kabinet/flavour"]["descriptors"]] == [
+        ("@kabinet/flavour_name", "STRING"),
+        ("@kabinet/selector_kinds", "LIST"),
+        ("@kabinet/gpu", "STRING"),
+        ("@kabinet/arch", "LIST"),
+        ("@kabinet/min_ram_mb", "INT"),
+        ("@kabinet/min_vram_mb", "INT"),
+    ]
+    assert [(d["key"], d["type"]) for d in hosted["@kabinet/release"]["descriptors"]] == [("@kabinet/version", "STRING"), ("@kabinet/channel", "STRING")]
+    # A signal carries exactly the keys its structure declares.
+    for signal in service.manifest()["signals"]:
+        assert signal["descriptors"] == [d["key"] for d in hosted[signal["identifier"]]["descriptors"]], signal["identifier"]
     assert hosted["@kabinet/app"]["descriptors"] == hosted["@kabinet/githubrepo"]["descriptors"] == []
 
 

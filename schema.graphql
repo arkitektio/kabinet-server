@@ -1219,6 +1219,11 @@ input DefinitionFilter {
 
   """Keep only definitions whose ports satisfy all of the given demands."""
   demands: [PortDemandInput!]
+
+  """
+  Filter to the objects satisfying every one of these descriptor constraints: the `requires` of a port (`RequiresInput`), handed on unchanged, so a picker offers what the port accepts. Answered from the stored descriptors, in one indexed query
+  """
+  requires: [RequiresInput!]
 }
 
 "A definition\n\n    Definitions are the building implementation for Actions and provide the\n    information needed to create a action. They are primarly composed of a name,\n    a description, and a list of ports.\n\n    Definitions provide a protocol of input and output, and do not contain\n    any information about the actual implementation of the action ( this is handled\n    by a implementation that implements a action).\n\n    "
@@ -1362,6 +1367,11 @@ input DeploymentFilter {
 
   """Case-insensitive search on the deployment name."""
   search: String
+
+  """
+  Filter to the objects satisfying every one of these descriptor constraints: the `requires` of a port (`RequiresInput`), handed on unchanged, so a picker offers what the port accepts. Answered from the stored descriptors, in one indexed query
+  """
+  requires: [RequiresInput!]
 }
 
 input DeploymentOrder @oneOf {
@@ -1606,6 +1616,11 @@ input FlavourFilter {
 
   """Keep only flavours that provide one of the given definitions."""
   hasDefinitions: [ID!]
+
+  """
+  Filter to the objects satisfying every one of these descriptor constraints: the `requires` of a port (`RequiresInput`), handed on unchanged, so a picker offers what the port accepts. Answered from the stored descriptors, in one indexed query
+  """
+  requires: [RequiresInput!]
 }
 
 input FlavourOrder @oneOf {
@@ -2194,6 +2209,11 @@ input PodFilter {
 
   """Keep only pods running on the given backend."""
   backend: ID
+
+  """
+  Filter to the objects satisfying every one of these descriptor constraints: the `requires` of a port (`RequiresInput`), handed on unchanged, so a picker offers what the port accepts. Answered from the stored descriptors, in one indexed query
+  """
+  requires: [RequiresInput!]
 }
 
 input PodOrder @oneOf {
@@ -2721,6 +2741,11 @@ input ReleaseFilter {
   Keep only releases whose app identifier contains this text, case-insensitively.
   """
   identifier: String
+
+  """
+  Filter to the objects satisfying every one of these descriptor constraints: the `requires` of a port (`RequiresInput`), handed on unchanged, so a picker offers what the port accepts. Answered from the stored descriptors, in one indexed query
+  """
+  requires: [RequiresInput!]
 }
 
 input ReleaseOrder @oneOf {

@@ -28,6 +28,41 @@ ROLES = [
     Scope(key="viewer", description="Read-only access"),
 ]
 
+#: What a deployment and a pod are placed by: one pair of keys for both, so one `requires` asks both.
+_STATUS = Descriptor(key="@kabinet/status", type="STRING", description="Its lifecycle status")
+_BACKEND_KIND = Descriptor(key="@kabinet/backend_kind", type="STRING", description="The kind of backend it runs on, as the backend declared it (e.g. docker); unknown until it does")
+
+RELEASE_DESCRIPTORS = [
+    Descriptor(key="@kabinet/version", type="STRING", description="Its version"),
+    Descriptor(key="@kabinet/channel", type="STRING", description="The channel it is the latest build of (e.g. main): empty for a release proper, which never changes"),
+]
+#: Read off the selectors a backend must satisfy (``required``); a preference is no minimum.
+FLAVOUR_DESCRIPTORS = [
+    Descriptor(key="@kabinet/flavour_name", type="STRING", description="Which variant of its release it is, e.g. vanilla or cuda"),
+    Descriptor(key="@kabinet/selector_kinds", type="LIST", description="The kinds of selector it states, required or preferred: cpu, ram, cuda, rocm, oneapi, label"),
+    Descriptor(
+        key="@kabinet/gpu",
+        type="STRING",
+        description="The accelerator a backend must have to run it: cuda, rocm or oneapi; none when it requires none, multiple when it requires more than one vendor's",
+    ),
+    Descriptor(key="@kabinet/arch", type="LIST", description="The CPU architectures it requires (e.g. amd64, arm64): empty when any will do"),
+    Descriptor(key="@kabinet/min_ram_mb", type="INT", description="The system memory it requires, in MB: 0 when it states none"),
+    Descriptor(key="@kabinet/min_vram_mb", type="INT", description="The GPU memory it requires of a CUDA device, in MB: 0 when it states none"),
+]
+DEFINITION_DESCRIPTORS = [
+    Descriptor(key="@kabinet/kind", type="STRING", description="Whether it is a function or a generator"),
+    Descriptor(key="@kabinet/pure", type="BOOL", description="Whether its result may be cached"),
+    Descriptor(key="@kabinet/idempotent", type="BOOL", description="Whether running it twice is the same as running it once"),
+    Descriptor(key="@kabinet/n_args", type="INT", description="How many arguments it takes: 0 for an action a schedule can start"),
+    Descriptor(key="@kabinet/n_returns", type="INT", description="How many values it returns"),
+]
+PLACEMENT_DESCRIPTORS = [_STATUS, _BACKEND_KIND]
+
+
+def _keys(descriptors: list[Descriptor]) -> list[str]:
+    return [descriptor.key for descriptor in descriptors]
+
+
 #: What exists on a hub because this service is there: said here, as data, so the hub knows it from
 #: the image. ``service.py`` binds each of these to its model and refuses anything not said here.
 HOSTS = Hosts(
@@ -41,45 +76,31 @@ HOSTS = Hosts(
             identifier="@kabinet/release",
             label="Release",
             description="One version of an app, bundling the flavours that can be deployed for it.",
-            descriptors=[
-                Descriptor(key="@kabinet/version", type="STRING", description="Its version"),
-            ],
+            descriptors=RELEASE_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/flavour",
             label="Flavour",
             description="A runnable build of a release: one image, with the selectors and services it needs.",
-            descriptors=[
-                Descriptor(key="@kabinet/flavour", type="STRING", description="Which variant of its release it is, e.g. vanilla or cuda"),
-                Descriptor(key="@kabinet/builder", type="STRING", description="The builder that produced its image"),
-            ],
+            descriptors=FLAVOUR_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/definition",
             label="Definition",
             description="An action definition: what an action of a flavour takes and returns, by its hash.",
-            descriptors=[
-                Descriptor(key="@kabinet/kind", type="STRING", description="Whether it is a function or a generator"),
-                Descriptor(key="@kabinet/scope", type="STRING", description="Where the data it works on lives, e.g. GLOBAL"),
-                Descriptor(key="@kabinet/pure", type="BOOL", description="Whether its result may be cached"),
-                Descriptor(key="@kabinet/idempotent", type="BOOL", description="Whether running it twice is the same as running it once"),
-            ],
+            descriptors=DEFINITION_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/deployment",
             label="Deployment",
             description="A flavour set to run on a backend.",
-            descriptors=[
-                Descriptor(key="@kabinet/status", type="STRING", description="Its lifecycle status"),
-            ],
+            descriptors=PLACEMENT_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/pod",
             label="Pod",
             description="A running instance of a deployment on a backend.",
-            descriptors=[
-                Descriptor(key="@kabinet/status", type="STRING", description="Its lifecycle status"),
-            ],
+            descriptors=PLACEMENT_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/githubrepo",
@@ -96,31 +117,31 @@ HOSTS = Hosts(
         Signal(
             identifier="@kabinet/release",
             kinds=["CREATED", "UPDATED"],
-            descriptors=["@kabinet/version"],
+            descriptors=_keys(RELEASE_DESCRIPTORS),
             description="An app release was registered or refreshed.",
         ),
         Signal(
             identifier="@kabinet/flavour",
             kinds=["CREATED", "UPDATED"],
-            descriptors=["@kabinet/flavour", "@kabinet/builder"],
+            descriptors=_keys(FLAVOUR_DESCRIPTORS),
             description="A flavour (a runnable build of a release) was registered or refreshed.",
         ),
         Signal(
             identifier="@kabinet/definition",
             kinds=["CREATED", "UPDATED"],
-            descriptors=["@kabinet/kind", "@kabinet/scope", "@kabinet/pure", "@kabinet/idempotent"],
+            descriptors=_keys(DEFINITION_DESCRIPTORS),
             description="An action definition was registered or refreshed.",
         ),
         Signal(
             identifier="@kabinet/deployment",
             kinds=["CREATED", "UPDATED", "DELETED"],
-            descriptors=["@kabinet/status"],
+            descriptors=_keys(PLACEMENT_DESCRIPTORS),
             description="A deployment was created, changed status or removed.",
         ),
         Signal(
             identifier="@kabinet/pod",
             kinds=["CREATED", "UPDATED", "DELETED"],
-            descriptors=["@kabinet/status"],
+            descriptors=_keys(PLACEMENT_DESCRIPTORS),
             description="A pod was created, changed status or removed.",
         ),
         Signal(
@@ -161,6 +182,7 @@ contract = Contract(
     jobs={
         "ensureadmin": Job(("ensureadmin",), "Create the operator account the config names"),
         "ensurerepos": Job(("ensurerepos",), "Register the repositories the config names"),
+        "restore_descriptors": Job(("restore_descriptors",), "Store the descriptors of every flavour, release, definition, deployment and pod that misses one (--all: of every row)"),
     },
-    setup=("ensureadmin", "ensurerepos"),
+    setup=("ensureadmin", "ensurerepos", "restore_descriptors"),
 )

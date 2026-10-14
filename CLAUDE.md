@@ -26,7 +26,10 @@ anything is recreated — and runs everything else as a job the image offers by 
 
 What this service declares:
 
-- Setup, in order: `ensureadmin`, `ensurerepos`.
+- Setup, in order: `ensureadmin`, `ensurerepos`, `restore_descriptors`. The last stores the
+  descriptors of every flavour, release, definition, deployment and pod that misses a declared
+  key (rows from before a key existed); `--all` describes every row again after a describer
+  changed what a key means.
 - Other jobs: none.
 - Not jobs, on purpose: `printschema` regenerates the committed `schema.graphql`: a developer's tool, run in a checkout.
 
@@ -34,3 +37,19 @@ What this service declares:
 of this service, the setup run twice. In `deployments/next` the service runs
 `arkitekt-service standalone --debug`, which migrates and then serves: restart its container
 to apply a new migration.
+
+## Descriptors
+
+Every descriptor is stored (`stored_descriptors`, recomputed on every save by
+`arkitekt_service`), so a port's `requires` is the `requires` argument of a list filter, one
+indexed query. The describers are in `kabinet_server/descriptors.py` and read the row, or a row
+it points to: a deployment's and a pod's `@kabinet/backend_kind` is its backend's, so
+`declareBackend` restores them (`service.restore`) when the kind changes. A bulk write
+(`update()`, `bulk_update`) of a field a descriptor reads restores the rows too; the embedding
+healer's `bulk_update` writes only embedding columns, which no descriptor reads.
+
+A flavour's hardware descriptors (`gpu`, `arch`, `min_ram_mb`, `min_vram_mb`) read its
+`required` selectors only: a preference is no minimum. `@kabinet/gpu` is `none` without a
+required accelerator and `multiple` when more than one vendor's is required (no single
+vendor's backend runs it). `@kabinet/flavour_name` is `Flavour.name` (vanilla, cuda);
+`Flavour.flavour` holds the image's digest.

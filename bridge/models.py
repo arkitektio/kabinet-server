@@ -1,3 +1,5 @@
+from arkitekt_service.service.described import Described
+from django.contrib.postgres.indexes import GinIndex
 from django.core.cache import cache
 from django.db import models
 from embeddings import engine as embedding_engine
@@ -189,7 +191,7 @@ class MediaStore(S3Store):
         self.save()
 
 
-class Release(models.Model):
+class Release(Described):
     app = models.ForeignKey(App, on_delete=models.CASCADE, related_name="releases")
     version = models.CharField(max_length=400)
     scopes = models.JSONField(default=list)
@@ -203,6 +205,7 @@ class Release(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["app", "version"], name="Unique release for version")]
+        indexes = [GinIndex(fields=["stored_descriptors"], name="kab_release_desc_gin", opclasses=["jsonb_path_ops"])]
 
 
 class DockerImage(models.Model):
@@ -213,7 +216,7 @@ class DockerImage(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
 
 
-class Flavour(EmbeddedDescriptionMixin, models.Model):
+class Flavour(EmbeddedDescriptionMixin, Described):
     """One built variant of a release (``vanilla``, ``cuda``, ...).
 
     A flavour's own text is its name and the manifest it was built from. The name alone
@@ -251,7 +254,7 @@ class Flavour(EmbeddedDescriptionMixin, models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["release", "name"], name="Unique flavour for release")]
         ordering = ["-created_at"]
-        indexes = [*embedding_indexes("flavour")]
+        indexes = [*embedding_indexes("flavour"), GinIndex(fields=["stored_descriptors"], name="kab_flavour_desc_gin", opclasses=["jsonb_path_ops"])]
 
     def get_selectors(self) -> List[rselectors.Selector]:
         field_json = rselectors.SelectorFieldJson(**{"selectors": self.selectors})
@@ -280,7 +283,7 @@ class Protocol(models.Model):
         return self.name
 
 
-class Definition(EmbeddedDescriptionMixin, models.Model):
+class Definition(EmbeddedDescriptionMixin, Described):
     """Actions are abstraction of RPC Tasks. They provide a common API to deal with creating tasks.
 
     Carries an embedding of its name + description (``EmbeddedDescriptionMixin``) so the
@@ -347,7 +350,7 @@ class Definition(EmbeddedDescriptionMixin, models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["hash", "organization"], name="Unique definition for org")]
         # The embedding healer's "any row not by the current model?" probe.
-        indexes = [*embedding_indexes("definition")]
+        indexes = [*embedding_indexes("definition"), GinIndex(fields=["stored_descriptors"], name="kab_def_desc_gin", opclasses=["jsonb_path_ops"])]
 
     def __str__(self) -> str:
         return f"{self.name}"
@@ -404,7 +407,7 @@ class ReleaseApproval(models.Model):
         ordering = ["-created_at"]
 
 
-class Deployment(models.Model):
+class Deployment(Described):
     flavour = models.ForeignKey(
         Flavour,
         on_delete=models.CASCADE,
@@ -426,6 +429,9 @@ class Deployment(models.Model):
     created_at = models.DateTimeField(auto_now=True)
     local_id = models.CharField(max_length=2000, default="unset")
 
+    class Meta:
+        indexes = [GinIndex(fields=["stored_descriptors"], name="kab_deploy_desc_gin", opclasses=["jsonb_path_ops"])]
+
 
 class Resource(models.Model):
     backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="resources")
@@ -438,7 +444,7 @@ class Resource(models.Model):
         constraints = [models.UniqueConstraint(fields=["backend", "resource_id"], name="Unique resource for backend ")]
 
 
-class Pod(models.Model):
+class Pod(Described):
     backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="pods")
     resource = models.ForeignKey(Resource, on_delete=models.SET_NULL, related_name="pods", null=True, blank=True)
     pod_id = models.CharField(max_length=1000)
@@ -455,6 +461,7 @@ class Pod(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["backend", "pod_id"], name="Unique pod for backend ")]
         ordering = ["-created_at"]
+        indexes = [GinIndex(fields=["stored_descriptors"], name="kab_pod_desc_gin", opclasses=["jsonb_path_ops"])]
 
     def latest_log_dump(self):
         return self.log_dumps.order_by("-created_at").first()

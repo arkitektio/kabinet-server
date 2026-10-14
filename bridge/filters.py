@@ -9,9 +9,23 @@ import strawberry_django
 from kante.types import Info
 from django.db.models import Q, QuerySet
 from rekuest_core import enums as rkenums
+from rekuest_core.inputs.types import RequiresInput
 
 from embeddings import search
 from embeddings.search import hybrid_search
+
+
+# --- descriptors: a port's requires ------------------------------------------
+
+
+REQUIRES_DESCRIPTION = "Filter to the objects satisfying every one of these descriptor constraints: the `requires` of a port (`RequiresInput`), handed on unchanged, so a picker offers what the port accepts. Answered from the stored descriptors, in one indexed query"
+
+
+def requires(model: type, value: list[RequiresInput], prefix: str) -> Q:
+    """A port's ``requires`` on the stored descriptors of ``model``'s rows."""
+    from kabinet_server.service import service  # it imports the models this module filters
+
+    return service.requires(model, value, prefix)
 
 
 @strawberry_django.order_type(models.Definition, description="Order for action definitions.")
@@ -190,6 +204,10 @@ class DefinitionFilter:
 
         return Q(**{f"{prefix}id__in": filtered_ids})
 
+    @strawberry_django.filter_field(description=REQUIRES_DESCRIPTION)
+    def requires(self, value: list[RequiresInput], prefix: str) -> Q:
+        return requires(models.Definition, value, prefix)
+
 
 @strawberry_django.order_type(models.Flavour)
 class FlavourOrder:
@@ -222,6 +240,10 @@ class FlavourFilter:
     @strawberry_django.filter_field(description="Keep only flavours that provide one of the given definitions.")
     def has_definitions(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}definitions__in": value})
+
+    @strawberry_django.filter_field(description=REQUIRES_DESCRIPTION)
+    def requires(self, value: list[RequiresInput], prefix: str) -> Q:
+        return requires(models.Flavour, value, prefix)
 
 
 @strawberry_django.filter_type(models.Resource, description="Filter for resources.")
@@ -260,6 +282,10 @@ class PodFilter:
     def backend(self, value: strawberry.ID, prefix: str) -> Q:
         return Q(**{f"{prefix}backend__id": value})
 
+    @strawberry_django.filter_field(description=REQUIRES_DESCRIPTION)
+    def requires(self, value: list[RequiresInput], prefix: str) -> Q:
+        return requires(models.Pod, value, prefix)
+
 
 @strawberry_django.filter_type(models.Deployment, description="Filter for deployments.")
 class DeploymentFilter:
@@ -270,6 +296,10 @@ class DeploymentFilter:
     @strawberry_django.filter_field(description="Case-insensitive search on the deployment name.")
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}name__icontains": value})
+
+    @strawberry_django.filter_field(description=REQUIRES_DESCRIPTION)
+    def requires(self, value: list[RequiresInput], prefix: str) -> Q:
+        return requires(models.Deployment, value, prefix)
 
 
 @strawberry_django.filter_type(models.Release, description="Filter for app releases.")
@@ -295,6 +325,10 @@ class ReleaseFilter:
     @strawberry_django.filter_field(description="Keep only releases whose app identifier contains this text, case-insensitively.")
     def identifier(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}app__identifier__icontains": value})
+
+    @strawberry_django.filter_field(description=REQUIRES_DESCRIPTION)
+    def requires(self, value: list[RequiresInput], prefix: str) -> Q:
+        return requires(models.Release, value, prefix)
 
 
 @strawberry_django.filter_type(models.ReleaseApproval, description="Filter for release approvals.")

@@ -5,7 +5,8 @@ is declared once, as data, in ``kabinet_server.contract`` (``hosts``), so that a
 image. This module only binds it: each structure to its model and to what computes its
 descriptors, each signal to the saves and deletes that send it. A structure the contract does not
 declare cannot be bound, and one it declares that nothing binds here stops the service at its
-start. The GraphQL types answer ``descriptors`` from the same binding (``bridge.types``).
+start. Each described row stores its descriptors on every save (``stored_descriptors``): the
+GraphQL types answer ``descriptors`` from there, and a filter's ``requires`` reads it in SQL.
 
 Hosting announces nothing by itself: a structure with no signal below is hosted silently.
 
@@ -17,6 +18,7 @@ agent's to say (``kabinet_server.hook_agent``), a different thing with its own c
 from bridge import models
 from arkitekt_service.service import Service, organization_of
 
+from kabinet_server import descriptors
 from kabinet_server.contract import contract
 
 service = Service("kabinet", hosts=contract.description.hosts, description="The hub's app, flavour and repository registry.")
@@ -25,19 +27,11 @@ service = Service("kabinet", hosts=contract.description.hosts, description="The 
 # --- Structures: what kabinet hosts ---------------------------------------------------
 
 app = service.structure(models.App, "@kabinet/app")
-release = service.structure(models.Release, "@kabinet/release", describe=lambda release: {"@kabinet/version": release.version})
-flavour = service.structure(
-    models.Flavour,
-    "@kabinet/flavour",
-    describe=lambda flavour: {"@kabinet/flavour": flavour.flavour, "@kabinet/builder": flavour.builder},
-)
-definition = service.structure(
-    models.Definition,
-    "@kabinet/definition",
-    describe=lambda d: {"@kabinet/kind": str(d.kind), "@kabinet/scope": str(d.scope), "@kabinet/pure": bool(d.pure), "@kabinet/idempotent": bool(d.idempotent)},
-)
-deployment = service.structure(models.Deployment, "@kabinet/deployment", describe=lambda deployment: {"@kabinet/status": str(deployment.status)})
-pod = service.structure(models.Pod, "@kabinet/pod", describe=lambda pod: {"@kabinet/status": str(pod.status)})
+release = service.structure(models.Release, "@kabinet/release", describe=descriptors.release_descriptors)
+flavour = service.structure(models.Flavour, "@kabinet/flavour", describe=descriptors.flavour_descriptors)
+definition = service.structure(models.Definition, "@kabinet/definition", describe=descriptors.definition_descriptors)
+deployment = service.structure(models.Deployment, "@kabinet/deployment", describe=descriptors.placement_descriptors)
+pod = service.structure(models.Pod, "@kabinet/pod", describe=descriptors.placement_descriptors)
 githubrepo = service.structure(models.GithubRepo, "@kabinet/githubrepo")
 
 
