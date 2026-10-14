@@ -76,6 +76,20 @@ def parse_reference(reference: str) -> tuple[str, str]:
     return registry, repository
 
 
+async def _body(response: aiohttp.ClientResponse) -> bytes:
+    """The whole body, or the first bytes past the limit when it is longer.
+
+    ``content.read(n)`` is not this: it returns what has arrived so far, and a registry
+    (ghcr.io, behind its blob redirect) sends a descriptor in several pieces.
+    """
+    body = bytearray()
+    async for chunk in response.content.iter_chunked(64 * 1024):
+        body.extend(chunk)
+        if len(body) > MAX_DESCRIPTOR_BYTES:
+            break
+    return bytes(body)
+
+
 @dataclass
 class Registry:
     """One repository on one registry, read anonymously."""
@@ -100,8 +114,7 @@ class Registry:
                 async with self.session.get(url, headers=headers, timeout=_TIMEOUT) as response:
                     if response.status == 401 and await self._authorize(response.headers.get("WWW-Authenticate", "")):
                         continue
-                    body = await response.content.read(MAX_DESCRIPTOR_BYTES + 1)
-                    return response.status, response.headers, body
+                    return response.status, response.headers, await _body(response)
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 raise RegistryError(f"Could not reach {self.registry}: {e}") from e
         raise RegistryError(f"{self.registry} did not accept the token it issued.")

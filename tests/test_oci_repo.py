@@ -6,6 +6,7 @@ What is under test is the sum of several requests (tags, manifests, blobs), and 
 them a second scan no longer makes.
 """
 
+import asyncio
 import copy
 import hashlib
 import json
@@ -98,7 +99,19 @@ class FakeRegistry:
         content = self.manifests[repository].get(reference) if kind == "manifests" else self.blobs.get(reference)
         if content is None:
             raise web.HTTPNotFound()
+        if kind == "blobs":
+            return await self.stream(request, content)
         return web.Response(body=content, headers={"Docker-Content-Digest": _digest(content)})
+
+    async def stream(self, request: web.Request, content: bytes) -> web.StreamResponse:
+        """Send a blob in pieces that arrive apart, as ghcr.io does: a reader must wait for all of them."""
+        response = web.StreamResponse(headers={"Docker-Content-Digest": _digest(content)})
+        await response.prepare(request)
+        for start in range(0, len(content), 1024):
+            await response.write(content[start : start + 1024])
+            await asyncio.sleep(0.001)
+        await response.write_eof()
+        return response
 
 
 @pytest_asyncio.fixture
