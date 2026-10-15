@@ -427,6 +427,14 @@ input ArgPortInput {
   requires: [RequiresInput!] = null
 }
 
+"""
+What a file an agent brings with it is: a 3D model (a binary glTF file) or an image (PNG, JPEG or WebP).
+"""
+enum AssetKind {
+  MODEL_3D
+  IMAGE
+}
+
 interface AssignWidget {
   kind: AssignWidgetKind!
   followValue: String
@@ -600,8 +608,15 @@ input BlokImplementationInput {
   """The dependencies required by this Blok."""
   dependencies: [AgentDependencyInput!]! = []
 
-  """The UI component tree blueprint for this Blok."""
-  components: [ComponentNodeInput!]!
+  """
+  The UI component tree blueprint for this Blok, unless it is sent as its `source`.
+  """
+  components: [ComponentNodeInput!] = null
+
+  """
+  The Blok as BSX, parsed by the server into its component tree: three times fewer bytes than the tree. Exactly one of `components` and `source` is sent.
+  """
+  source: String = null
 
   """
   The optional catalog name if this Blok should be registered inside a specific namespace in your Electron app's UI component registry.
@@ -617,6 +632,26 @@ input BlokImplementationInput {
   An optional JSON-serializable object providing demo state values for this Blok's internal reactive data model, useful for testing and development purposes.
   """
   demoState: JSONSerializable = null
+
+  """
+  The renderer for this Blok's root: HTML for panels and dashboards, SCENE for a full 3D view whose root opens a scene.
+  """
+  context: ComponentContext! = HTML
+
+  """
+  Whether this Blok is its agent's default for its context. A newly declared default replaces the previous one.
+  """
+  default: Boolean! = false
+
+  """
+  The model ('sha256:...') this Blok decorates: viewers showing that model offer this Blok at `for_node`. HTML bloks only.
+  """
+  forModel: String = null
+
+  """
+  The node of `for_model` this Blok attaches to; the model's root when absent.
+  """
+  forNode: String = null
 }
 
 """Requires CPU resources on the backend."""
@@ -778,6 +813,16 @@ input CollectionOrder @oneOf {
   id: Ordering
   name: Ordering
   definedAt: Ordering
+}
+
+"""
+The renderer a catalog component lives in. A component may only be placed where its context is in force.
+"""
+enum ComponentContext {
+  HTML
+  SCENE
+  LOGO
+  ACTION_LOGO
 }
 
 """
@@ -1558,7 +1603,7 @@ type Flavour {
   manifest: UntypedParams!
 
   """
-  Blok implementation manifests declared by this flavour's inspection, as submitted (rekuest_core BlokImplementationInput shape).
+  Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput shape): the app's LOGO, its actions' ACTION_LOGOs, panels and scenes.
   """
   bloks: UntypedParams!
 
@@ -1566,6 +1611,11 @@ type Flavour {
   This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test (e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
   """
   descriptors: JSON!
+
+  """
+  The files this flavour's app brings, as its inspection declared them (name, kind, ref, size, and the path in the image or an https source).
+  """
+  assets: UntypedParams!
 
   """
   This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.
@@ -1834,6 +1884,11 @@ input ImplementationInput {
   A hash of the implementation's code. A workflow is only resumed by an implementation with the same hash.
   """
   codeHash: String = null
+
+  """
+  The key of the agent's action logo blok (context ACTION_LOGO) that draws this action.
+  """
+  logo: String = null
 }
 
 """
@@ -1849,12 +1904,44 @@ input ImportRepoInput {
   channels: [String!] = null
 }
 
+"""A file the app brings, as its image holds it."""
+input InspectedAssetInput {
+  """
+  The name bloks refer to the asset by, as in `@self.assets.<name>`. Unique within the agent.
+  """
+  name: String!
+
+  """What the file is."""
+  kind: AssetKind!
+
+  """'sha256:' and the hex SHA-256 of the file's exact bytes."""
+  ref: String!
+
+  """
+  The size of the file in bytes. Required unless the asset names a `source`: an agent knows the size of a file it holds.
+  """
+  size: Int = null
+
+  """
+  The https URL the file can be fetched from. Given instead of holding the file: the agent uploads nothing, an admin's client fetches it.
+  """
+  source: String = null
+
+  """
+  Where the file is, relative to the app's directory. Absent for a file the image does not hold: that one names a `source`.
+  """
+  path: String = null
+}
+
 input InspectionInput {
   size: Int = null
   locks: [LockImplementationInput!]!
   implementations: [ImplementationInput!]!
   states: [StateImplementationInput!]!
   bloks: [BlokImplementationInput!]! = []
+
+  """The files the app brings: models and images its bloks call by name."""
+  assets: [InspectedAssetInput!]! = []
   requirements: [RequirementInput!]!
 }
 

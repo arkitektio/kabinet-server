@@ -57,10 +57,24 @@ class FakeRegistry:
         self.manifests.setdefault(repository, {})[tag] = manifest
         return f"{self.reference(repository)}@{_digest(manifest)}"
 
-    def release(self, repository: str, tag: str, version: str, *, channel: str | None = None, identifier: str = "ome", image: str | None = None) -> None:
-        """Push a release descriptor under a tag, with one flavour whose image sits beside it."""
+    def release(
+        self,
+        repository: str,
+        tag: str,
+        version: str,
+        *,
+        channel: str | None = None,
+        identifier: str = "ome",
+        image: str | None = None,
+        inspection: dict | None = None,
+    ) -> None:
+        """Push a release descriptor under a tag, with one flavour whose image sits beside it.
+
+        ``inspection`` is merged over the fixture's.
+        """
         with open(build_relative_dir("deployments/deployments.yaml")) as f:
             app_image = copy.deepcopy(yaml.safe_load(f)["app_images"][0])
+        app_image["inspection"].update(inspection or {})
         descriptor = {
             "spec_version": 1,
             "manifest": {**app_image["manifest"], "identifier": identifier, "version": version},
@@ -290,6 +304,46 @@ async def test_the_hook_action_reads_every_imported_repository_again(authenticat
     assert await sync_to_async(rescan_sources)("static_org") == {"releases": 1, "unreadable": 1}
     assert await sync_to_async(rescan_sources)("another_org") == {"releases": 0, "unreadable": 0}
     assert await models.Release.objects.filter(app__identifier="ome").acount() == 2
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_release_keeps_its_logos_and_assets(authenticated_context: HttpContext, registry: FakeRegistry):
+    """An app's bloks travel as an SDK sends them (BSX source, a LOGO and ACTION_LOGOs), and its assets with them."""
+    with open(build_relative_dir("deployments/deployments.yaml")) as f:
+        implementation = copy.deepcopy(yaml.safe_load(f)["app_images"][0]["inspection"]["implementations"][0])
+    implementation["logo"] = "ome_segment"
+    registry.release(
+        "org/ome",
+        "1.0.0",
+        "1.0.0",
+        inspection={
+            "implementations": [implementation],
+            "bloks": [
+                {"key": "ome_logo", "context": "LOGO", "default": True, "source": '<SVG viewBox="0 0 24 24"><Circle r="4" fill="#fbbf24" /></SVG>'},
+                {
+                    "key": "ome_segment",
+                    "context": "ACTION_LOGO",
+                    "source": '<ActionLogo viewBox="0 0 24 24"><Circle r="4" fill="brand" animate="pulse" /></ActionLogo>',
+                    "demo_state": {"task": None},
+                },
+            ],
+            "assets": [{"name": "nucleus", "kind": "MODEL_3D", "ref": "sha256:" + "a" * 64, "size": 1024, "path": "models/nucleus.glb"}],
+        },
+    )
+
+    repo = await import_repo(authenticated_context, registry.reference("org/ome"))
+
+    flavour = await models.Flavour.objects.aget(repo_id=repo["id"])
+    assert [(blok["key"], blok["context"], blok["default"]) for blok in flavour.bloks] == [("ome_logo", "LOGO", True), ("ome_segment", "ACTION_LOGO", False)]
+    assert flavour.bloks[1]["source"].startswith("<ActionLogo")
+    assert flavour.inspection["implementations"][0]["logo"] == "ome_segment"
+
+    result = await execute("query($id: ID!) { flavour(id: $id) { bloks assets } }", authenticated_context, {"id": str(flavour.id)})
+    assert result["flavour"]["assets"] == [
+        {"name": "nucleus", "kind": "MODEL_3D", "ref": "sha256:" + "a" * 64, "size": 1024, "source": None, "path": "models/nucleus.glb"}
+    ]
+    assert [blok["key"] for blok in result["flavour"]["bloks"]] == ["ome_logo", "ome_segment"]
 
 
 def test_the_descriptor_arkitekt_spec_writes_is_read_here():

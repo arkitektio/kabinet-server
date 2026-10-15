@@ -452,7 +452,11 @@ class Flavour:
     deployments: List[Deployment] = strawberry_django.field(description="The deployments that run this flavour.")
     definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
     manifest: scalars.UntypedParams = strawberry_django.field(description="The raw app manifest this flavour was built from.")
-    bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection, as submitted (rekuest_core BlokImplementationInput shape).")
+    bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput shape): the app's LOGO, its actions' ACTION_LOGOs, panels and scenes.")
+
+    @strawberry_django.field(description="The files this flavour's app brings, as its inspection declared them (name, kind, ref, size, and the path in the image or an https source).", only=["inspection"])
+    def assets(self) -> scalars.UntypedParams:
+        return (self.inspection or {}).get("assets", [])
     descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 
     @strawberry_django.field(description="This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")

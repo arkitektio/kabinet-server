@@ -1,6 +1,7 @@
 import datetime
 from typing import List, Optional
 from strawberry.experimental import pydantic
+from rekuest_core import enums as rekuest_enums
 from rekuest_core.inputs.types import BlokImplementationInput, ImplementationInput, StateImplementationInput, LockImplementationInput
 import strawberry
 from kante.unions import merged_input, union_member, union_member_types
@@ -10,6 +11,7 @@ from .models import (
     DockerImageModel,
     AppImageInputModel,
     ManifestInputModel,
+    InspectedAssetModel,
     InspectionInputModel,
     RequirementInputModel,
 )
@@ -114,6 +116,16 @@ class RequirementInput:
     description: Optional[str] = None
 
 
+@pydantic.input(InspectedAssetModel, description="A file the app brings, as its image holds it.")
+class InspectedAssetInput:
+    name: str
+    kind: rekuest_enums.AssetKind
+    ref: str
+    size: Optional[int] = None
+    source: Optional[str] = None
+    path: Optional[str] = None
+
+
 @pydantic.input(InspectionInputModel)
 class InspectionInput:
     locks: List[LockImplementationInput] = strawberry.field(description="The locks are a list of lock implementations that the app provides")
@@ -121,6 +133,7 @@ class InspectionInput:
     implementations: List[ImplementationInput] = strawberry.field(description="The implementations are a list of functionality the the app will provide")
     requirements: List[RequirementInput] = strawberry.field(description="The requirements are a list of services that the app needs to connect to (think: mikro, rekuest, ettc..)")
     bloks: list[BlokImplementationInput] = strawberry.field(description="The bloks are a list of Blok implementations that the app provides")
+    assets: list[InspectedAssetInput] = strawberry.field(default_factory=list, description="The files the app brings: models and images its bloks call by name")
     size: Optional[int] = strawberry.field(default=None, description="The size of the app in MB")
 
 

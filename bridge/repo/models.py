@@ -2,7 +2,7 @@ import re
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import List, Literal, Optional
 import datetime
-from rekuest_core.inputs.models import ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel
+from rekuest_core.inputs.models import AssetInputModel, ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel
 
 from .selectors import Selector
 
@@ -40,12 +40,22 @@ class ManifestInputModel(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
 
+class InspectedAssetModel(AssetInputModel):
+    """A file the app brings, as its image holds it (arkitekt-spec's ``InspectedAsset``)."""
+
+    path: str | None = Field(
+        default=None,
+        description="Where the file is, relative to the app's directory. Absent for a file the image does not hold: that one names a `source`.",
+    )
+
+
 class InspectionInputModel(BaseModel):
     size: int | None = None
     locks: List[LockImplementationInputModel] = Field(alias="locks")
     implementations: List[ImplementationInputModel] = Field(alias="implementations")
     states: List[StateImplementationInputModel] = Field(alias="states")
     bloks: list[BlokImplementationInputModel] = Field(default_factory=list, alias="bloks")
+    assets: list[InspectedAssetModel] = Field(default_factory=list, description="The files the app brings: models and images its bloks call by name.")
     requirements: List[RequirementInputModel]
 
 

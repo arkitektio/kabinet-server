@@ -58,6 +58,21 @@ def _value_path_root(value_path: str) -> str:
     return value_path.lstrip("/").split("/", 1)[0]
 
 
+#: The root a handler's arguments read the value that triggered them from (``$event/value``).
+BLOK_EVENT_ROOT = "$event"
+
+#: What follows a dependency's key in the path of one of its assets (``self.assets.scope``).
+BLOK_ASSETS_SEGMENT = "assets"
+
+
+def blok_asset_path(path: str) -> tuple[str, str] | None:
+    """The ``(dependency key, asset name)`` of ``<dependency>.assets.<name>``, or None if ``path`` is not exactly that."""
+    parts = path.split(".")
+    if len(parts) == 3 and parts[1] == BLOK_ASSETS_SEGMENT and all(parts):
+        return parts[0], parts[2]
+    return None
+
+
 def _blok_path_root(path: str) -> str:
     """First segment of a blok path, split on '/' and '.' like the renderer's splitPathSegments ('self.scope.x' -> 'self', '/exposure/current' -> 'exposure')."""
     return next((segment for segment in re.split(r"[/.]", path) if segment), "")
@@ -304,6 +319,8 @@ class SearchAssignWidgetInputModel(_AssignWidgetBase):
             raise ValueError(f"SEARCH widget filters have duplicate keys {duplicates}")
         if "value" in keys:
             raise ValueError("SEARCH widget filters may not use the reserved key 'value'")
+        if "requires" in keys:
+            raise ValueError("SEARCH widget filters may not use the reserved key 'requires': a frontend passes the port's own constraints under it")
         undeclared = sorted(set(keys) - declared)
         if undeclared:
             raise ValueError(f"SEARCH widget query must declare a variable for each filter port: missing {['$' + key for key in undeclared]}")
@@ -929,6 +946,7 @@ class ImplementationInputModel(BaseModel):
     effects: enums.Effects = Field(default=enums.Effects.UNKNOWN, description="What running this implementation again would do to the world. Informational: shown to whoever decides about a lost task.")
     execution: enums.Execution = Field(default=enums.Execution.PLAIN, description="How this implementation runs: a WORKFLOW may call other actions and is resumed from its journal when its agent dies.")
     code_hash: str | None = Field(default=None, description="A hash of the implementation's code. A workflow is only resumed by an implementation with the same hash.")
+    logo: str | None = Field(default=None, description="The key of the agent's action logo blok (context ACTION_LOGO) that draws this action.")
 
     @model_validator(mode="after")
     def check_widget_targets(self) -> Self:
@@ -974,6 +992,35 @@ class LockDefinitionInputModel(BaseModel):
 class LockImplementationInputModel(BaseModel):
     key: str = Field(description="The key of the lock implementation.")
     definition: LockDefinitionInputModel = Field(description="The lock definition this implementation fulfills.")
+
+
+ASSET_SOURCE_MAX_LENGTH = 2000
+
+
+class AssetInputModel(BaseModel):
+    """A file an agent brings with it: the name its bloks call it by, and what the bytes are."""
+
+    name: str = Field(description="The name bloks refer to the asset by, as in `@self.assets.<name>`. Unique within the agent.")
+    kind: enums.AssetKind = Field(description="What the file is.")
+    ref: str = Field(description="'sha256:' and the hex SHA-256 of the file's exact bytes.")
+    size: int | None = Field(default=None, description="The size of the file in bytes. Required unless the asset names a `source`: an agent knows the size of a file it holds.")
+    source: str | None = Field(default=None, description="The https URL the file can be fetched from. Given instead of holding the file: the agent uploads nothing, an admin's client fetches it.")
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _well_formed(self) -> "AssetInputModel":
+        if not self.name.isidentifier():
+            raise ValueError(f"Asset: the name {self.name!r} is not an identifier")
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", self.ref):
+            raise ValueError(f"Asset {self.name!r}: the reference must be 'sha256:' and 64 lowercase hex characters, not {self.ref!r}")
+        if self.source is not None and not (self.source.startswith("https://") and len("https://") < len(self.source) <= ASSET_SOURCE_MAX_LENGTH):
+            raise ValueError(f"Asset {self.name!r}: a source is an https URL of at most {ASSET_SOURCE_MAX_LENGTH} characters")
+        if self.size is None and self.source is None:
+            raise ValueError(f"Asset {self.name!r}: an asset has a size")
+        if self.size is not None and self.size <= 0:
+            raise ValueError(f"Asset {self.name!r}: an asset has a size")
+        return self
 
 
 # A two-field `BlokImplementationInputModel` stub used to sit here. The real one is
@@ -1111,6 +1158,14 @@ class ComponentNodeInputModel(BaseModel):
     children: list["ComponentNodeInputModel"] | None = Field(default=None, description="Flat adjacency pointer list mapping out IDs nested inside this specific component layer.")
 
 
+def check_blok_sent_once(components: object | None, source: str | None, *, required: bool) -> None:
+    """A blok is sent as its components or as its BSX source: not both, and (where it must be sent) not neither."""
+    if components is not None and source is not None:
+        raise ValueError("a blok is sent as its components or as its BSX source, not both")
+    if required and components is None and source is None:
+        raise ValueError("a blok is sent as its components or as its BSX source")
+
+
 def check_blok_manifest(components: Optional[List[ComponentNodeInputModel]], dependency_keys: set[str], state_keys: Optional[set[str]]) -> None:
     """Coherence of a blok component tree.
 
@@ -1118,7 +1173,8 @@ def check_blok_manifest(components: Optional[List[ComponentNodeInputModel]], dep
     * ``declares_value`` names are unique
     * every ``agent_call.dependency`` names a declared blok dependency
     * every ``value_path`` / ``dynamic_value.path`` root resolves to a demo-state key, a declared
-      value or a dependency key -- skipped when ``state_keys`` is ``None`` (no demo state given)
+      value, a dependency key or ``$event`` -- skipped when ``state_keys`` is ``None`` (no demo state given)
+    * ``<dependency>.assets.<name>`` names a file of a declared dependency, not a value
     """
     ids: set[str] = set()
     declared: set[str] = set()
@@ -1132,10 +1188,16 @@ def check_blok_manifest(components: Optional[List[ComponentNodeInputModel]], dep
                     raise ValueError(f"Blok manifest: value {prop.declares_value!r} declared twice")
                 declared.add(prop.declares_value)
 
-    roots = None if state_keys is None else (state_keys | declared | dependency_keys)
+    roots = None if state_keys is None else (state_keys | declared | dependency_keys | {BLOK_EVENT_ROOT})
 
     def check_root(path: Optional[str], owner: str) -> None:
-        if path is None or roots is None:
+        if path is None:
+            return
+        named = blok_asset_path(path)
+        if named is not None and named[0] in dependency_keys:
+            # A file of a declared dependency: there is no value at this path to resolve.
+            return
+        if roots is None:
             return
         root = _blok_path_root(path)
         if root not in roots:
@@ -1167,20 +1229,45 @@ def check_blok_manifest(components: Optional[List[ComponentNodeInputModel]], dep
                 walk_arguments(prop.util_call.arguments, owner)
 
 
+MODEL_REF_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
+
+
+def check_blok_target(context: enums.ComponentContext, for_model: Optional[str], for_node: Optional[str]) -> None:
+    """A blok that decorates a model names it by reference, and is an html blok."""
+    if for_node is not None and for_model is None:
+        raise ValueError("Blok manifest: for_node needs a for_model")
+    if for_model is None:
+        return
+    if not MODEL_REF_PATTERN.fullmatch(for_model):
+        raise ValueError(f"Blok manifest: for_model must be 'sha256:' and 64 lowercase hex characters, not {for_model!r}")
+    if context != enums.ComponentContext.HTML:
+        raise ValueError("Blok manifest: only an html blok can decorate a model")
+
+
 class BlokImplementationInputModel(BaseModel):
     "Base model for a Blok implementation manifest, which compiles all necessary information to materialize a Blok instance in the Arkitekt ecosystem."
 
     key: str = Field(description="The key of this Blok implementation.")
     dependencies: list[AgentDependencyInputModel] = Field(default_factory=list, description="The dependencies required by this Blok.")
-    components: list[ComponentNodeInputModel] = Field(description="The UI component tree blueprint for this Blok.")
+    components: Optional[list[ComponentNodeInputModel]] = Field(default=None, description="The UI component tree blueprint for this Blok, unless it is sent as its `source`.")
+    source: Optional[str] = Field(default=None, description="The Blok as BSX, parsed by the server into its component tree: three times fewer bytes than the tree. Exactly one of `components` and `source` is sent.")
     catalog: Optional[str] = Field(default=None, description="The optional catalog name if this Blok should be registered inside a specific namespace in your Electron app's UI component registry.")
     description: Optional[str] = Field(default=None, description="A human-readable description about this Blok's purpose and functionality.")
     demo_state: Optional[dict] = Field(default=None, description="An optional JSON-serializable object providing demo state values for this Blok's internal reactive data model, useful for testing and development purposes.")
+    context: enums.ComponentContext = Field(default=enums.ComponentContext.HTML, description="The renderer for this Blok's root: HTML for panels and dashboards, SCENE for a full 3D view whose root opens a scene.")
+    default: bool = Field(default=False, description="Whether this Blok is its agent's default for its context. A newly declared default replaces the previous one.")
+    for_model: Optional[str] = Field(default=None, description="The model ('sha256:...') this Blok decorates: viewers showing that model offer this Blok at `for_node`. HTML bloks only.")
+    for_node: Optional[str] = Field(default=None, description="The node of `for_model` this Blok attaches to; the model's root when absent.")
 
     @model_validator(mode="after")
     def check_manifest(self) -> Self:
-        """The component tree is coherent with the declared dependencies and demo state."""
-        check_blok_manifest(self.components, {dep.key for dep in self.dependencies}, None if self.demo_state is None else set(self.demo_state))
+        """Sent one way; the component tree coherent with the declared dependencies and demo state.
+
+        A blok sent as its source is checked once takt has parsed it, at registration."""
+        check_blok_sent_once(self.components, self.source, required=True)
+        if self.components is not None:
+            check_blok_manifest(self.components, {dep.key for dep in self.dependencies}, None if self.demo_state is None else set(self.demo_state))
+        check_blok_target(self.context, self.for_model, self.for_node)
         return self
 
 
@@ -1237,11 +1324,23 @@ class CatalogComponentInputModel(BaseModel):
     description: str | None = Field(default=None, description="Human-readable description of the component.")
     props: list[CatalogPropInputModel] = Field(default_factory=list, description="The props this component accepts.")
     accepts_children: bool = Field(default=True, description="Whether ComponentNode.children may be nested under this component.")
+    context: enums.ComponentContext = Field(default=enums.ComponentContext.HTML, description="The context this component may be placed in.")
+    children_context: enums.ComponentContext | None = Field(default=None, description="The context in force for this component's children, when it differs from its own: such a component bridges two renderers.")
+    inherits_context: bool = Field(default=False, description="Whether the component may be placed in any context, taking its parent's for itself and its children (control flow such as foreach or if). Its context is then ignored.")
+    downstream_of: list[str] = Field(default_factory=list, description="Component names of which at least one must be an ancestor, at any depth. Empty means no requirement.")
+    not_downstream_of: list[str] = Field(default_factory=list, description="Component names of which none may be an ancestor.")
 
     @model_validator(mode="after")
     def check_unique_props(self) -> Self:
         """Prop keys are unique per component."""
         _check_unique(self.props, "key", f"catalog component {self.name}")
+        return self
+
+    @model_validator(mode="after")
+    def check_no_action_logo_context(self) -> Self:
+        """ACTION_LOGO is a blok's context, never a component's: an action logo draws logo components."""
+        if enums.ComponentContext.ACTION_LOGO in (self.context, self.children_context):
+            raise ValueError(f"catalog component {self.name}: ACTION_LOGO is a blok context only; its shapes are LOGO components")
         return self
 
 
