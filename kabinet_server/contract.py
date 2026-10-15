@@ -183,6 +183,7 @@ contract = Contract(
         "ensureadmin": Job(("ensureadmin",), "Create the operator account the config names"),
         "ensurerepos": Job(("ensurerepos",), "Register the repositories the config names"),
         "restore_descriptors": Job(("restore_descriptors",), "Store the descriptors of every flavour, release, definition, deployment and pod that misses one (--all: of every row)"),
+        "restore_bloks": Job(("restore_bloks",), "Store what the bloks of every flavour draw where it has none stored (--all: of every flavour)"),
     },
-    setup=("ensureadmin", "ensurerepos", "restore_descriptors"),
+    setup=("ensureadmin", "ensurerepos", "restore_descriptors", "restore_bloks"),
 )

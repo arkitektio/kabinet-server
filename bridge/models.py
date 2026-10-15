@@ -239,6 +239,8 @@ class Flavour(EmbeddedDescriptionMixin, Described):
     manifest = models.JSONField(default=dict)
     requirements = models.JSONField(default=list)
     bloks = models.JSONField(default=list, help_text="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput).")
+    blok_renders = models.JSONField(default=dict, help_text="What each blok draws, by its key: its component tree parsed from its source, the hash of what it draws, and why its source did not parse (bridge/repo/bloks.py).")
+    action_logos = models.JSONField(default=dict, help_text="The key of the ACTION_LOGO blok each action's implementation names as its logo, by the action's definition hash.")
 
     #: ``manifest`` is JSON, so the text pulled out of it is assembled below; it is listed
     #: here so the healer loads the column and so a manifest change re-embeds the row.

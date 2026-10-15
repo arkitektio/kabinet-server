@@ -275,6 +275,9 @@ type App {
   This app's stored vector, as `<model id>:<floats>`. Null until it has been indexed.
   """
   embedding: Embedding
+
+  """The app's logo: the LOGO blok of its newest release that brings one."""
+  logoBlok: FlavourBlok
 }
 
 """Filter for apps."""
@@ -1194,6 +1197,11 @@ type Definition {
   embedding: Embedding
 
   """
+  The ACTION_LOGO blok that draws this action: the one `flavour`'s implementation names, or without `flavour` the one of the newest flavour providing it that names one. Null when none does.
+  """
+  logo(flavour: ID = null): FlavourBlok
+
+  """
   Other action definitions closest to this one in meaning, nearest first (cosine distance between their vectors, this definition excluded) -- the same action shipped under two names, or the neighbourhood a definition belongs to. `filters` narrows the candidates like `definitions` does; `maxDistance` (0 identical, 1 unrelated) cuts the tail, otherwise the nearest `limit` come back however far away they are. Empty while this definition has no vector yet or semantic indexing is off. One vector scan per definition resolved, so ask for it on a definition, not on every row of a long list.
   """
   similarDefinitions(filters: DefinitionFilter = null, limit: Int! = 10, maxDistance: Float = null): [Definition!]!
@@ -1623,6 +1631,14 @@ type Flavour {
   assets: UntypedParams!
 
   """
+  The bloks this flavour's app brings, parsed and ready to draw, in the order it declared them; of one context only when `context` is given.
+  """
+  blokImplementations(context: ComponentContext = null): [FlavourBlok!]!
+
+  """This flavour's app logo: its default LOGO blok, or its first."""
+  logoBlok: FlavourBlok
+
+  """
   This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.
   """
   embedding: Embedding
@@ -1652,6 +1668,53 @@ type Flavour {
 
   """The services this flavour requires in order to run."""
   requirements: [Requirement!]!
+}
+
+"""
+A blok a flavour's app brings: its LOGO, an action's ACTION_LOGO, a panel (HTML) or a scene (SCENE). Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here.
+"""
+type FlavourBlok {
+  """`<flavour id>:<key>`: what `flavourBlok` finds it by."""
+  id: ID!
+
+  """The flavour whose app brings this blok."""
+  flavourId: ID!
+
+  """The key the app declared this blok under, unique within it."""
+  key: String!
+
+  """The renderer its root lives in."""
+  context: ComponentContext!
+
+  """
+  Whether it is its app's default for its context (the app's logo is its default LOGO).
+  """
+  default: Boolean!
+
+  """What the app says the blok shows."""
+  description: String
+
+  """
+  A SHA-256 of what the blok draws: its component tree, demo state and context. Two bloks with the same hash draw the same thing, so a client may keep what it drew under it.
+  """
+  hash: String!
+
+  """
+  The whole component tree as one JSON value (a list of roots) in the wire spelling (snake_case keys), as rekuest serves `Blok.componentTree`. Null when the source does not parse.
+  """
+  componentTree: JSON
+
+  """The state the blok is drawn against when it is shown on its own."""
+  demoState: JSON
+
+  """The model ('sha256:...') this blok decorates, if any."""
+  forModel: String
+
+  """The node of `forModel` it attaches to; the model's root when null."""
+  forNode: String
+
+  """Why the blok's source does not parse, or null."""
+  parseError: String
 }
 
 """Filter for flavours."""
@@ -2581,6 +2644,11 @@ type Query {
   """Return a single flavour (a buildable variant of a release) by its ID."""
   flavour(id: ID!): Flavour!
 
+  """
+  Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none.
+  """
+  flavourBlok(id: ID!): FlavourBlok
+
   """Return a single deployment by its ID."""
   deployment(id: ID!): Deployment!
 
@@ -2731,6 +2799,11 @@ type Release {
 
   """The display name of this release, in the form 'identifier:version'."""
   name: String!
+
+  """
+  The release's logo: the LOGO blok of the first of its flavours that brings one.
+  """
+  logoBlok: FlavourBlok
 
   """
   The digest an approval of this release is pinned to (identity, scopes, requirements, images). Changes whenever the release is re-published differently.

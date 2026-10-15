@@ -29,6 +29,9 @@ class Query:
     release: types.Release = strawberry_django.field(resolver=queries.release, description="Return a single app release by its ID.")
     resource: types.Resource = strawberry_django.field(resolver=queries.resource, description="Return a single backend resource by its ID.")
     flavour: types.Flavour = strawberry_django.field(resolver=queries.flavour, description="Return a single flavour (a buildable variant of a release) by its ID.")
+    flavour_blok: types.FlavourBlok | None = strawberry_django.field(
+        resolver=queries.flavour_blok, description="Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none."
+    )
     deployment: types.Deployment = strawberry_django.field(resolver=queries.deployment, description="Return a single deployment by its ID.")
     backend: types.Backend = strawberry_django.field(resolver=queries.backend, description="Return a single backend by its ID.")
     pod: types.Pod = strawberry_django.field(resolver=queries.pod, description="Return a single pod by its ID.")

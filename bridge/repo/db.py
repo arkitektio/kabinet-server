@@ -18,6 +18,7 @@ from django.db import transaction
 
 from bridge import models
 
+from . import bloks
 from .errors import DBError
 from .models import AppImageInputModel, KabinetConfigFile, ReleaseDescriptorModel
 
@@ -79,6 +80,8 @@ def upsert_app_image(
             manifest=manifest.model_dump(),
             requirements=[requirement.model_dump() for requirement in app_image.inspection.requirements],
             bloks=[blok.model_dump(mode="json") for blok in app_image.inspection.bloks],
+            blok_renders=bloks.render_bloks(blok.model_dump(mode="json") for blok in app_image.inspection.bloks),
+            action_logos=bloks.action_logos((implementation.definition.unique_hash, implementation.logo) for implementation in app_image.inspection.implementations),
             inspection=app_image.inspection.model_dump(mode="json"),
         ),
     )

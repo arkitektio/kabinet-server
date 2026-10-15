@@ -26,10 +26,13 @@ anything is recreated — and runs everything else as a job the image offers by 
 
 What this service declares:
 
-- Setup, in order: `ensureadmin`, `ensurerepos`, `restore_descriptors`. The last stores the
-  descriptors of every flavour, release, definition, deployment and pod that misses a declared
-  key (rows from before a key existed); `--all` describes every row again after a describer
-  changed what a key means.
+- Setup, in order: `ensureadmin`, `ensurerepos`, `restore_descriptors`, `restore_bloks`.
+  `restore_descriptors` stores the descriptors of every flavour, release, definition, deployment
+  and pod that misses a declared key (rows from before a key existed); `--all` describes every
+  row again after a describer changed what a key means. `restore_bloks` stores what a flavour's
+  bloks draw (`Flavour.blok_renders`, parsed from their BSX) and which blok draws each action
+  (`Flavour.action_logos`) for flavours imported before either existed; `--all` renders every
+  flavour again after the parser changed.
 - Other jobs: none.
 - Not jobs, on purpose: `printschema` regenerates the committed `schema.graphql`: a developer's tool, run in a checkout.
 

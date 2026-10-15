@@ -9,7 +9,9 @@ from authentikate import models as auth_models
 from bridge import enums, filters, models, scalars, scoping, types
 from bridge import filters as filters_module
 from strawberry_django.filters import apply as apply_filters
+from bridge.repo import bloks as repo_bloks
 from bridge.repo import selectors
+from django.db.models import Prefetch
 from embeddings import search
 from embeddings.strawberry import Embedding, embedding_of
 from kante.types import Info
@@ -188,6 +190,77 @@ GithubRepoStats, GithubRepoStatsResolver = create_stats_type(
 )
 
 
+#: What a flavour's blok is drawn from: read with every field that builds a `FlavourBlok`.
+BLOK_FIELDS = ("id", "bloks", "blok_renders")
+#: ...and, for an action's logo, which blok draws which action.
+ACTION_LOGO_FIELDS = (*BLOK_FIELDS, "action_logos", "created_at")
+
+
+@strawberry.type(
+    description=(
+        "A blok a flavour's app brings: its LOGO, an action's ACTION_LOGO, a panel (HTML) or a scene (SCENE). "
+        "Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here."
+    )
+)
+class FlavourBlok:
+    id: strawberry.ID = strawberry.field(description="`<flavour id>:<key>`: what `flavourBlok` finds it by.")
+    flavour_id: strawberry.ID = strawberry.field(description="The flavour whose app brings this blok.")
+    key: str = strawberry.field(description="The key the app declared this blok under, unique within it.")
+    context: rkenums.ComponentContext = strawberry.field(description="The renderer its root lives in.")
+    default: bool = strawberry.field(description="Whether it is its app's default for its context (the app's logo is its default LOGO).")
+    description: Optional[str] = strawberry.field(description="What the app says the blok shows.")
+    hash: str = strawberry.field(
+        description="A SHA-256 of what the blok draws: its component tree, demo state and context. Two bloks with the same hash draw the same thing, so a client may keep what it drew under it."
+    )
+    component_tree: Optional[JSON] = strawberry.field(
+        description="The whole component tree as one JSON value (a list of roots) in the wire spelling (snake_case keys), as rekuest serves `Blok.componentTree`. Null when the source does not parse."
+    )
+    demo_state: Optional[JSON] = strawberry.field(description="The state the blok is drawn against when it is shown on its own.")
+    for_model: Optional[str] = strawberry.field(description="The model ('sha256:...') this blok decorates, if any.")
+    for_node: Optional[str] = strawberry.field(description="The node of `forModel` it attaches to; the model's root when null.")
+    parse_error: Optional[str] = strawberry.field(description="Why the blok's source does not parse, or null.")
+
+
+def flavour_blok(flavour: models.Flavour, blok: dict) -> FlavourBlok:
+    """``blok`` of ``flavour.bloks`` as served; rendered here when the flavour has no render stored yet."""
+    render = (flavour.blok_renders or {}).get(blok["key"]) or repo_bloks.render_blok(blok)
+    return FlavourBlok(
+        id=strawberry.ID(f"{flavour.id}:{blok['key']}"),
+        flavour_id=strawberry.ID(str(flavour.id)),
+        key=blok["key"],
+        context=rkenums.ComponentContext(blok.get("context") or "HTML"),
+        default=bool(blok.get("default")),
+        description=blok.get("description"),
+        hash=render["hash"],
+        component_tree=render["component_tree"],
+        demo_state=blok.get("demo_state"),
+        for_model=blok.get("for_model"),
+        for_node=blok.get("for_node"),
+        parse_error=render["parse_error"],
+    )
+
+
+def flavour_bloks(flavour: models.Flavour, context: rkenums.ComponentContext | None = None) -> list[FlavourBlok]:
+    """The bloks of ``flavour``, in the order its app declared them; of ``context`` only, when given."""
+    wanted = context.value if context is not None else None
+    return [flavour_blok(flavour, blok) for blok in flavour.bloks or [] if blok.get("key") and (wanted is None or blok.get("context") == wanted)]
+
+
+def logo_of(flavour: models.Flavour) -> FlavourBlok | None:
+    """A flavour's app logo: its default LOGO blok, or its first."""
+    logos = [blok for blok in flavour.bloks or [] if blok.get("key") and blok.get("context") == "LOGO"]
+    logos.sort(key=lambda blok: not blok.get("default"))
+    return flavour_blok(flavour, logos[0]) if logos else None
+
+
+def prefetched(instance, attr: str, fallback):  # noqa: ANN001, ANN201
+    """What a `Prefetch(to_attr=attr)` stored on ``instance``; ``fallback()`` when it did not run."""
+    if hasattr(instance, attr):
+        return getattr(instance, attr)
+    return list(fallback())
+
+
+
 @strawberry_django.type(
     models.App,
     filters=filters.AppFilter,
@@ -209,6 +282,26 @@ class App:
     @strawberry_django.field(description="This app's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
+
+    @strawberry_django.field(
+        description="The app's logo: the LOGO blok of its newest release that brings one.",
+        prefetch_related=[
+            Prefetch(
+                "releases",
+                queryset=models.Release.objects.order_by("-released_at").prefetch_related(
+                    Prefetch("flavours", queryset=models.Flavour.objects.only(*BLOK_FIELDS, "release_id"), to_attr="logo_flavours")
+                ),
+                to_attr="logo_releases",
+            )
+        ],
+    )
+    def logo_blok(self) -> FlavourBlok | None:
+        for release in prefetched(self, "logo_releases", lambda: self.releases.order_by("-released_at")):
+            for flavour in prefetched(release, "logo_flavours", lambda: release.flavours.only(*BLOK_FIELDS)):
+                logo = logo_of(flavour)
+                if logo:
+                    return logo
+        return None
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -263,6 +356,17 @@ class Release:
         return self.app.identifier + ":" + self.version
 
     approvals: List["ReleaseApproval"] = strawberry_django.field(description="Standing approvals to run this release, newest first.")
+
+    @strawberry_django.field(
+        description="The release's logo: the LOGO blok of the first of its flavours that brings one.",
+        prefetch_related=[Prefetch("flavours", queryset=models.Flavour.objects.only(*BLOK_FIELDS, "release_id"), to_attr="logo_flavours")],
+    )
+    def logo_blok(self) -> FlavourBlok | None:
+        for flavour in prefetched(self, "logo_flavours", lambda: self.flavours.only(*BLOK_FIELDS)):
+            logo = logo_of(flavour)
+            if logo:
+                return logo
+        return None
 
     @strawberry_django.field(description="The digest an approval of this release is pinned to (identity, scopes, requirements, images). Changes whenever the release is re-published differently.")
     def approval_digest(self, info: Info) -> str:
@@ -457,6 +561,17 @@ class Flavour:
     @strawberry_django.field(description="The files this flavour's app brings, as its inspection declared them (name, kind, ref, size, and the path in the image or an https source).", only=["inspection"])
     def assets(self) -> scalars.UntypedParams:
         return (self.inspection or {}).get("assets", [])
+
+    @strawberry_django.field(
+        description="The bloks this flavour's app brings, parsed and ready to draw, in the order it declared them; of one context only when `context` is given.",
+        only=["bloks", "blok_renders"],
+    )
+    def blok_implementations(self, context: rkenums.ComponentContext | None = None) -> list[FlavourBlok]:
+        return flavour_bloks(self, context)
+
+    @strawberry_django.field(description="This flavour's app logo: its default LOGO blok, or its first.", only=["bloks", "blok_renders"])
+    def logo_blok(self) -> FlavourBlok | None:
+        return logo_of(self)
     descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 
     @strawberry_django.field(description="This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
@@ -592,6 +707,24 @@ class Definition:
     @strawberry_django.field(description="This definition's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
+
+    @strawberry_django.field(
+        description=(
+            "The ACTION_LOGO blok that draws this action: the one `flavour`'s implementation names, or without "
+            "`flavour` the one of the newest flavour providing it that names one. Null when none does."
+        ),
+        prefetch_related=[Prefetch("flavours", queryset=models.Flavour.objects.only(*ACTION_LOGO_FIELDS), to_attr="logo_flavours")],
+    )
+    def logo(self, flavour: strawberry.ID | None = None) -> FlavourBlok | None:
+        candidates = prefetched(self, "logo_flavours", lambda: self.flavours.only(*ACTION_LOGO_FIELDS))
+        if flavour is not None:
+            candidates = [candidate for candidate in candidates if str(candidate.id) == str(flavour)]
+        for candidate in sorted(candidates, key=lambda candidate: candidate.created_at, reverse=True):
+            key = (candidate.action_logos or {}).get(self.hash)
+            blok = next((blok for blok in candidate.bloks or [] if blok.get("key") == key), None) if key else None
+            if blok:
+                return flavour_blok(candidate, blok)
+        return None
 
     @strawberry_django.field(
         description=(
