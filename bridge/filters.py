@@ -7,7 +7,7 @@ from bridge import models
 from bridge import scoping
 import strawberry_django
 from kante.types import Info
-from django.db.models import Q, QuerySet
+from django.db.models import Exists, OuterRef, Q, QuerySet
 from rekuest_core import enums as rkenums
 from rekuest_core.inputs.types import RequiresInput
 
@@ -169,6 +169,22 @@ class DefinitionFilter:
     @strawberry_django.filter_field(description="Keep only definitions that have at least one test, or only those that have none.")
     def has_tests(self, queryset: QuerySet, value: bool, prefix: str) -> tuple[QuerySet, Q]:
         return queryset.distinct(), Q(**{f"{prefix}tests__isnull": not value})
+
+    @strawberry_django.filter_field(description=(
+        "Keep only definitions already deployed in their organization (a deployment of one of the "
+        "flavours that provide them, on one of its backends), or with false only those never "
+        "deployed there: what is left to install."
+    ))
+    def already_deployed(self, value: bool, prefix: str) -> Q:
+        # `Exists`, not a join over flavours and their deployments: a definition provided by a
+        # deployed flavour of several releases would come back once per deployment.
+        deployed = Exists(
+            models.Deployment.objects.filter(
+                flavour__definitions=OuterRef(f"{prefix}pk"),
+                backend__organization=OuterRef(f"{prefix}organization"),
+            )
+        )
+        return Q(deployed) if value else ~Q(deployed)
 
     @strawberry_django.filter_field(description="Keep only definitions first defined at or after this moment.")
     def defined_after(self, value: datetime.datetime, prefix: str) -> Q:
