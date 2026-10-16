@@ -321,7 +321,7 @@ input ApproveReleaseInput {
   release: ID!
 
   """
-  The lok mandate (createMandate) that lets the agent provision this release as you.
+  The lok agent mandate (createMandate) that lets the deployer issue mandate keys that run this release as you.
   """
   mandate: ID!
 
@@ -2822,7 +2822,7 @@ type Release {
 }
 
 """
-A user's standing approval to run a release, backed by a lok mandate that lets a deployer provision it as them.
+A user's standing approval to run a release, backed by a lok agent mandate that lets a deployer issue mandate keys that run it as them.
 """
 type ReleaseApproval {
   id: ID!

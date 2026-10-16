@@ -388,8 +388,8 @@ class Backend(models.Model):
 class ReleaseApproval(models.Model):
     """A user's standing approval to run one release, backed by a lok mandate.
 
-    The approver granted a lok ``Mandate`` letting ``agent`` (a deployer app)
-    provision this release as them; kabinet keeps the pointer plus the release
+    The approver granted a lok agent ``Mandate`` letting ``agent`` (a deployer app)
+    issue mandate keys that run this release as them; kabinet keeps the pointer plus the release
     ``digest`` it was approved at. A release can be re-published under the same
     version, so the digest is re-checked on every deployment: once it drifts the
     approval is *stale* and nothing new may be deployed from it.

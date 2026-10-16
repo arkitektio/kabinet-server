@@ -1,7 +1,8 @@
 """Release approvals: what a user pre-authorized, and whether it still holds.
 
-The authorization itself lives in lok (a ``Mandate``: the approver lets a deployer
-app provision this release as them). Kabinet keeps the pointer and pins it to a
+The authorization itself lives in lok (an agent ``Mandate``: the approver lets a
+deployer app issue mandate keys that run this release as them; revoking the mandate
+stops every one of them). Kabinet keeps the pointer and pins it to a
 digest of the release, because a release can be re-published under the same
 version (``upsert_app_image`` is an ``update_or_create`` on (app, version)) — an
 approval must not silently carry over to different scopes, requirements or images.

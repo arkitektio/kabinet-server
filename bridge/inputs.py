@@ -326,7 +326,7 @@ class ApproveReleaseInputModel(BaseModel):
     """Input for recording a standing approval of a release."""
 
     release: str = Field(description="The release to approve.")
-    mandate: str = Field(description="The lok mandate (createMandate) that lets the agent provision this release as you.")
+    mandate: str = Field(description="The lok agent mandate (createMandate) that lets the deployer issue mandate keys that run this release as you.")
     agent: str = Field(description="Identifier of the deployer app the mandate names.")
     digest: str = Field(description="The release's approvalDigest you reviewed; refused if the release changed since.")
     backends: list[str] | None = Field(default=None, description="Backends allowed to deploy under this approval. Omit for any.")

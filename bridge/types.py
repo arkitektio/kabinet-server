@@ -856,7 +856,7 @@ class Pod:
     models.ReleaseApproval,
     filters=filters.ReleaseApprovalFilter,
     pagination=True,
-    description="A user's standing approval to run a release, backed by a lok mandate that lets a deployer provision it as them.",
+    description="A user's standing approval to run a release, backed by a lok agent mandate that lets a deployer issue mandate keys that run it as them.",
 )
 class ReleaseApproval:
     id: auto
