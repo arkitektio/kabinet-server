@@ -29,8 +29,8 @@ ROLES = [
 ]
 
 #: What a deployment and a pod are placed by: one pair of keys for both, so one `requires` asks both.
-_STATUS = Descriptor(key="@kabinet/status", type="STRING", description="Its lifecycle status")
-_BACKEND_KIND = Descriptor(key="@kabinet/backend_kind", type="STRING", description="The kind of backend it runs on, as the backend declared it (e.g. docker); unknown until it does")
+_STATUS = Descriptor(key="@kabinet/status", type="STRING", description="Its lifecycle status as its backend last reported it, e.g. PENDING, RUNNING, STOPPED or FAILED")
+_BACKEND_KIND = Descriptor(key="@kabinet/backend_kind", type="STRING", description="The kind of deployer backend it runs on, as the backend declared it (e.g. docker); unknown until it does")
 
 RELEASE_DESCRIPTORS = [
     Descriptor(key="@kabinet/version", type="STRING", description="Its version"),
@@ -39,19 +39,19 @@ RELEASE_DESCRIPTORS = [
 #: Read off the selectors a backend must satisfy (``required``); a preference is no minimum.
 FLAVOUR_DESCRIPTORS = [
     Descriptor(key="@kabinet/flavour_name", type="STRING", description="Which variant of its release it is, e.g. vanilla or cuda"),
-    Descriptor(key="@kabinet/selector_kinds", type="LIST", description="The kinds of selector it states, required or preferred: cpu, ram, cuda, rocm, oneapi, label"),
+    Descriptor(key="@kabinet/selector_kinds", type="LIST", description="The kinds of hardware selector it states, required or preferred: cpu, ram, cuda, rocm, oneapi, label"),
     Descriptor(
         key="@kabinet/gpu",
         type="STRING",
-        description="The accelerator a backend must have to run it: cuda, rocm or oneapi; none when it requires none, multiple when it requires more than one vendor's",
+        description="The GPU accelerator a backend must have to run it: cuda, rocm or oneapi; none when it requires none, multiple when it requires more than one vendor's",
     ),
     Descriptor(key="@kabinet/arch", type="LIST", description="The CPU architectures it requires (e.g. amd64, arm64): empty when any will do"),
     Descriptor(key="@kabinet/min_ram_mb", type="INT", description="The system memory it requires, in MB: 0 when it states none"),
     Descriptor(key="@kabinet/min_vram_mb", type="INT", description="The GPU memory it requires of a CUDA device, in MB: 0 when it states none"),
 ]
 DEFINITION_DESCRIPTORS = [
-    Descriptor(key="@kabinet/kind", type="STRING", description="Whether it is a function or a generator"),
-    Descriptor(key="@kabinet/pure", type="BOOL", description="Whether its result may be cached"),
+    Descriptor(key="@kabinet/kind", type="STRING", description="Whether the action is a function or a generator"),
+    Descriptor(key="@kabinet/pure", type="BOOL", description="Whether it is pure, so its result may be cached"),
     Descriptor(key="@kabinet/idempotent", type="BOOL", description="Whether running it twice is the same as running it once"),
     Descriptor(key="@kabinet/n_args", type="INT", description="How many arguments it takes: 0 for an action a schedule can start"),
     Descriptor(key="@kabinet/n_returns", type="INT", description="How many values it returns"),
@@ -70,61 +70,61 @@ HOSTS = Hosts(
         Structure(
             identifier="@kabinet/app",
             label="App",
-            description="An application, known by its reverse-domain identifier.",
+            description="An installable app (a containerized tool or plugin) in the hub's app catalog, known by its reverse-domain identifier, e.g. live.arkitekt.segmentation.",
         ),
         Structure(
             identifier="@kabinet/release",
             label="Release",
-            description="One version of an app, bundling the flavours that can be deployed for it.",
+            description="One version of an app: a numbered release (e.g. 0.1.0) or the latest build of a channel (e.g. main), bundling the flavours that can be deployed for it.",
             descriptors=RELEASE_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/flavour",
             label="Flavour",
-            description="A runnable build of a release: one image, with the selectors and services it needs.",
+            description="A runnable variant of a release, e.g. vanilla or CUDA: one Docker image of the app's container, with the hardware selectors and services it needs.",
             descriptors=FLAVOUR_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/definition",
             label="Definition",
-            description="An action definition: what an action of a flavour takes and returns, by its hash.",
+            description="An action definition: an action a flavour implements, with what it takes and returns, as rekuest will see it once the flavour runs; identified by its hash.",
             descriptors=DEFINITION_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/deployment",
             label="Deployment",
-            description="A flavour set to run on a backend.",
+            description="A deployment: the intent to run a flavour (a container image) on a deployer backend, made under a release approval.",
             descriptors=PLACEMENT_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/pod",
             label="Pod",
-            description="A running instance of a deployment on a backend.",
+            description="A pod: a running instance (container) of a deployment, reported and kept up to date by its backend.",
             descriptors=PLACEMENT_DESCRIPTORS,
         ),
         Structure(
             identifier="@kabinet/githubrepo",
-            label="Github Repo",
-            description="A GitHub repository scanned for deployable apps.",
+            label="GitHub Repository",
+            description="A GitHub repository scanned for installable apps and their releases.",
         ),
     ],
     signals=[
         Signal(
             identifier="@kabinet/app",
             kinds=["CREATED"],
-            description="An app was registered.",
+            description="An app was registered in the app catalog.",
         ),
         Signal(
             identifier="@kabinet/release",
             kinds=["CREATED", "UPDATED"],
             descriptors=_keys(RELEASE_DESCRIPTORS),
-            description="An app release was registered or refreshed.",
+            description="An app release (a new version) was registered or refreshed.",
         ),
         Signal(
             identifier="@kabinet/flavour",
             kinds=["CREATED", "UPDATED"],
             descriptors=_keys(FLAVOUR_DESCRIPTORS),
-            description="A flavour (a runnable build of a release) was registered or refreshed.",
+            description="A flavour (a container image build of a release) was registered or refreshed.",
         ),
         Signal(
             identifier="@kabinet/definition",
@@ -142,7 +142,7 @@ HOSTS = Hosts(
             identifier="@kabinet/pod",
             kinds=["CREATED", "UPDATED", "DELETED"],
             descriptors=_keys(PLACEMENT_DESCRIPTORS),
-            description="A pod was created, changed status or removed.",
+            description="A pod (a running container of a deployment) was created, changed status or removed.",
         ),
         Signal(
             identifier="@kabinet/githubrepo",
