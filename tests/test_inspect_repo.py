@@ -35,15 +35,16 @@ CREATE_GITHUB_REPO = """
 def stub_manifest(monkeypatch):
     """Serve the checked-in deployments.yaml instead of fetching one over HTTP."""
     from bridge.mutations import repo as repo_mutations
+    from bridge.repo.fetch import RepoContents
     from bridge.repo.models import KabinetConfigFile
 
     with open(build_relative_dir("deployments/deployments.yaml")) as f:
         config = KabinetConfigFile(**yaml.safe_load(f))
 
-    async def fake_fetch(kabinet_url: str, coordinates: object = None) -> KabinetConfigFile:
-        return config
+    async def fake_fetch(coordinates: object = None) -> RepoContents:
+        return RepoContents(config, None)
 
-    monkeypatch.setattr(repo_mutations, "aget_kabinet_config", fake_fetch)
+    monkeypatch.setattr(repo_mutations, "aget_repo_contents", fake_fetch)
 
 
 @pytest.mark.django_db(transaction=True)

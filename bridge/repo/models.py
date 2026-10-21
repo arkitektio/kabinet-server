@@ -1,8 +1,9 @@
 import re
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing import List, Literal, Optional
 import datetime
-from rekuest_core.inputs.models import AssetInputModel, ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel
+from rekuest_core import enums as rkenums
+from rekuest_core.inputs.models import AgentDependencyInputModel, AssetInputModel, ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel, check_blok_target
 
 from .selectors import Selector
 
@@ -199,3 +200,77 @@ class ReleaseDescriptorModel(BaseModel):
     revision: str | None = None
     source: str | None = None
     flavours: list[ReleaseFlavourModel] = Field(default_factory=list)
+
+
+#: A blok key: what a blok is found by across scans, and part of its `origin`.
+BLOK_KEY = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,99}$")
+
+
+class RepoBlokDeclarationModel(BaseModel):
+    """One blok of a repository's ``.arkitekt/bloks.yaml``.
+
+    Its BSX is either in a file of the repository (``source``, a path from the repository's
+    root) or written inline (``bsx``). Only panels and scenes are published this way: a logo
+    belongs to an app.
+    """
+
+    key: str = Field(description="Unique in the repository; the blok's identity across scans.")
+    name: str = Field(min_length=1, max_length=1000, description="The name it is installed under in rekuest.")
+    description: str | None = None
+    context: rkenums.ComponentContext = rkenums.ComponentContext.HTML
+    source: str | None = Field(default=None, description="A path in the repository to the blok's BSX.")
+    bsx: str | None = Field(default=None, description="The blok's BSX, inline.")
+    demo_state: dict | None = None
+    dependencies: list[AgentDependencyInputModel] = Field(default_factory=list)
+    for_model: str | None = None
+    for_node: str | None = None
+
+    @field_validator("key")
+    @classmethod
+    def _key(cls, value: str) -> str:
+        if not BLOK_KEY.fullmatch(value):
+            raise ValueError(f"'{value}' is not a blok key: lowercase letters, digits, '.', '_' and '-', starting with a letter or digit.")
+        return value
+
+    @field_validator("source")
+    @classmethod
+    def _path(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        path = value.strip()
+        path = path[2:] if path.startswith("./") else path
+        if not path or path.startswith("/") or ".." in path.split("/") or "\\" in path:
+            raise ValueError(f"'{value}' is not a path inside the repository.")
+        return path
+
+    @model_validator(mode="after")
+    def _one_source(self) -> "RepoBlokDeclarationModel":
+        if (self.source is None) == (self.bsx is None):
+            raise ValueError("A blok names exactly one of `source` (a file) and `bsx` (inline).")
+        if self.context not in (rkenums.ComponentContext.HTML, rkenums.ComponentContext.SCENE):
+            raise ValueError(f"A repository publishes panels (HTML) and scenes (SCENE), not {self.context.value} bloks.")
+        check_blok_target(self.context, self.for_model, self.for_node)
+        return self
+
+
+class BlokFileModel(BaseModel):
+    """A repository's ``.arkitekt/bloks.yaml``: the bloks it publishes on their own."""
+
+    spec_version: Literal[1] = 1
+    bloks: list[RepoBlokDeclarationModel] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _unique_keys(self) -> "BlokFileModel":
+        seen: set[str] = set()
+        for blok in self.bloks:
+            if blok.key in seen:
+                raise ValueError(f"The key '{blok.key}' is used by more than one blok.")
+            seen.add(blok.key)
+        return self
+
+
+class RepoBlokModel(BaseModel):
+    """A declared blok with its BSX read: what a scan writes as a ``RepoBlok``."""
+
+    declaration: RepoBlokDeclarationModel
+    source: str

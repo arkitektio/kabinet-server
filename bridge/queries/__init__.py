@@ -1,7 +1,7 @@
 """Queries for the bridge app."""
 
 from .app import app
-from .repos import github_repo, oci_repo
+from .repos import github_repo, oci_repo, repo_blok
 from .me import me
 from .definition import definition
 from .release import release, release_approval
@@ -19,6 +19,7 @@ __all__ = [
     "flavour",
     "flavour_blok",
     "github_repo",
+    "repo_blok",
     "me",
     "my_pod_at",
     "oci_repo",

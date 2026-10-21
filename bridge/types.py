@@ -1,3 +1,6 @@
+import hashlib
+import json
+import re
 import datetime
 from typing import List, Optional
 
@@ -131,6 +134,7 @@ class GithubRepo:
     branch: str = strawberry_django.field(description="The branch that is scanned for app manifests.")
     user: str = strawberry_django.field(description="The GitHub owner (user or organization) of the repository.")
     flavours: List["Flavour"] = strawberry_django.field(description="The flavours discovered by scanning this repository.")
+    bloks: List["RepoBlok"] = strawberry_django.field(description="The bloks this repository publishes on its own, in its `.arkitekt/bloks.yaml`.")
     updated_at: datetime.datetime = strawberry_django.field(description="When this repository was last updated.")
     added_at: datetime.datetime = strawberry_django.field(description="When this repository was first added to Kabinet.")
     organization: Organization = strawberry_django.field(description="The organization that owns this repository.")
@@ -147,6 +151,111 @@ class GithubRepo:
     @strawberry_django.field(description="The URL of this repository on GitHub.")
     def url(self) -> str:
         return f"https://github.com/{self.user}/{self.repo}"
+
+    @classmethod
+    def get_queryset(cls, queryset, info: Info):
+        return build_prescoped_queryset(info, queryset, field="organization")
+
+
+def _camel(value: object) -> object:
+    """``value`` with its keys in camelCase and its nulls left out: a GraphQL input of it.
+
+    A descriptor's ``value`` is any JSON, so its keys stay as they are.
+    """
+    if isinstance(value, dict):
+        return {
+            re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), key): item if key == "value" else _camel(item)
+            for key, item in value.items()
+            if item is not None
+        }
+    if isinstance(value, list):
+        return [_camel(item) for item in value]
+    return value
+
+
+def _install_fields(blok: models.RepoBlok) -> dict:
+    """The `CreateBlokInput` a repository blok is installed with, without its `originHash`.
+
+    Only the input's own keys and its dependencies are camelCased: the demo state is the blok's
+    data, and its keys are what the blok reads.
+    """
+    fields = {
+        "name": blok.name,
+        "description": blok.description,
+        "context": blok.context,
+        "source": blok.source,
+        "demoState": blok.demo_state,
+        "dependencies": _camel(blok.dependencies or []),
+        "forModel": blok.for_model,
+        "forNode": blok.for_node,
+        "origin": blok.origin,
+    }
+    return {key: value for key, value in fields.items() if value is not None}
+
+
+def _install_hash(fields: dict) -> str:
+    """``sha256:`` of what installing writes: the same fields hash alike, any change hashes anew."""
+    canonical = json.dumps(fields, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
+
+
+@strawberry_django.type(
+    models.RepoBlok,
+    description=(
+        "A blok a GitHub repository publishes on its own, in its `.arkitekt/bloks.yaml`. Read when its repository is scanned; "
+        "nothing of it runs here. It is installed by copying it into rekuest as a custom blok (`installInput`), which keeps its `origin`."
+    ),
+    filters=filters.RepoBlokFilter,
+    pagination=True,
+)
+class RepoBlok:
+    id: auto
+    key: str = strawberry_django.field(description="Unique in its repository: what a scan finds it again by.")
+    name: str = strawberry_django.field(description="The name it is installed under in rekuest.")
+    description: Optional[str] = strawberry_django.field(description="What the repository says it shows.")
+    source: str = strawberry_django.field(description="The blok as BSX, as the repository publishes it.")
+    source_path: Optional[str] = strawberry_django.field(description="The file of the repository its BSX was read from; null when it is written inline.")
+    hash: str = strawberry_django.field(
+        description="A SHA-256 of what the blok draws: its component tree, demo state and context. A client keeps its preview under it; whether an installed copy is out of date is `installHash`'s to say."
+    )
+    component_tree: Optional[JSON] = strawberry_django.field(description="The whole component tree as one JSON value (a list of roots, snake_case keys). Null when the source does not parse.")
+    demo_state: Optional[JSON] = strawberry_django.field(description="The state the blok is drawn against when it is shown on its own.")
+    dependencies: JSON = strawberry_django.field(description="The agents it draws from, as rekuest_core AgentDependencyInputs (snake_case keys).")
+    for_model: Optional[str] = strawberry_django.field(description="The model ('sha256:...') this blok decorates, if any.")
+    for_node: Optional[str] = strawberry_django.field(description="The node of `forModel` it attaches to; the model's root when null.")
+    parse_error: Optional[str] = strawberry_django.field(description="Why its BSX does not parse, or null.")
+    repo: GithubRepo = strawberry_django.field(description="The repository that publishes it.")
+    updated_at: datetime.datetime = strawberry_django.field(description="When a scan last wrote it.")
+    added_at: datetime.datetime = strawberry_django.field(description="When a scan first found it.")
+
+    @strawberry_django.field(description="The renderer its root lives in.", only=["context"])
+    def context(self) -> rkenums.ComponentContext:
+        return rkenums.ComponentContext(self.context)
+
+    @strawberry_django.field(
+        description="Where it comes from, as rekuest keeps it on an installed copy (`Blok.origin`): `github:<owner>/<repo>:<branch>#<key>`. The same whenever the repository is tracked again.",
+        select_related=["repo"],
+    )
+    def origin(self) -> str:
+        return self.origin
+
+    @strawberry_django.field(
+        description=(
+            "A SHA-256 of everything installing it writes: its name, description, BSX, demo state, dependencies and target. "
+            "It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed."
+        ),
+        select_related=["repo"],
+    )
+    def install_hash(self) -> str:
+        return _install_hash(_install_fields(self))
+
+    @strawberry_django.field(
+        description="What installs it: rekuest's `CreateBlokInput`, camelCase, with its `origin` and `originHash` (= `installHash`). Sent to rekuest's `createBlok` as it is; sending it again updates the installed copy in place.",
+        select_related=["repo"],
+    )
+    def install_input(self) -> JSON:
+        fields = _install_fields(self)
+        return {**fields, "originHash": _install_hash(fields)}
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):

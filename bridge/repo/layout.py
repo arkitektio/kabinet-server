@@ -14,6 +14,8 @@ RAW_BASE = "https://raw.githubusercontent.com"
 CONFIG_DIR = ".arkitekt"
 DEPLOYMENTS_PATH = f"{CONFIG_DIR}/deployments.yaml"
 MANIFEST_PATH = f"{CONFIG_DIR}/manifest.yaml"
+#: The bloks a repository publishes on its own, apart from any app: a blok repository.
+BLOKS_PATH = f"{CONFIG_DIR}/bloks.yaml"
 
 #: Folders kabinet read before the rename, newest spelling first.
 LEGACY_CONFIG_DIRS = (".arkitekt_next", ".arkitekt-next")

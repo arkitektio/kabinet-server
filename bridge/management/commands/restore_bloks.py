@@ -4,7 +4,8 @@
 
 A flavour stores its bloks' renders and its actions' logos when it is imported
 (``bridge/repo/bloks.py``). Flavours imported before that have neither; this reads them off the
-stored inspection. ``--all`` renders every flavour again, after the parser changed. Safe to run
+stored inspection. ``--all`` renders every flavour again, after the parser changed, and every
+blok a repository publishes (``RepoBlok``, always rendered when it is scanned). Safe to run
 again: a flavour with renders is skipped, and ``--all`` writes the same renders twice.
 """
 
@@ -55,3 +56,12 @@ class Command(BaseCommand):
         # Neither field is read by a describer, so the rows' descriptors stay as they are.
         models.Flavour.objects.bulk_update(changed, ["blok_renders", "action_logos"], batch_size=BATCH)
         self.stdout.write(f"Rendered the bloks of {len(changed)} flavour(s)")
+
+        if options["all"]:
+            repo_bloks: list[models.RepoBlok] = []
+            for blok in models.RepoBlok.objects.only("id", "source", "demo_state", "context").iterator(chunk_size=BATCH):
+                render = bloks.render_blok({"source": blok.source, "demo_state": blok.demo_state, "context": blok.context})
+                blok.component_tree, blok.hash, blok.parse_error = render["component_tree"], render["hash"], render["parse_error"]
+                repo_bloks.append(blok)
+            models.RepoBlok.objects.bulk_update(repo_bloks, ["component_tree", "hash", "parse_error"], batch_size=BATCH)
+            self.stdout.write(f"Rendered {len(repo_bloks)} repository blok(s)")

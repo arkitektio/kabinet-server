@@ -1771,6 +1771,11 @@ type GithubRepo {
   """The flavours discovered by scanning this repository."""
   flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
 
+  """
+  The bloks this repository publishes on its own, in its `.arkitekt/bloks.yaml`.
+  """
+  bloks(filters: RepoBlokFilter, pagination: OffsetPaginationInput): [RepoBlok!]!
+
   """When this repository was last updated."""
   updatedAt: DateTime!
 
@@ -2654,6 +2659,9 @@ type Query {
   """
   flavourBlok(id: ID!): FlavourBlok
 
+  """Return a single blok a repository publishes by its ID."""
+  repoBlok(id: ID!): RepoBlok!
+
   """Return a single deployment by its ID."""
   deployment(id: ID!): Deployment!
 
@@ -2690,6 +2698,11 @@ type Query {
   List all imported OCI repositories visible to the current organization.
   """
   ociRepos(pagination: OffsetPaginationInput): [OciRepo!]!
+
+  """
+  List the bloks the tracked GitHub repositories publish on their own, visible to the current organization.
+  """
+  repoBloks(filters: RepoBlokFilter, pagination: OffsetPaginationInput): [RepoBlok!]!
 
   """List all action definitions visible to the current organization."""
   definitions(filters: DefinitionFilter, ordering: [DefinitionOrder!]! = [], pagination: OffsetPaginationInput): [Definition!]!
@@ -2923,6 +2936,104 @@ input ReleaseOrder @oneOf {
   version: Ordering
   releasedAt: Ordering
   createdAt: Ordering
+}
+
+"""
+A blok a GitHub repository publishes on its own, in its `.arkitekt/bloks.yaml`. Read when its repository is scanned; nothing of it runs here. It is installed by copying it into rekuest as a custom blok (`installInput`), which keeps its `origin`.
+"""
+type RepoBlok {
+  id: ID!
+
+  """Unique in its repository: what a scan finds it again by."""
+  key: String!
+
+  """The name it is installed under in rekuest."""
+  name: String!
+
+  """What the repository says it shows."""
+  description: String
+
+  """The blok as BSX, as the repository publishes it."""
+  source: String!
+
+  """
+  The file of the repository its BSX was read from; null when it is written inline.
+  """
+  sourcePath: String
+
+  """
+  A SHA-256 of what the blok draws: its component tree, demo state and context. A client keeps its preview under it; whether an installed copy is out of date is `installHash`'s to say.
+  """
+  hash: String!
+
+  """
+  The whole component tree as one JSON value (a list of roots, snake_case keys). Null when the source does not parse.
+  """
+  componentTree: JSON
+
+  """The state the blok is drawn against when it is shown on its own."""
+  demoState: JSON
+
+  """
+  The agents it draws from, as rekuest_core AgentDependencyInputs (snake_case keys).
+  """
+  dependencies: JSON!
+
+  """The model ('sha256:...') this blok decorates, if any."""
+  forModel: String
+
+  """The node of `forModel` it attaches to; the model's root when null."""
+  forNode: String
+
+  """Why its BSX does not parse, or null."""
+  parseError: String
+
+  """The repository that publishes it."""
+  repo: GithubRepo!
+
+  """When a scan last wrote it."""
+  updatedAt: DateTime!
+
+  """When a scan first found it."""
+  addedAt: DateTime!
+
+  """The renderer its root lives in."""
+  context: ComponentContext!
+
+  """
+  Where it comes from, as rekuest keeps it on an installed copy (`Blok.origin`): `github:<owner>/<repo>:<branch>#<key>`. The same whenever the repository is tracked again.
+  """
+  origin: String!
+
+  """
+  A SHA-256 of everything installing it writes: its name, description, BSX, demo state, dependencies and target. It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed.
+  """
+  installHash: String!
+
+  """
+  What installs it: rekuest's `CreateBlokInput`, camelCase, with its `origin` and `originHash` (= `installHash`). Sent to rekuest's `createBlok` as it is; sending it again updates the installed copy in place.
+  """
+  installInput: JSON!
+}
+
+"""Filter for the bloks repositories publish."""
+input RepoBlokFilter {
+  AND: RepoBlokFilter
+  OR: RepoBlokFilter
+  NOT: RepoBlokFilter
+  DISTINCT: Boolean
+
+  """Keep only bloks whose ID is in this list."""
+  ids: [ID!]
+
+  """Case-insensitive substring of the blok's name, key or description."""
+  search: String
+
+  """Keep only bloks of this context (HTML or SCENE)."""
+  context: String
+
+  """Keep only bloks of these repositories."""
+  repos: [ID!]
 }
 
 """

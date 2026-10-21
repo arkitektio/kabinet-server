@@ -127,6 +127,46 @@ class OciRepo(Repo):
         constraints = [models.UniqueConstraint(fields=["registry", "repository", "organization"], name="Unique oci repo for org")]
 
 
+class RepoBlok(models.Model):
+    """A blok a GitHub repository publishes on its own, in its ``.arkitekt/bloks.yaml``.
+
+    Written by every scan of its repository: upserted by key, gone when the file no longer
+    lists it. Nothing here runs it. Installing copies it into rekuest as a custom blok that
+    remembers its ``origin``, so a later scan that changes what it draws (its ``hash``) shows
+    there as an update.
+    """
+
+    repo = models.ForeignKey(GithubRepo, on_delete=models.CASCADE, related_name="bloks")
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="repo_bloks")
+    key = models.CharField(max_length=100, help_text="Unique in its repository: what a scan finds it again by")
+    name = models.CharField(max_length=1000, help_text="The name it is installed under in rekuest")
+    description = models.TextField(null=True, blank=True)
+    context = models.CharField(max_length=16, default="HTML", help_text="The renderer its root lives in (rekuest_core ComponentContext): HTML or SCENE")
+    source = models.TextField(help_text="The blok as BSX, as the repository publishes it")
+    source_path = models.CharField(max_length=1000, null=True, blank=True, help_text="The file of the repository its BSX was read from; null when it is written inline")
+    demo_state = models.JSONField(null=True, blank=True, help_text="The state it is drawn against when it is shown on its own")
+    dependencies = models.JSONField(default=list, help_text="The agents it draws from (rekuest_core AgentDependencyInput)")
+    for_model = models.CharField(max_length=71, null=True, blank=True)
+    for_node = models.CharField(max_length=1000, null=True, blank=True)
+    component_tree = models.JSONField(null=True, blank=True, help_text="Its BSX parsed (bridge/repo/bloks.py); null when it does not parse")
+    hash = models.CharField(max_length=100, help_text="sha256 of what it draws: its tree, demo state and context")
+    parse_error = models.TextField(null=True, blank=True, help_text="Why its BSX does not parse, or null")
+    updated_at = models.DateTimeField(auto_now=True)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["repo", "key"], name="unique_repo_blok_key")]
+        ordering = ["repo", "key"]
+
+    def __str__(self) -> str:
+        return f"{self.repo}#{self.key}"
+
+    @property
+    def origin(self) -> str:
+        """Where it comes from, as rekuest keeps it on an installed blok: its repository and key, not this row."""
+        return f"github:{self.repo.user}/{self.repo.repo}:{self.repo.branch}#{self.key}"
+
+
 class App(EmbeddedDescriptionMixin, models.Model):
     """An application, identified by its reverse-domain identifier.
 

@@ -32,6 +32,7 @@ class Query:
     flavour_blok: types.FlavourBlok | None = strawberry_django.field(
         resolver=queries.flavour_blok, description="Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none."
     )
+    repo_blok: types.RepoBlok = strawberry_django.field(resolver=queries.repo_blok, description="Return a single blok a repository publishes by its ID.")
     deployment: types.Deployment = strawberry_django.field(resolver=queries.deployment, description="Return a single deployment by its ID.")
     backend: types.Backend = strawberry_django.field(resolver=queries.backend, description="Return a single backend by its ID.")
     pod: types.Pod = strawberry_django.field(resolver=queries.pod, description="Return a single pod by its ID.")
@@ -44,6 +45,7 @@ class Query:
     deployments: List[types.Deployment] = strawberry_django.field(description="List all deployments visible to the current organization.")
     github_repos: List[types.GithubRepo] = strawberry_django.field(description="List all tracked GitHub repositories visible to the current organization.")
     oci_repos: List[types.OciRepo] = strawberry_django.field(description="List all imported OCI repositories visible to the current organization.")
+    repo_bloks: List[types.RepoBlok] = strawberry_django.field(description="List the bloks the tracked GitHub repositories publish on their own, visible to the current organization.")
     definitions: List[types.Definition] = strawberry_django.field(description="List all action definitions visible to the current organization.")
     pods: List[types.Pod] = strawberry_django.field(description="List all pods visible to the current organization.")
 

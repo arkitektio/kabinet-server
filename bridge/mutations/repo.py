@@ -19,21 +19,21 @@ from authentikate.models import Organization, User
 from kante.types import Info
 
 from bridge import inputs, models, types
-from bridge.repo.db import parse_config
-from bridge.repo.fetch import RepoCoordinates, aget_kabinet_config
+from bridge.repo.db import apply_contents
+from bridge.repo.fetch import RepoCoordinates, aget_repo_contents
 from bridge.scoping import aget_for_org, for_org
 
 logger = logging.getLogger(__name__)
 
 
 async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo:
-    """Scan a tracked GitHub repository for app manifests and update its flavours."""
+    """Scan a tracked GitHub repository for app manifests and bloks, and update its flavours and bloks."""
     parsed = input.to_pydantic()
     repo = await aget_for_org(models.GithubRepo, info, id=parsed.id)
 
-    config = await aget_kabinet_config(repo.kabinet_url, RepoCoordinates(repo.user, repo.repo, repo.branch))
+    contents = await aget_repo_contents(RepoCoordinates(repo.user, repo.repo, repo.branch))
 
-    await sync_to_async(parse_config)(config, repo, info.context.request.organization)
+    await sync_to_async(apply_contents)(contents, repo, info.context.request.organization)
 
     return repo
 
@@ -80,9 +80,7 @@ async def _create_github_repo(
 ) -> models.GithubRepo:
     user, repo, branch, name = infer_repo_info(input)
 
-    dep_url = models.GithubRepo.build_kabinet_url(user, repo, branch)
-
-    config = await aget_kabinet_config(dep_url, RepoCoordinates(user, repo, branch))
+    contents = await aget_repo_contents(RepoCoordinates(user, repo, branch))
 
     repo, _ = await models.GithubRepo.objects.aget_or_create(
         user=user,
@@ -95,7 +93,7 @@ async def _create_github_repo(
         ),
     )
 
-    await sync_to_async(parse_config)(config, repo, organization)
+    await sync_to_async(apply_contents)(contents, repo, organization)
 
     return repo
 
@@ -108,8 +106,8 @@ async def create_github_repo(info: Info, input: inputs.CreateGithubRepoInput) ->
 async def _rescan_one(repo: models.GithubRepo, organization: Organization) -> None:
     """Rescan a single repo, logging rather than raising when it cannot be scanned."""
     try:
-        config = await aget_kabinet_config(repo.kabinet_url, RepoCoordinates(repo.user, repo.repo, repo.branch))
-        await sync_to_async(parse_config)(config, repo, organization)
+        contents = await aget_repo_contents(RepoCoordinates(repo.user, repo.repo, repo.branch))
+        await sync_to_async(apply_contents)(contents, repo, organization)
     except Exception as e:
         # One unreachable or malformed repo must not take the other N down with it. This
         # is the one place where swallowing a scan failure is the right answer.

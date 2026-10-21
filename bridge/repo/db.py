@@ -20,7 +20,8 @@ from bridge import models
 
 from . import bloks
 from .errors import DBError
-from .models import AppImageInputModel, KabinetConfigFile, ReleaseDescriptorModel
+from .fetch import RepoContents
+from .models import AppImageInputModel, KabinetConfigFile, ReleaseDescriptorModel, RepoBlokModel
 
 
 def upsert_app_image(
@@ -170,3 +171,55 @@ def apply_release(
         superseded.exclude(flavours__deployments__isnull=False).delete()
 
     return release
+
+
+@transaction.atomic
+def apply_bloks(
+    published: list[RepoBlokModel],
+    repo: models.GithubRepo,
+    organization: models.Organization,
+) -> list[models.RepoBlok]:
+    """Write the bloks a repository's ``bloks.yaml`` publishes: by key, and only those.
+
+    A blok whose BSX does not parse is still written, with its ``parse_error``: one broken
+    blok is the blok's problem, not the scan's. A key the file no longer lists is deleted;
+    what rekuest installed from it stays there.
+    """
+    try:
+        written = []
+        for blok in published:
+            declared = blok.declaration
+            dependencies = [dependency.model_dump(mode="json") for dependency in declared.dependencies]
+            render = bloks.render_blok({"source": blok.source, "demo_state": declared.demo_state, "context": declared.context.value})
+            row, _ = models.RepoBlok.objects.update_or_create(
+                repo=repo,
+                key=declared.key,
+                defaults=dict(
+                    organization=organization,
+                    name=declared.name,
+                    description=declared.description,
+                    context=declared.context.value,
+                    source=blok.source,
+                    source_path=declared.source,
+                    demo_state=declared.demo_state,
+                    dependencies=dependencies,
+                    for_model=declared.for_model,
+                    for_node=declared.for_node,
+                    component_tree=render["component_tree"],
+                    hash=render["hash"],
+                    parse_error=render["parse_error"],
+                ),
+            )
+            written.append(row)
+        models.RepoBlok.objects.filter(repo=repo).exclude(key__in=[blok.declaration.key for blok in published]).delete()
+        return written
+    except Exception as e:
+        raise DBError(f"Could not write the bloks of {repo}: {e}") from e
+
+
+def apply_contents(contents: RepoContents, repo: models.GithubRepo, organization: models.Organization) -> None:
+    """Write what a scan of ``repo`` found (``fetch.RepoContents``). A file it does not publish leaves its rows alone, except bloks: no bloks file, no bloks."""
+    with transaction.atomic():
+        if contents.config is not None:
+            parse_config(contents.config, repo, organization)
+        apply_bloks(contents.bloks or [], repo, organization)

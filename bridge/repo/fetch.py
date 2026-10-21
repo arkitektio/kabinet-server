@@ -15,6 +15,7 @@ over a handful of broken repos into a wall of 403s that say nothing about the re
 diagnosis is best-effort: if probing itself fails, the plain "HTTP 404 at <url>" stands.
 """
 
+import asyncio
 import logging
 from typing import NamedTuple
 
@@ -23,8 +24,8 @@ import yaml
 from pydantic import ValidationError
 
 from .errors import RepoError
-from .layout import CONFIG_DIR, DEPLOYMENTS_PATH, LEGACY_CONFIG_DIRS, MANIFEST_PATH, ROOT_MARKER_PATHS, raw_url
-from .models import KabinetConfigFile
+from .layout import BLOKS_PATH, CONFIG_DIR, DEPLOYMENTS_PATH, LEGACY_CONFIG_DIRS, MANIFEST_PATH, ROOT_MARKER_PATHS, raw_url
+from .models import BlokFileModel, KabinetConfigFile, RepoBlokModel
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,9 @@ FETCH_TIMEOUT_SECONDS = 30
 #: The diagnosis runs after a fetch has already failed, so it gets a tighter budget: it
 #: exists to improve an error message, not to double how long the caller waits for one.
 DIAGNOSIS_TIMEOUT_SECONDS = 5
+
+#: A blok's BSX is a few kilobytes. A file far beyond that is not one, and is not read whole.
+MAX_BLOK_SOURCE_BYTES = 512 * 1024
 
 
 class InspectionError(RepoError, ValueError):
@@ -96,8 +100,8 @@ async def _adiagnose_missing(coordinates: RepoCoordinates) -> str:
             if await _aprobe(session, coordinates.url_for(marker)):
                 return (
                     f"{coordinates} exists and is readable, but has no `{CONFIG_DIR}/` folder on this branch. "
-                    "Only repositories that publish Arkitekt app images can be tracked; check that you meant "
-                    f"this branch (`{coordinates.branch}`)."
+                    f"Only repositories that publish Arkitekt app images (`{DEPLOYMENTS_PATH}`) or bloks "
+                    f"(`{BLOKS_PATH}`) can be tracked; check that you meant this branch (`{coordinates.branch}`)."
                 )
 
         return (
@@ -137,11 +141,15 @@ def _describe_validation_error(error: ValidationError, url: str) -> str:
     return f"{url} is not a valid kabinet deployments file. {error.error_count()} problem(s):\n" + "\n".join(problems)
 
 
-async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates) -> KabinetConfigFile:
+async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates, optional: bool = False) -> KabinetConfigFile | None:
     """Fetch and parse a repository's published ``deployments.yaml``.
 
     The status check was an ``assert``, which ``python -O`` strips -- leaving a 404 body
     to be handed to the YAML parser.
+
+    ``optional`` when the repository publishes bloks: then a missing file, or one listing no
+    app images, is None (a blok repository) rather than an error. A file that is there but
+    broken is an error either way.
     """
     timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT_SECONDS)
     try:
@@ -155,6 +163,9 @@ async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates) ->
         raise InspectionError(f"Fetching {kabinet_url} took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on.") from e
     except aiohttp.ClientError as e:
         raise InspectionError(f"Could not reach {kabinet_url}: {e}") from e
+
+    if status == 404 and optional:
+        return None
 
     if status != 200:
         # Diagnosed out here rather than inside the `session.get` context: the probes are
@@ -182,6 +193,9 @@ async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates) ->
     except ValidationError as e:
         raise InspectionError(_describe_validation_error(e, kabinet_url)) from e
 
+    if not config.app_images and optional:
+        return None
+
     if not config.app_images:
         # `app_images` defaults to [], so a mapping without the key validates happily and
         # the scan then reports success having written nothing at all.
@@ -192,3 +206,95 @@ async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates) ->
         )
 
     return config
+
+
+def _parse_bloks_file(url: str, body: str) -> BlokFileModel:
+    """``bloks.yaml`` as its model, or an error that says what is wrong with it."""
+    try:
+        parsed = yaml.safe_load(body)
+    except yaml.YAMLError as e:
+        where = ""
+        mark = getattr(e, "problem_mark", None)
+        if mark is not None:
+            where = f" at line {mark.line + 1}, column {mark.column + 1}"
+        raise InspectionError(f"{url} is not valid YAML{where}: {getattr(e, 'problem', None) or e}") from e
+    if not isinstance(parsed, dict):
+        raise InspectionError(f"{url} contains a {type(parsed).__name__}, not a mapping of keys, so it is not a bloks file.")
+    try:
+        return BlokFileModel(**parsed)
+    except ValidationError as e:
+        problems = [f"  - {'.'.join(str(part) for part in detail['loc']) or '<root>'}: {detail['msg']}" for detail in e.errors()]
+        raise InspectionError(f"{url} is not a valid bloks file. {e.error_count()} problem(s):\n" + "\n".join(problems)) from e
+
+
+async def _aread_source(session: aiohttp.ClientSession, coordinates: RepoCoordinates, key: str, path: str) -> str:
+    """The BSX at ``path`` in the repository, which the blok ``key`` names."""
+    url = coordinates.url_for(path)
+    try:
+        async with session.get(url) as response:
+            if response.status == 404:
+                raise InspectionError(f"The blok '{key}' names `{path}` as its source, but {coordinates} has no such file.")
+            if response.status != 200:
+                raise InspectionError(f"Fetching the source of the blok '{key}' ({url}) returned HTTP {response.status}.")
+            body = await response.content.read(MAX_BLOK_SOURCE_BYTES + 1)
+    except TimeoutError as e:
+        raise InspectionError(f"Fetching the source of the blok '{key}' ({url}) took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on.") from e
+    except aiohttp.ClientError as e:
+        raise InspectionError(f"Could not reach {url}: {e}") from e
+    if len(body) > MAX_BLOK_SOURCE_BYTES:
+        raise InspectionError(f"The source of the blok '{key}' (`{path}`) is larger than {MAX_BLOK_SOURCE_BYTES // 1024} KiB, which no blok is.")
+    try:
+        return body.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise InspectionError(f"The source of the blok '{key}' (`{path}`) is not UTF-8 text.") from e
+
+
+async def aget_bloks(coordinates: RepoCoordinates) -> list[RepoBlokModel] | None:
+    """The bloks a repository publishes in ``bloks.yaml``, their BSX read; None when it publishes none.
+
+    Every source file is read in this one call, so a scan writes a blok only with its BSX: a
+    file named but missing fails the scan, it does not leave a blok without a body.
+    """
+    url = coordinates.url_for(BLOKS_PATH)
+    timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT_SECONDS)
+    try:
+        async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}, timeout=timeout) as session:
+            async with session.get(url) as response:
+                status = response.status
+                body = await response.text() if status == 200 else ""
+            if status == 404:
+                return None
+            if status != 200:
+                raise InspectionError(await _adescribe_failed_fetch(coordinates, url, status))
+            if not body.strip():
+                raise InspectionError(f"{url} exists but is empty, so it describes no bloks.")
+
+            declared = _parse_bloks_file(url, body).bloks
+            sources = await asyncio.gather(
+                *(_aread_source(session, coordinates, blok.key, blok.source) for blok in declared if blok.source is not None)
+            )
+    except TimeoutError as e:
+        raise InspectionError(f"Fetching {url} took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on.") from e
+    except aiohttp.ClientError as e:
+        raise InspectionError(f"Could not reach {url}: {e}") from e
+
+    read = iter(sources)
+    return [RepoBlokModel(declaration=blok, source=blok.bsx if blok.bsx is not None else next(read)) for blok in declared]
+
+
+class RepoContents(NamedTuple):
+    """What a scan of a GitHub repository found: its app images, its bloks, or both."""
+
+    config: KabinetConfigFile | None
+    bloks: list[RepoBlokModel] | None
+
+
+async def aget_repo_contents(coordinates: RepoCoordinates) -> RepoContents:
+    """Read a repository's ``deployments.yaml`` and ``bloks.yaml``.
+
+    Either is enough to track the repository. Without a bloks file, the deployments file is
+    required exactly as before, with the same diagnosis when it is missing.
+    """
+    bloks = await aget_bloks(coordinates)
+    config = await aget_kabinet_config(coordinates.url_for(DEPLOYMENTS_PATH), coordinates, optional=bloks is not None)
+    return RepoContents(config, bloks)

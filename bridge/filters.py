@@ -62,6 +62,27 @@ class GithubRepoFilter:
         return Q(**{f"{prefix}branch__icontains": value})
 
 
+@strawberry_django.filter_type(models.RepoBlok, description="Filter for the bloks repositories publish.")
+class RepoBlokFilter:
+    """Filter for the bloks repositories publish."""
+
+    @strawberry_django.filter_field(description="Keep only bloks whose ID is in this list.")
+    def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
+        return Q(**{f"{prefix}id__in": value})
+
+    @strawberry_django.filter_field(description="Case-insensitive substring of the blok's name, key or description.")
+    def search(self, value: str, prefix: str) -> Q:
+        return Q(**{f"{prefix}name__icontains": value}) | Q(**{f"{prefix}key__icontains": value}) | Q(**{f"{prefix}description__icontains": value})
+
+    @strawberry_django.filter_field(description="Keep only bloks of this context (HTML or SCENE).")
+    def context(self, value: str, prefix: str) -> Q:
+        return Q(**{f"{prefix}context": value})
+
+    @strawberry_django.filter_field(description="Keep only bloks of these repositories.")
+    def repos(self, value: list[strawberry.ID], prefix: str) -> Q:
+        return Q(**{f"{prefix}repo_id__in": value})
+
+
 @strawberry_django.filter_type(models.Definition, description="Filter for action definitions.")
 class DefinitionFilter:
     """Filter for action definitions."""
