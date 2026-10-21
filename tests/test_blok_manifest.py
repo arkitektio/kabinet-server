@@ -84,3 +84,13 @@ def test_prop_needs_a_binding_or_a_declaration_and_at_most_one_binding() -> None
         imodels.ComponentPropInputModel(key="x", static_value=1, dynamic_value={"path": "/a"})
     imodels.ComponentPropInputModel(key="x", declares_value="sel")
     imodels.ComponentPropInputModel(key="x", static_value="40x")
+
+
+def test_a_blok_with_args_is_read_and_an_args_root_seeded() -> None:
+    """A release's blok may declare args (the items it is opened for), read under ``@args``."""
+    image = {"key": "image", "kind": "STRUCTURE", "identifier": "@mikro/image", "nullable": False}
+    prop = {"key": "text", "dynamic_value": {"path": "args.image"}}
+    blok = imodels.BlokImplementationInputModel(key="inspector", components=[{"id": "root", "component": "Text", "props": [prop]}], demo_state={"args": {"image": None}}, args=[image])
+    assert [port.key for port in blok.args] == ["image"]
+    with pytest.raises(ValidationError, match="only an html blok takes args"):
+        imodels.BlokImplementationInputModel(key="view", components=[{"id": "root", "component": "Scene"}], context="SCENE", args=[image])

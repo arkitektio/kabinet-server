@@ -655,6 +655,11 @@ input BlokImplementationInput {
   The node of `for_model` this Blok attaches to; the model's root when absent.
   """
   forNode: String = null
+
+  """
+  The items this Blok is opened for, declared like an action's args and read under `@args.<key>`. A UI offers the Blok on any item its args accept (`MaterializedBlokFilter.demands`). HTML bloks only.
+  """
+  args: [ArgPortInput!]! = []
 }
 
 """Requires CPU resources on the backend."""
