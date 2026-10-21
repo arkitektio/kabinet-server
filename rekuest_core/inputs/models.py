@@ -823,6 +823,10 @@ class DefinitionInputModel(BaseModel):
         default_factory=list,
         description="Names of the UI catalogs (in the registering agent's organization) that extend the base catalog for this definition's effect and validator calls. The base catalog (`base@1`) is always applied and may be named explicitly; naming another base version or a catalog that does not exist yields an unknown_catalog warning. Two catalogs defining the same operation differently is a registration error. An operation no catalog provides is stored as a warning on the implementation.",
     )
+    protocols: list[str] = Field(
+        default_factory=list,
+        description="Where the action means to hook in (`on_scene_annotation`): hints a caller filters on, never a contract, and not part of the action's hash. Mirrors the rekuest service's model, so an inspected release that hints is read rather than refused.",
+    )
 
     model_config = ConfigDict(extra="forbid")
 
