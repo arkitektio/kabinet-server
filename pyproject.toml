@@ -34,7 +34,7 @@ dependencies = [
     "model2vec>=0.9",
     "arkitekt-service>=7.0.0",
     "arkitekt-spec>=3.11.0",
-    "arkitekt-datalayer",
+    "arkitekt-datalayer>=1.0.0",
 ]
 
 [dependency-groups]
@@ -160,8 +160,6 @@ exclude = ["**/migrations", "**/__pycache__", ".venv"]
 typeCheckingMode = "standard"
 reportMissingTypeStubs = false
 
-[tool.uv.sources]
-arkitekt-datalayer = { path = "../../../../packages/arkitekt-datalayer", editable = true }
 
 # `[tool.mypy]` used to sit here with `strict = true`, `ignore_missing_imports`, the
 # django-stubs and pydantic plugins -- and no workflow that ran it. A standard nothing
