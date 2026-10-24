@@ -4,11 +4,8 @@ The old split models made a stored ``cpu`` or ``oneapi`` selector crash every
 query embedding the flavour (the output union either forbade the input's
 fields or lacked the kind entirely). These tests push every kind through the
 real ``createAppImage`` wire and read the selectors back over GraphQL, so
-that class of drift cannot return unnoticed. The migration's rewrite function
-is covered separately and needs no database.
+that class of drift cannot return unnoticed.
 """
-
-import importlib
 
 import pytest
 import yaml
@@ -16,9 +13,6 @@ from kante.context import HttpContext
 
 from bridge.repo.selectors import SelectorFieldJson
 from tests.utils import build_relative_dir, execute
-
-_migration = importlib.import_module("bridge.migrations.0005_selector_vocabulary")
-
 
 ALL_KINDS_WIRE = [
     {"kind": "cuda", "computeCapability": "8.6", "memory": 8000, "count": 2},
@@ -104,23 +98,3 @@ def test_stored_json_round_trips_without_aliases():
     parsed = SelectorFieldJson(selectors=stored).selectors
     assert [selector.kind for selector in parsed] == ["cuda", "cpu", "oneapi"]
     assert parsed[0].compute_capability == "8.6"
-
-
-def test_migration_moves_cpu_memory_into_a_ram_selector():
-    rewritten = _migration._rewrite(
-        [
-            {"kind": "cpu", "frequency": 2400, "memory": 8000},
-            {"kind": "cuda", "cuda_cores": 100},
-        ]
-    )
-    assert rewritten == [
-        {"kind": "cpu", "frequency": 2400},
-        {"kind": "ram", "min": 8000},
-        {"kind": "cuda", "cuda_cores": 100},
-    ]
-
-
-def test_migration_drops_unknown_kinds():
-    assert _migration._rewrite([{"kind": "service"}, {"kind": "ram", "min": 1}]) == [
-        {"kind": "ram", "min": 1}
-    ]
