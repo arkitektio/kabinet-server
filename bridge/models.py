@@ -1,6 +1,5 @@
 from arkitekt_service.service.described import Described
 from django.contrib.postgres.indexes import GinIndex
-from django.core.cache import cache
 from django.db import models
 from embeddings import engine as embedding_engine
 from embeddings.models import EmbeddedDescriptionMixin, embedding_indexes
@@ -8,7 +7,6 @@ from django.contrib.auth import get_user_model
 import uuid
 from bridge.fields import S3Field
 from bridge.datalayer import Datalayer
-from django.conf import settings
 
 # Create your models here.
 from bridge.repo import selectors as rselectors
@@ -202,29 +200,6 @@ class S3Store(models.Model):
 
 
 class MediaStore(S3Store):
-    def get_presigned_url(self, info, datalayer: Datalayer, host: str | None = None) -> str:
-        cache_key = f"presigned_url:{self.bucket}:{self.key}:{host}"
-        # Check if the URL is in the cache
-        url = cache.get(cache_key)
-
-        if not url:
-            # Generate a new presigned URL if not cached
-            s3 = datalayer.s3
-            url = s3.generate_presigned_url(
-                ClientMethod="get_object",
-                Params={
-                    "Bucket": self.bucket,
-                    "Key": self.key,
-                },
-                ExpiresIn=3600,
-            )
-            # Replace the endpoint URL
-            url = url.replace(settings.AWS_S3_ENDPOINT_URL, host or "")
-            # Cache the URL with a timeout of 3600 seconds (same as ExpiresIn)
-            cache.set(cache_key, url, timeout=3600)
-
-        return url
-
     def put_file(self, datalayer: Datalayer, file: str):
         s3 = datalayer.s3
         s3.upload_fileobj(file, self.bucket, self.key)

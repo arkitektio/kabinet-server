@@ -30,9 +30,8 @@ def stored_logo(store: models.MediaStore | None) -> Optional[str]:
     """The path of an ingested logo, or None when none has been ingested.
 
     A logo lives in the datalayer as a ``MediaStore`` row, but the API has always declared
-    it a ``String``. Its path is the string that identifies it; turning that into a
-    presigned URL needs the datalayer and a request host, which is the same piece of work
-    as ingesting the manifest's logo in the first place (see ``bridge/repo/db.py``).
+    it a ``String``. Its path is the string that identifies it; a client reads the bytes with
+    a datalayer access grant, never a presigned URL.
     """
     return store.path if store is not None else None
 
