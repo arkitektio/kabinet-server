@@ -22,17 +22,17 @@ from tests.utils import build_relative_dir, execute
 
 VALID_CONFIG = Path(build_relative_dir("deployments/deployments.yaml")).read_text()
 
-PANEL = '<Panel><Text value="Layers" /></Panel>'
-SCENE = '<Scene><Text value="Volume" /></Scene>'
-BROKEN = "<Panel><Text></Panel>"
+PANEL = "<Html><Card><Text>Layers</Text></Card></Html>"
+SCENE = '<Scene id="volume" persist />'
+BROKEN = "<Html><Card><Text></Card></Html>"
 
 
 def bloks_file(*bloks: dict) -> str:
     return yaml.safe_dump({"spec_version": 1, "bloks": list(bloks)})
 
 
-LAYERS = {"key": "layers", "name": "Layer picker", "description": "Pick the visible layers", "source": "bloks/layers.bsx"}
-VOLUME = {"key": "volume", "name": "Volume", "context": "SCENE", "bsx": SCENE, "demo_state": {"z": 1}}
+LAYERS = {"key": "layers", "vocab": 2, "name": "Layer picker", "description": "Pick the visible layers", "source": "bloks/layers.bsx"}
+VOLUME = {"key": "volume", "vocab": 2, "name": "Volume", "context": "SCENE", "bsx": SCENE, "demo": {"args": {"z": 1}}}
 
 
 @pytest.mark.asyncio
@@ -142,7 +142,7 @@ async def test_a_blok_says_how_rekuest_installs_it(fake_github, authenticated_co
     repo = await _repo(authenticated_context)
     dependency = {"key": "viewer", "app": "napari", "action_dependencies": [{"key": "open", "demand": {"key": "open_image", "app": "napari"}}]}
     coordinates = await fake_github(
-        {layout.BLOKS_PATH: bloks_file({**LAYERS, "dependencies": [dependency], "demo_state": {"layer_names": ["a"]}}), "bloks/layers.bsx": PANEL}
+        {layout.BLOKS_PATH: bloks_file({**LAYERS, "dependencies": [dependency], "demo": {"args": {"layer_names": ["a"]}}, "locals": [{"key": "show_all", "kind": "BOOL", "default": True, "persist": True}], "catalogs": ["ui@1"], "module": "orkestrator"}), "bloks/layers.bsx": PANEL}
     )
     await sync_to_async(apply_contents)(await aget_repo_contents(coordinates), repo, authenticated_context.request.organization)
 
@@ -164,8 +164,12 @@ async def test_a_blok_says_how_rekuest_installs_it(fake_github, authenticated_co
     # rekuest's input is camelCase, and leaves out what is not set.
     assert install["dependencies"][0]["actionDependencies"][0]["demand"] == {"key": "open_image", "app": "napari"}
     assert "forModel" not in install
-    # The demo state is the blok's data: its keys are what the blok reads, so they stay as written.
-    assert install["demoState"] == {"layer_names": ["a"]}
+    # A demo is the blok's data: its keys are what the blok reads, so they stay as written.
+    assert install["vocab"] == 2
+    assert install["demo"] == {"args": {"layer_names": ["a"]}}
+    assert install["locals"] == [{"key": "show_all", "kind": "BOOL", "nullable": False, "default": True, "persist": True}]
+    assert install["catalogs"] == ["ui@1"]
+    assert install["module"] == "orkestrator"
 
 
 INSTALL_HASH = "query { repoBloks { hash installHash } }"
@@ -188,3 +192,17 @@ async def test_a_change_to_anything_installed_is_an_update(fake_github, authenti
 
     assert after["hash"] == before["hash"]
     assert after["installHash"] != before["installHash"]
+
+
+@pytest.mark.asyncio
+async def test_a_blok_speaks_blok_language_v2(fake_github):
+    for blok, message in [
+        ({key: value for key, value in VOLUME.items() if key != "vocab"}, "vocab"),
+        ({**VOLUME, "vocab": 1}, "vocab"),
+        ({**VOLUME, "demo_state": {"z": 1}}, "demo_state"),
+        ({**VOLUME, "locals": [{"key": "task", "kind": "STRING"}]}, r"\[roots\.reserved\]"),
+        ({**VOLUME, "catalogs": ["ui"]}, r"\[manifest\.catalog\]"),
+    ]:
+        coordinates = await fake_github({layout.BLOKS_PATH: bloks_file(blok)})
+        with pytest.raises(InspectionError, match=message):
+            await aget_repo_contents(coordinates)

@@ -116,7 +116,8 @@ class Client:
 
 @strawberry_django.type(auth_models.Organization, description="Represents an organization in the system.")
 class Organization:
-    slug: str = strawberry_django.field(description="Slug of the organization.")
+    id: strawberry.ID = strawberry_django.field(description="This service's id of the organization.")
+    identifier: str = strawberry_django.field(description="The organization across issuers and services: `<issuer>#<org>`.")
 
 
 @strawberry_django.type(
@@ -156,14 +157,18 @@ class GithubRepo:
         return build_prescoped_queryset(info, queryset, field="organization")
 
 
+#: The keys whose value is any JSON (a descriptor's value, a local's default, a literal): kept as written.
+LITERAL_KEYS = ("value", "default", "value_literal", "static_value")
+
+
 def _camel(value: object) -> object:
     """``value`` with its keys in camelCase and its nulls left out: a GraphQL input of it.
 
-    A descriptor's ``value`` is any JSON, so its keys stay as they are.
+    A descriptor's ``value``, a local's ``default`` and a literal are any JSON, so their keys stay as they are.
     """
     if isinstance(value, dict):
         return {
-            re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), key): item if key == "value" else _camel(item)
+            re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), key): item if key in LITERAL_KEYS else _camel(item)
             for key, item in value.items()
             if item is not None
         }
@@ -175,15 +180,22 @@ def _camel(value: object) -> object:
 def _install_fields(blok: models.RepoBlok) -> dict:
     """The `CreateBlokInput` a repository blok is installed with, without its `originHash`.
 
-    Only the input's own keys and its dependencies are camelCased: the demo state is the blok's
-    data, and its keys are what the blok reads.
+    Only the input's own keys, its dependencies and its declarations are camelCased: a demo is
+    the blok's data, and its keys are what the blok reads.
     """
     fields = {
         "name": blok.name,
         "description": blok.description,
         "context": blok.context,
         "source": blok.source,
-        "demoState": blok.demo_state,
+        "vocab": blok.vocab,
+        "catalogs": blok.catalogs or None,
+        "module": blok.module,
+        "locals": _camel(blok.locals) if blok.locals else None,
+        # A demo is the blok's data: its keys are what the blok reads.
+        "demo": blok.demo or None,
+        "queries": _camel(blok.queries) if blok.queries else None,
+        "subscriptions": _camel(blok.subscriptions) if blok.subscriptions else None,
         "dependencies": _camel(blok.dependencies or []),
         "forModel": blok.for_model,
         "forNode": blok.for_node,
@@ -215,10 +227,16 @@ class RepoBlok:
     source: str = strawberry_django.field(description="The blok as BSX, as the repository publishes it.")
     source_path: Optional[str] = strawberry_django.field(description="The file of the repository its BSX was read from; null when it is written inline.")
     hash: str = strawberry_django.field(
-        description="A SHA-256 of what the blok draws: its component tree, demo state and context. A client keeps its preview under it; whether an installed copy is out of date is `installHash`'s to say."
+        description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. A client keeps its preview under it; whether an installed copy is out of date is `installHash`'s to say."
     )
     component_tree: Optional[JSON] = strawberry_django.field(description="The whole component tree as one JSON value (a list of roots, snake_case keys). Null when the source does not parse.")
-    demo_state: Optional[JSON] = strawberry_django.field(description="The state the blok is drawn against when it is shown on its own.")
+    vocab: int = strawberry_django.field(description="The blok language version it speaks; 2 is the only one.")
+    catalogs: JSON = strawberry_django.field(description="The catalogs it needs, as name@version.")
+    module: Optional[str] = strawberry_django.field(description="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when null.")
+    locals: JSON = strawberry_django.field(description="Its locals, as rekuest_core BlokLocalInputs (arg ports plus persist, snake_case keys).")
+    demo: JSON = strawberry_django.field(description="What a preview renders it with, as a rekuest_core BlokDemoInput.")
+    queries: JSON = strawberry_django.field(description="Its declared reads, as rekuest_core BlokQueryInputs (snake_case keys).")
+    subscriptions: JSON = strawberry_django.field(description="Its declared streams, as rekuest_core BlokSubscriptionInputs (snake_case keys).")
     dependencies: JSON = strawberry_django.field(description="The agents it draws from, as rekuest_core AgentDependencyInputs (snake_case keys).")
     for_model: Optional[str] = strawberry_django.field(description="The model ('sha256:...') this blok decorates, if any.")
     for_node: Optional[str] = strawberry_django.field(description="The node of `forModel` it attaches to; the model's root when null.")
@@ -240,7 +258,7 @@ class RepoBlok:
 
     @strawberry_django.field(
         description=(
-            "A SHA-256 of everything installing it writes: its name, description, BSX, demo state, dependencies and target. "
+            "A SHA-256 of everything installing it writes: its name, description, BSX, declarations (locals, demo, queries, ...), dependencies and target. "
             "It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed."
         ),
         select_related=["repo"],
@@ -318,12 +336,15 @@ class FlavourBlok:
     default: bool = strawberry.field(description="Whether it is its app's default for its context (the app's logo is its default LOGO).")
     description: Optional[str] = strawberry.field(description="What the app says the blok shows.")
     hash: str = strawberry.field(
-        description="A SHA-256 of what the blok draws: its component tree, demo state and context. Two bloks with the same hash draw the same thing, so a client may keep what it drew under it."
+        description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. Two bloks with the same hash draw the same thing, so a client may keep what it drew under it."
     )
     component_tree: Optional[JSON] = strawberry.field(
         description="The whole component tree as one JSON value (a list of roots) in the wire spelling (snake_case keys), as rekuest serves `Blok.componentTree`. Null when the source does not parse."
     )
-    demo_state: Optional[JSON] = strawberry.field(description="The state the blok is drawn against when it is shown on its own.")
+    vocab: Optional[int] = strawberry.field(description="The blok language version it speaks; null for a blok an app brought before blok language v2.")
+    locals: JSON = strawberry.field(description="Its locals, as the app declared them (snake_case keys).")
+    demo: Optional[JSON] = strawberry.field(description="What a preview renders it with.")
+    queries: JSON = strawberry.field(description="Its declared reads (snake_case keys).")
     for_model: Optional[str] = strawberry.field(description="The model ('sha256:...') this blok decorates, if any.")
     for_node: Optional[str] = strawberry.field(description="The node of `forModel` it attaches to; the model's root when null.")
     parse_error: Optional[str] = strawberry.field(description="Why the blok's source does not parse, or null.")
@@ -341,7 +362,10 @@ def flavour_blok(flavour: models.Flavour, blok: dict) -> FlavourBlok:
         description=blok.get("description"),
         hash=render["hash"],
         component_tree=render["component_tree"],
-        demo_state=blok.get("demo_state"),
+        vocab=blok.get("vocab"),
+        locals=blok.get("locals") or [],
+        demo=blok.get("demo"),
+        queries=blok.get("queries") or [],
         for_model=blok.get("for_model"),
         for_node=blok.get("for_node"),
         parse_error=render["parse_error"],

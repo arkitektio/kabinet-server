@@ -59,8 +59,9 @@ class Command(BaseCommand):
 
         if options["all"]:
             repo_bloks: list[models.RepoBlok] = []
-            for blok in models.RepoBlok.objects.only("id", "source", "demo_state", "context").iterator(chunk_size=BATCH):
-                render = bloks.render_blok({"source": blok.source, "demo_state": blok.demo_state, "context": blok.context})
+            declared = bloks.DECLARED
+            for blok in models.RepoBlok.objects.only("id", "source", "context", *declared).iterator(chunk_size=BATCH):
+                render = bloks.render_blok({"source": blok.source, "context": blok.context, **{key: getattr(blok, key) for key in declared}})
                 blok.component_tree, blok.hash, blok.parse_error = render["component_tree"], render["hash"], render["parse_error"]
                 repo_bloks.append(blok)
             models.RepoBlok.objects.bulk_update(repo_bloks, ["component_tree", "hash", "parse_error"], batch_size=BATCH)

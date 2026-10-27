@@ -172,6 +172,9 @@ contract = Contract(
         offers=Offers(endpoints={"rekuest_service": "_rekuest/service", "rekuest_hook": "_rekuest/hook"}),
         requires={"rekuest": ">=6"},
         hosts=HOSTS,
+        # The migration history restarted at `0001` in 9.0.0 (blok language v2): an older hub's
+        # database already has a `bridge.0001_initial` of another schema, so it is refused (reset).
+        upgrade_from="9.0.0",
     ),
     settings=Settings,
     render=render,

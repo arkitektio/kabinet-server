@@ -49,6 +49,30 @@ for _port_kind_value in PortKind.__strawberry_definition__.values:
     _port_kind_value.description = _PORT_KIND_DESCRIPTIONS[_port_kind_value.name]
 
 
+@strawberry.enum(description="The kind of a blok local: a port kind, or ANY (an untyped value, which skips the bind and argument kind checks). No action port is ever ANY.")
+class LocalKind(str, Enum):
+    INT = "INT"
+    STRING = "STRING"
+    STRUCTURE = "STRUCTURE"
+    LIST = "LIST"
+    BOOL = "BOOL"
+    DICT = "DICT"
+    FLOAT = "FLOAT"
+    DATE = "DATE"
+    UNION = "UNION"
+    ENUM = "ENUM"
+    MODEL = "MODEL"
+    MEMORY_STRUCTURE = "MEMORY_STRUCTURE"
+    INTERFACE = "INTERFACE"
+    QUANTITY = "QUANTITY"
+    ANY = "ANY"
+
+
+_LOCAL_KIND_DESCRIPTIONS = {**_PORT_KIND_DESCRIPTIONS, "ANY": "An untyped value: nothing gave the local a kind. A path below it is taken as written."}
+for _local_kind_value in LocalKind.__strawberry_definition__.values:
+    _local_kind_value.description = _LOCAL_KIND_DESCRIPTIONS[_local_kind_value.name]
+
+
 @strawberry.enum(description="The kind of assign widget.")
 class AssignWidgetKind(str, Enum):
     SEARCH = "SEARCH"
@@ -140,17 +164,19 @@ class AssetKind(str, Enum):
     IMAGE = "IMAGE"
 
 
-@strawberry.enum(description="The renderer a catalog component lives in. A component may only be placed where its context is in force.")
+@strawberry.enum(description="The renderer a catalog component lives in. A component may only be placed where its context is in force. ACTION_LOGO and OVERLAY are blok contexts only: an OVERLAY blok is an action's own, drawn into the space that hosts its run.")
 class ComponentContext(str, Enum):
     HTML = "HTML"
     SCENE = "SCENE"
     LOGO = "LOGO"
     ACTION_LOGO = "ACTION_LOGO"
+    OVERLAY = "OVERLAY"
 
 
-@strawberry.enum(description="Severity of a registration finding. Errors are never stored (they abort registration), so only WARNING exists.")
+@strawberry.enum(description="Severity of a finding on a blok or a definition, as the blok vocabulary's diagnostic table levels it. An ERROR refuses a write, so only a blok rewritten by a migration (blok language v2) stores one; everything registered or written since stores WARNINGs.")
 class DiagnosticLevel(str, Enum):
     WARNING = "WARNING"
+    ERROR = "ERROR"
 
 
 @strawberry.enum(description="Aggregation computed over a tracked value within a window.")

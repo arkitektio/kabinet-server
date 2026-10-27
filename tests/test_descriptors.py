@@ -275,7 +275,7 @@ async def test_a_sweep_for_one_organization_claims_only_its_rows(authenticated_c
     of their own: a flavour's is its release's app's, a repo's is on its GitHub row.
     """
     organization = authenticated_context.request.organization
-    elsewhere = await Organization.objects.acreate(slug="elsewhere")
+    elsewhere = await Organization.objects.acreate(identifier="static_issuer#elsewhere")
 
     def rows(organization: Organization) -> dict[type, int]:
         flavour = _catalogue(organization)["cuda"]
@@ -292,10 +292,10 @@ async def test_a_sweep_for_one_organization_claims_only_its_rows(authenticated_c
         for model in EMBEDDED:
             model.objects.filter(pk__in=[mine[model], theirs[model]]).update(embedding_model="another-model")
         for model in EMBEDDED:
-            assert stale(model, "elsewhere") == {theirs[model]}, model.__name__
-            assert stale(model, organization.slug) == {mine[model]}, model.__name__
+            assert stale(model, "static_issuer#elsewhere") == {theirs[model]}, model.__name__
+            assert stale(model, organization.identifier) == {mine[model]}, model.__name__
             assert stale(model, None) == {mine[model], theirs[model]}, model.__name__
-        return agent.actions["reembed_stale"].function(organization=organization.slug)
+        return agent.actions["reembed_stale"].function(organization=organization.identifier)
 
     assert await sync_to_async(sweep)() == {"reembedded": len(EMBEDDED)}
 

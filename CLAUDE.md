@@ -34,6 +34,10 @@ What this service declares:
   (`Flavour.action_logos`) for flavours imported before either existed; `--all` renders every
   flavour again after the parser changed.
 - Other jobs: none.
+- `upgrade_from` is `9.0.0`: the migration history restarted at `0001` there (blok language v2), so
+  older hubs are refused (their database is reset). `bridge/0001_initial` is what `makemigrations`
+  emits plus `VectorExtension()` as its first operation (the embedding columns need pgvector):
+  carry that by hand whenever the history is regenerated. There is no other hand-written SQL.
 - Not jobs, on purpose: `printschema` regenerates the committed `schema.graphql`: a developer's tool, run in a checkout.
 
 `tests/test_prepared.py` holds the contract to this: migrations committed, every job a command

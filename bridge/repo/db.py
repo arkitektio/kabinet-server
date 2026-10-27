@@ -190,7 +190,7 @@ def apply_bloks(
         for blok in published:
             declared = blok.declaration
             dependencies = [dependency.model_dump(mode="json") for dependency in declared.dependencies]
-            render = bloks.render_blok({"source": blok.source, "demo_state": declared.demo_state, "context": declared.context.value})
+            render = bloks.render_blok({"source": blok.source, "context": declared.context.value, **declared.declared()})
             row, _ = models.RepoBlok.objects.update_or_create(
                 repo=repo,
                 key=declared.key,
@@ -201,7 +201,7 @@ def apply_bloks(
                     context=declared.context.value,
                     source=blok.source,
                     source_path=declared.source,
-                    demo_state=declared.demo_state,
+                    **declared.declared(),
                     dependencies=dependencies,
                     for_model=declared.for_model,
                     for_node=declared.for_node,

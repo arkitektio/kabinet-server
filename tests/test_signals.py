@@ -97,7 +97,7 @@ def intake(settings):
 def _organization():
     from authentikate.models import Organization
 
-    return Organization.objects.get_or_create(slug="signals-test-org")[0]
+    return Organization.objects.get_or_create(identifier="static_issuer#signals-test-org")[0]
 
 
 def test_the_manifest_declares_every_model_signal():
@@ -141,7 +141,7 @@ def test_a_save_is_signalled_signed_by_this_instance(intake):
     obj = App.objects.create(identifier='signalled.app', organization=org)
 
     (received,) = intake.of("@kabinet/app")
-    assert (received["json"]["kind"], received["json"]["object"], received["json"]["organization"]) == ("CREATED", str(obj.pk), org.slug)
+    assert (received["json"]["kind"], received["json"]["object"], received["json"]["organization"]) == ("CREATED", str(obj.pk), org.identifier)
     assert received["path"] == "/agi/signal/kabinet"
     verified = trust.verify("POST", received["path"], received["body"], received["headers"]["Authorization"], audience="rekuest")
     assert verified.issuer == "kabinet"

@@ -28,7 +28,7 @@ async def test_parse_deployments(db: typing.Any) -> None:
 @pytest.mark.asyncio
 async def test_db_deployments(db: typing.Any) -> None:
     organization, _ = await Organization.objects.aget_or_create(
-        slug="test-organization"
+        identifier="test-organization"
     )
 
     user, _ = await get_user_model().objects.aget_or_create(

@@ -3,7 +3,20 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator, model_valida
 from typing import List, Literal, Optional
 import datetime
 from rekuest_core import enums as rkenums
-from rekuest_core.inputs.models import AgentDependencyInputModel, AssetInputModel, ImplementationInputModel, StateImplementationInputModel, LockImplementationInputModel, BlokImplementationInputModel, check_blok_target
+from rekuest_core.inputs.models import (
+    AgentDependencyInputModel,
+    AssetInputModel,
+    BlokDemoInputModel,
+    BlokImplementationInputModel,
+    BlokLocalInputModel,
+    BlokQueryInputModel,
+    BlokSubscriptionInputModel,
+    ImplementationInputModel,
+    LockImplementationInputModel,
+    StateImplementationInputModel,
+    check_blok_declarations,
+    check_blok_target,
+)
 
 from .selectors import Selector
 
@@ -219,11 +232,19 @@ class RepoBlokDeclarationModel(BaseModel):
     description: str | None = None
     context: rkenums.ComponentContext = rkenums.ComponentContext.HTML
     source: str | None = Field(default=None, description="A path in the repository to the blok's BSX.")
-    bsx: str | None = Field(default=None, description="The blok's BSX, inline.")
-    demo_state: dict | None = None
+    bsx: str | None = Field(default=None, description="The blok's BSX (blok language v2), inline.")
+    vocab: Literal[2] = Field(description="The blok language version the blok speaks; 2 is the only one.")
+    catalogs: list[str] = Field(default_factory=list, description="The catalogs it needs, as name@version ('ui@1').")
+    module: str | None = Field(default=None, max_length=1000, description="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when absent.")
+    locals: list[BlokLocalInputModel] = Field(default_factory=list, description="Its locals: form state that feeds a call, written only through bind.")
+    demo: BlokDemoInputModel | None = Field(default=None, description="What a preview renders it with.")
+    queries: list[BlokQueryInputModel] = Field(default_factory=list, description="Its declared reads.")
+    subscriptions: list[BlokSubscriptionInputModel] = Field(default_factory=list, description="Its declared streams.")
     dependencies: list[AgentDependencyInputModel] = Field(default_factory=list)
     for_model: str | None = None
     for_node: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
 
     @field_validator("key")
     @classmethod
@@ -250,7 +271,28 @@ class RepoBlokDeclarationModel(BaseModel):
         if self.context not in (rkenums.ComponentContext.HTML, rkenums.ComponentContext.SCENE):
             raise ValueError(f"A repository publishes panels (HTML) and scenes (SCENE), not {self.context.value} bloks.")
         check_blok_target(self.context, self.for_model, self.for_node)
+        check_blok_declarations(
+            kind="custom",
+            catalogs=self.catalogs,
+            locals=self.locals,
+            queries=self.queries,
+            subscriptions=self.subscriptions,
+            dependency_keys={dependency.key for dependency in self.dependencies},
+            demo=self.demo,
+        )
         return self
+
+    def declared(self) -> dict:
+        """What it declares beside its tree, as a blok stores it (snake_case, nothing unset)."""
+        return {
+            "vocab": self.vocab,
+            "catalogs": self.catalogs,
+            "module": self.module,
+            "locals": [local.model_dump(mode="json", exclude_none=True) for local in self.locals],
+            "demo": self.demo.model_dump(mode="json", exclude_none=True) if self.demo is not None else {},
+            "queries": [query.model_dump(mode="json", exclude_none=True) for query in self.queries],
+            "subscriptions": [subscription.model_dump(mode="json", exclude_none=True) for subscription in self.subscriptions],
+        }
 
 
 class BlokFileModel(BaseModel):

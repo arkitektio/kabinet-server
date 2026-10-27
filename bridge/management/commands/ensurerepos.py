@@ -33,7 +33,7 @@ class RepoMapSettings(BaseModel):
 async def create_github_repos(repo_map: list[RepoMap]) -> None:
     """Track every repository in ``repo_map``, reporting failures without aborting."""
     for entry in repo_map:
-        organization, _ = await Organization.objects.aget_or_create(slug=entry.organization)
+        organization, _ = await Organization.objects.aget_or_create(identifier=entry.organization)
 
         for repo_identifier in entry.repos:
             # `_create_github_repo` takes the *pydantic* input model, not the strawberry

@@ -40,7 +40,7 @@ def _catalogue(ctx: HttpContext) -> None:
     mine = models.Backend.objects.create(organization=organization, user=user, client=client, name="mine", kind="docker")
     models.Deployment.objects.create(flavour=vanilla, backend=mine)
 
-    other = Organization.objects.create(slug=f"other-{uuid.uuid4().hex[:8]}")
+    other = Organization.objects.create(identifier=f"other-{uuid.uuid4().hex[:8]}")
     theirs = models.Backend.objects.create(organization=other, user=user, client=client, name="theirs", kind="docker")
     models.Deployment.objects.create(flavour=elsewhere, backend=theirs)
 

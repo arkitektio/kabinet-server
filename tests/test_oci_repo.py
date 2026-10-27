@@ -301,7 +301,7 @@ async def test_the_hook_action_reads_every_imported_repository_again(authenticat
     registry.release("org/ome", "1.1.0", "1.1.0")
     del registry.manifests["org/other"]
 
-    assert await sync_to_async(rescan_sources)("static_org") == {"releases": 1, "unreadable": 1}
+    assert await sync_to_async(rescan_sources)("static_issuer#static_org") == {"releases": 1, "unreadable": 1}
     assert await sync_to_async(rescan_sources)("another_org") == {"releases": 0, "unreadable": 0}
     assert await models.Release.objects.filter(app__identifier="ome").acount() == 2
 
@@ -320,12 +320,12 @@ async def test_a_release_keeps_its_logos_and_assets(authenticated_context: HttpC
         inspection={
             "implementations": [implementation],
             "bloks": [
-                {"key": "ome_logo", "context": "LOGO", "default": True, "source": '<SVG viewBox="0 0 24 24"><Circle r="4" fill="#fbbf24" /></SVG>'},
+                {"key": "ome_logo", "vocab": 2, "context": "LOGO", "default": True, "source": '<AgentLogo viewBox="0 0 24 24"><Circle r="4" fill="brand" /></AgentLogo>'},
                 {
                     "key": "ome_segment",
+                    "vocab": 2,
                     "context": "ACTION_LOGO",
-                    "source": '<ActionLogo viewBox="0 0 24 24"><Circle r="4" fill="brand" animate="pulse" /></ActionLogo>',
-                    "demo_state": {"task": None},
+                    "source": '<ActionLogo viewBox="0 0 24 24"><Circle r="4" fill={task.running ? "brand" : "muted"} /></ActionLogo>',
                 },
             ],
             "assets": [{"name": "nucleus", "kind": "MODEL_3D", "ref": "sha256:" + "a" * 64, "size": 1024, "path": "models/nucleus.glb"}],
