@@ -7,26 +7,32 @@ the same commit, and no installer has to learn of it.
 
 from __future__ import annotations
 
-from arkitekt_service.contract import JSON, Contract, Description, Descriptor, Facts, Hosts, Job, Needs, Offers, Scope, Signal, Start, Structure, blocks
+from arkitekt_service.contract import JSON, Contract, Description, Descriptor, Facts, Hosts, Job, Needs, Offers, Role, Scope, Signal, Start, Structure, blocks
 
 from kabinet_server.configuration import Settings
 
-#: What a token may be allowed to do here: defined at the coordination server when the hub enrols.
+#: What an app may do here on a user's behalf: defined at the coordination server when the hub
+#: enrols. Every root field of the schema asks for one of them (`AuthExtension(scopes=...)`).
 SCOPES = [
-    Scope(key="kabinet_add_repo", description="Add repositories to the database"),
-    Scope(key="kabinet_deploy", description="Deploy containers"),
-    Scope(key="kabinet_read", description="Read container definitions"),
-    Scope(key="read", description="Generic read access"),
-    Scope(key="write", description="Generic write access"),
+    Scope(key="kabinet_read", description="See repositories, app images, deployments, pods, backends and release approvals."),
+    Scope(key="kabinet_repos", description="Add and rescan repositories and register app images."),
+    Scope(key="kabinet_deploy", description="Deploy apps: create and change deployments, pods, backends and resources, and read their logs."),
+    Scope(key="kabinet_approve", description="Approve or revoke releases, which decides what may run under the organization's mandate."),
+    Scope(key="kabinet_all", description="Do everything in Kabinet on your behalf.", is_all_scope=True),
 ]
 
-#: The roles a member of an organization can hold here.
+#: What a member of an organization may do here. Kabinet has no editor: deploying is what a member
+#: does here, so the deployer is every member's role, and approving is held back for the approver.
 ROLES = [
-    Scope(key="admin", description="Full administrative access"),
-    Scope(key="deployer", description="Can deploy containers"),
-    Scope(key="user", description="Standard user access"),
-    Scope(key="viewer", description="Read-only access"),
+    Role(key="kabinet_admin", description="Full control of Kabinet in this organization.", is_admin_role=True),
+    Role(key="kabinet_deployer", description="Add repositories and deploy apps.", is_default_role=True),
+    Role(key="kabinet_approver", description="Approve and revoke releases."),
 ]
+
+#: The role the repository and deployment writes ask for, the one approvals ask for, and the one holding both.
+DEPLOYER = "kabinet_deployer"
+APPROVER = "kabinet_approver"
+ADMIN = "kabinet_admin"
 
 #: What a deployment and a pod are placed by: one pair of keys for both, so one `requires` asks both.
 _STATUS = Descriptor(key="@kabinet/status", type="STRING", description="Its lifecycle status as its backend last reported it, e.g. PENDING, RUNNING, STOPPED or FAILED")

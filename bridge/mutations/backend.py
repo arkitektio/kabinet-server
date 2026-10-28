@@ -7,6 +7,7 @@ import strawberry
 from authentikate.strawberry.directives import has_org_role
 from graphql import GraphQLError
 from kabinet_server.service import service
+from kabinet_server.contract import ADMIN
 
 
 async def declare_backend(info: Info, input: inputs.DeclareBackendInput) -> types.Backend:
@@ -34,10 +35,10 @@ def _restore_placed(backend: models.Backend) -> None:
 
 
 async def delete_backend(info: Info, id: strawberry.ID) -> strawberry.ID:
-    """Delete a backend: only the user who runs it, or an organization admin."""
+    """Delete a backend: only the user who runs it, or a Kabinet admin."""
     backend = await aget_for_org(models.Backend, info, id=id)
-    if backend.user_id != info.context.request.user.id and not has_org_role(info, "admin"):
-        raise GraphQLError("Only the backend's owner or an organization admin may delete it.")
+    if backend.user_id != info.context.request.user.id and not has_org_role(info, ADMIN):
+        raise GraphQLError("Only the backend's owner or a Kabinet admin may delete it.")
     await backend.adelete()
 
     return id

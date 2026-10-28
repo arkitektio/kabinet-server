@@ -16,17 +16,25 @@ DATABASES["default"] = {
     # KABINET_TEST_DB_PORT at `docker compose port db 5432` to run against your own stack.
     "PORT": os.environ.get("KABINET_TEST_DB_PORT", "5555"),
 }
+#: What a test token is unless it says otherwise: kabinet's admin, through an app granted all of kabinet.
+ADMIN_WITH_EVERY_SCOPE = {"roles": ["kabinet_admin"], "scope": "openid kabinet_all"}
+
 # Django forces DEBUG=False under the test runner, and authentikate 3.0 refuses static
 # tokens when DEBUG is False. These are deliberate test fixtures, so opt in explicitly.
 AUTHENTIKATE = {
     **AUTHENTIKATE,
     "allow_static_tokens_in_production": True,
     "static_tokens": {
-        "test": {"sub": "1"},
-        # A non-privileged user in a different organization, for cross-tenant
-        # scoping/permission tests (see the other_org_context fixture). roles
-        # must be set explicitly: StaticToken defaults roles to ["admin"].
-        "othertest": {"sub": "9", "org": "other_org", "roles": []},
+        name: {**ADMIN_WITH_EVERY_SCOPE, **token}
+        for name, token in {
+            "test": {"sub": "1"},
+            # A non-privileged user in a different organization, for cross-tenant
+            # scoping/permission tests (see the other_org_context fixture): a deployer,
+            # every member's role, so it writes in its own organization but is not kabinet's admin.
+            "othertest": {"sub": "9", "org": "other_org", "roles": ["kabinet_deployer"]},
+            # An app granted only what it reads, for the scope tests (tests/test_scopes.py).
+            "readertest": {"sub": "1", "scope": "openid kabinet_read"},
+        }.items()
     },
 }
 

@@ -5,6 +5,7 @@ from kante.types import Info
 
 from bridge import approvals, inputs, models, types
 from bridge.scoping import for_org
+from kabinet_server.contract import ADMIN
 
 
 def _approve(info: Info, parsed: inputs.ApproveReleaseInputModel) -> models.ReleaseApproval:
@@ -28,15 +29,15 @@ def _approve(info: Info, parsed: inputs.ApproveReleaseInputModel) -> models.Rele
 async def approve_release(info: Info, input: inputs.ApproveReleaseInput) -> types.ReleaseApproval:
     """Record a standing approval of a release, backed by a lok mandate you created.
 
-    Anyone in the organization may approve: the deployed release will act as *them*.
+    A Kabinet approver (or admin) may approve: the deployed release will act as *them*.
     """
     return await sync_to_async(_approve)(info, input.to_pydantic())
 
 
 def _revoke(info: Info, parsed: inputs.RevokeApprovalInputModel) -> models.ReleaseApproval:
     approval = for_org(models.ReleaseApproval, info).get(id=parsed.id)
-    if approval.approver_id != info.context.request.user.id and not has_org_role(info, "admin"):
-        raise GraphQLError("Only the approver or an organization admin may revoke this approval.")
+    if approval.approver_id != info.context.request.user.id and not has_org_role(info, ADMIN):
+        raise GraphQLError("Only the approver or a Kabinet admin may revoke this approval.")
     return approvals.revoke(approval)
 
 
