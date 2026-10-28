@@ -94,7 +94,7 @@ class Mutation:
     rescan_repos: List[types.GithubRepo] = mutation(
         scope="kabinet_repos",
         resolver=mutations.rescan_repos,
-        description="Rescan every tracked GitHub repository for new or updated app manifests.",
+        description="Rescan every tracked repository for new or updated releases: the GitHub repositories (their app manifests and bloks) and the imported OCI repositories.",
     )
 
     import_repo: types.OciRepo = mutation(

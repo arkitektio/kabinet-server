@@ -306,6 +306,31 @@ async def test_the_hook_action_reads_every_imported_repository_again(authenticat
     assert await models.Release.objects.filter(app__identifier="ome").acount() == 2
 
 
+RESCAN = """
+    mutation {
+        rescanRepos {
+            id
+        }
+    }
+"""
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_rescanning_the_repositories_reads_the_imported_ones_again(authenticated_context: HttpContext, registry: FakeRegistry):
+    """`rescanRepos` (the Rescan Repos button) reads OCI repositories too; one that cannot be read does not stop it."""
+    registry.release("org/ome", "1.0.0", "1.0.0")
+    registry.release("org/other", "1.0.0", "1.0.0", identifier="other")
+    await import_repo(authenticated_context, registry.reference("org/ome"))
+    await import_repo(authenticated_context, registry.reference("org/other"))
+
+    registry.release("org/ome", "1.1.0", "1.1.0")
+    del registry.manifests["org/other"]
+
+    assert (await execute(RESCAN, authenticated_context))["rescanRepos"] == []
+    assert await models.Release.objects.filter(app__identifier="ome").acount() == 2
+
+
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_a_release_keeps_its_logos_and_assets(authenticated_context: HttpContext, registry: FakeRegistry):

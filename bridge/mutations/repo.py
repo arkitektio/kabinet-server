@@ -19,6 +19,7 @@ from authentikate.models import Organization, User
 from kante.types import Info
 
 from bridge import inputs, models, types
+from bridge.repo import oci
 from bridge.repo.db import apply_contents
 from bridge.repo.fetch import RepoCoordinates, aget_repo_contents
 from bridge.scoping import aget_for_org, for_org
@@ -114,17 +115,31 @@ async def _rescan_one(repo: models.GithubRepo, organization: Organization) -> No
         logger.warning("Could not rescan %s: %s", repo, e, exc_info=True)
 
 
+async def _rescan_oci(repo: models.OciRepo) -> None:
+    """Read an imported OCI repository again, logging rather than raising when it cannot be read."""
+    try:
+        await oci.scan(repo)
+    except Exception as e:
+        logger.warning("Could not rescan %s: %s", repo.reference, e, exc_info=True)
+
+
 async def rescan_repos(info: Info) -> list[types.GithubRepo]:
-    """Rescan every tracked repository in the caller's organization.
+    """Rescan every tracked repository in the caller's organization: its GitHub repositories
+    and the OCI repositories it imported (as `importRepo` would read them again).
 
     Fetches concurrently. This used to ``await`` one HTTP round-trip at a time inside an
     ``async for`` over the queryset, so the caller waited for the sum of every repo's
-    latency. It also returned the queryset itself after consuming it.
+    latency. It also returned the queryset itself after consuming it. It returns the GitHub
+    repositories only; what an OCI repository brings shows in its releases.
     """
     organization = info.context.request.organization
 
     repos = [repo async for repo in for_org(models.GithubRepo, info)]
+    oci_repos = [repo async for repo in for_org(models.OciRepo, info)]
 
-    await asyncio.gather(*(_rescan_one(repo, organization) for repo in repos))
+    await asyncio.gather(
+        *(_rescan_one(repo, organization) for repo in repos),
+        *(_rescan_oci(repo) for repo in oci_repos),
+    )
 
     return repos
