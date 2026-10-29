@@ -42,7 +42,13 @@
      "key": "variant",
      "kind": "STRING",
      "required": false,
-     "description": "How much of it to show. Defaults to \"card\"."
+     "description": "How much of it to show. Defaults to \"card\".",
+     "values": [
+      "inline",
+      "avatar",
+      "chip",
+      "card"
+     ]
     }
    ]
   },

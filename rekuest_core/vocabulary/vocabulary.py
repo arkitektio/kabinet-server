@@ -11,7 +11,7 @@ import functools
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from importlib import resources
 from typing import Literal
 
@@ -136,6 +136,8 @@ class DiagnosticSpec:
     message: str
     runtime: bool = False
     """A record's error code the renderer gives (``deps.unbound``), never a checker's finding."""
+    hint: str | None = None
+    """How to fix it, a template filled like the message; None when the message says it already."""
 
 
 @dataclass(frozen=True)
@@ -367,6 +369,7 @@ def parse_vocabulary(raw: JSON) -> Vocabulary:
             level="error" if level == "error" else "warning",
             message=_string(entry.get("message"), f"diagnostics.{code}.message"),
             runtime=_flag(entry, "runtime"),
+            hint=_string(entry["hint"], f"diagnostics.{code}.hint") if entry.get("hint") is not None else None,
         )
 
     return Vocabulary(
@@ -445,14 +448,35 @@ def diagnostic_message(code: str, **fields: object) -> str:
     return spec.message.format_map(_Fields(fields))
 
 
+def diagnostic_hint(code: str, **fields: object) -> str | None:
+    """How to fix ``code``, filled with ``fields``; None when its row has no hint.
+
+    Raises:
+        KeyError: If ``code`` is not in the diagnostic table.
+    """
+    spec = load_vocabulary().diagnostics[code]
+    return spec.hint.format_map(_Fields(fields)) if spec.hint is not None else None
+
+
 @dataclass(frozen=True)
 class Finding:
-    """A diagnostic: a row of the table, filled, and where (a node id, a declaration)."""
+    """A diagnostic: a row of the table, filled, and where (a node id, a declaration).
+
+    Two findings are equal by code, level, message and path; the hint, the fields and the place
+    in the source (stamped by a checker that parsed it) ride along.
+    """
 
     code: str
     level: Level
     message: str
     path: str | None = None
+    hint: str | None = field(default=None, compare=False)
+    """How to fix it, filled like the message."""
+    fields: Mapping[str, object] = field(default_factory=dict[str, object], compare=False, hash=False)
+    """What the message was filled with (``component``, ``key``, ...)."""
+    line: int | None = field(default=None, compare=False)
+    """1-based, in the BSX source the tree was parsed from, when known."""
+    column: int | None = field(default=None, compare=False)
 
     @classmethod
     def of(cls, code: str, at: str | None = None, /, **fields: object) -> "Finding":
@@ -462,7 +486,18 @@ class Finding:
             KeyError: If ``code`` is not in the diagnostic table.
         """
         spec = load_vocabulary().diagnostics[code]
-        return cls(code=code, level=spec.level, message=spec.message.format_map(_Fields(fields)), path=at)
+        return cls(
+            code=code,
+            level=spec.level,
+            message=spec.message.format_map(_Fields(fields)),
+            path=at,
+            hint=spec.hint.format_map(_Fields(fields)) if spec.hint is not None else None,
+            fields=dict(fields),
+        )
+
+    def placed(self, line: int, column: int) -> "Finding":
+        """The same finding, at ``line``/``column`` of the source."""
+        return replace(self, line=line, column=column)
 
     def to_json(self) -> dict[str, JSON]:
         """The finding as JSON: ``{code, level, message, path?}``."""
@@ -484,6 +519,7 @@ class BlokError(ValueError):
         self.line = line
         self.column = column
         self.fields = fields
+        self.hint = diagnostic_hint(code, **fields)
         message = diagnostic_message(code, **fields)
         where = f"line {line}, column {column}: " if line is not None and column is not None else ""
         super().__init__(f"{where}{message} [{code}]")
@@ -495,9 +531,10 @@ class BlokError(ValueError):
         error = cls.__new__(cls)
         ValueError.__init__(error, f"{finding.path + ': ' if finding.path else ''}{finding.message} [{finding.code}]")
         error.code = finding.code
-        error.line = None
-        error.column = None
-        error.fields = {}
+        error.line = finding.line
+        error.column = finding.column
+        error.fields = dict(finding.fields)
+        error.hint = finding.hint
         error.message = finding.message
         return error
 
@@ -510,6 +547,7 @@ class BlokError(ValueError):
         error.line = self.line
         error.column = self.column
         error.fields = self.fields
+        error.hint = self.hint
         error.message = f"{owner}: {self.message}"
         return error
 
@@ -530,6 +568,7 @@ __all__ = [
     "RecordField",
     "Theme",
     "Vocabulary",
+    "diagnostic_hint",
     "diagnostic_message",
     "load_vocabulary",
     "parse_vocabulary",

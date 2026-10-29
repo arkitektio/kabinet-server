@@ -473,6 +473,61 @@ input ArgPortInput {
 }
 
 """
+A blok an action asks a person through, declared with it (blok language v2): a task blok, its args and returns ports.
+"""
+input AskBlokInput {
+  """
+  What a task names it by: `<parameter>.<method>` of the action's interactions protocol.
+  """
+  key: String!
+
+  """
+  What it asks, in a sentence: the hold's message wherever the ask is listed.
+  """
+  description: String = null
+
+  """The UI component tree, unless the blok is sent as its `source`."""
+  components: [ComponentNodeInput!] = null
+
+  """
+  The blok as v2 BSX, parsed by the server into its component tree. Exactly one of `components` and `source` is sent.
+  """
+  source: String = null
+
+  """
+  The module the blok renders against besides its catalogs; the Orkestrator's when absent.
+  """
+  module: String = null
+
+  """What it is opened on, read under `args.<key>`."""
+  args: [ArgPortInput!]! = []
+
+  """What an answer holds."""
+  returns: [ReturnPortInput!]! = []
+
+  """The agents it reads or calls besides `self`, as `deps.<key>`."""
+  dependencies: [AgentDependencyInput!]! = []
+
+  """The blok language version the blok speaks; 2 is the only one."""
+  vocab: Int!
+
+  """The catalogs it needs, as name@version."""
+  catalogs: [String!]! = []
+
+  """Its locals: form state that feeds a call, written only through bind."""
+  locals: [BlokLocalInput!]! = []
+
+  """What a preview renders it with."""
+  demo: BlokDemoInput = null
+
+  """Its declared reads."""
+  queries: [BlokQueryInput!]! = []
+
+  """Its declared streams."""
+  subscriptions: [BlokSubscriptionInput!]! = []
+}
+
+"""
 What a file an agent brings with it is: a 3D model (a binary glTF file) or an image (PNG, JPEG or WebP).
 """
 enum AssetKind {
@@ -2130,7 +2185,7 @@ input ImplementationInput {
   """
   The interface of the implementation. This is used to group implementations together in the UI
   """
-  interface: String = null
+  interface: String!
 
   """
   The params of the implementation. This is used to pass parameters to the implementation
@@ -2184,6 +2239,31 @@ input ImplementationInput {
   The key of the agent's action logo blok (context ACTION_LOGO) that draws this action.
   """
   logo: String = null
+
+  """
+  The bloks this implementation asks a person through, declared up front: a task asks one by its key.
+  """
+  asks: [AskBlokInput!] = null
+
+  """
+  The bloks this implementation shows a person while a task goes on, declared up front: a task shows one by its key.
+  """
+  informs: [InformBlokInput!] = null
+
+  """
+  Whether a task may also ask through a blok made at ask time, or any blok of the organization. Refused otherwise, and without the `rekuest_dynamic_ask` scope.
+  """
+  dynamicAsks: Boolean = null
+
+  """
+  Whether a task may also call actions it found at run time, not only its declared dependencies. A WORKFLOW only; refused otherwise, and without the `rekuest_dynamic_call` scope.
+  """
+  dynamicCalls: Boolean = null
+
+  """
+  Whether a task may show a blok made at inform time, or any blok of the organization. Refused otherwise, and without the `rekuest_dynamic_inform` scope.
+  """
+  dynamicInforms: Boolean = null
 }
 
 """
@@ -2197,6 +2277,58 @@ input ImportRepoInput {
   The channels to follow besides the releases, e.g. ['main']. Omit to keep what is followed.
   """
   channels: [String!] = null
+}
+
+"""
+A blok an action shows a person while its task goes on, declared with it (blok language v2): a task blok, its args ports, no returns.
+"""
+input InformBlokInput {
+  """
+  What a task names it by: `<parameter>.<method>` of the action's interactions protocol.
+  """
+  key: String!
+
+  """
+  What it shows, in a sentence: the inform's message wherever it is listed.
+  """
+  description: String = null
+
+  """The UI component tree, unless the blok is sent as its `source`."""
+  components: [ComponentNodeInput!] = null
+
+  """
+  The blok as v2 BSX, parsed by the server into its component tree. Exactly one of `components` and `source` is sent.
+  """
+  source: String = null
+
+  """
+  The module the blok renders against besides its catalogs; the Orkestrator's when absent.
+  """
+  module: String = null
+
+  """What it is opened on, read under `args.<key>`."""
+  args: [ArgPortInput!]! = []
+
+  """The agents it reads or calls besides `self`, as `deps.<key>`."""
+  dependencies: [AgentDependencyInput!]! = []
+
+  """The blok language version the blok speaks; 2 is the only one."""
+  vocab: Int!
+
+  """The catalogs it needs, as name@version."""
+  catalogs: [String!]! = []
+
+  """Its locals: form state that feeds a call, written only through bind."""
+  locals: [BlokLocalInput!]! = []
+
+  """What a preview renders it with."""
+  demo: BlokDemoInput = null
+
+  """Its declared reads."""
+  queries: [BlokQueryInput!]! = []
+
+  """Its declared streams."""
+  subscriptions: [BlokSubscriptionInput!]! = []
 }
 
 """A file the app brings, as its image holds it."""
@@ -2422,7 +2554,7 @@ type Mutation {
   scanRepo(input: ScanRepoInput!): GithubRepo! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
 
   """
-  Rescan every tracked GitHub repository for new or updated app manifests.
+  Rescan every tracked repository for new or updated releases: the GitHub repositories (their app manifests and bloks) and the imported OCI repositories.
   """
   rescanRepos: [GithubRepo!]! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
 

@@ -107,7 +107,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -149,7 +157,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "onClick",
@@ -186,13 +198,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -238,7 +260,11 @@
      "key": "clipPathUnits",
      "kind": "STRING",
      "required": false,
-     "description": "Whether its shapes are in user units (the default) or fractions of the clipped shape."
+     "description": "Whether its shapes are in user units (the default) or fractions of the clipped shape.",
+     "values": [
+      "userSpaceOnUse",
+      "objectBoundingBox"
+     ]
     }
    ]
   },
@@ -275,7 +301,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -317,7 +351,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "onClick",
@@ -360,13 +398,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -412,7 +460,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -442,7 +498,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "onClick",
@@ -473,13 +533,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -525,7 +595,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -555,7 +633,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "onClick",
@@ -586,13 +668,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -714,7 +806,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -750,7 +850,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "onClick",
@@ -781,13 +885,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -833,7 +947,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -863,7 +985,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "onClick",
@@ -900,13 +1026,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -952,7 +1088,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -982,7 +1126,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "onClick",
@@ -1019,13 +1167,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -1129,7 +1287,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -1159,7 +1325,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "height",
@@ -1208,13 +1378,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -1312,7 +1492,15 @@
      "key": "animate",
      "kind": "STRING",
      "required": false,
-     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink."
+     "description": "Plays while the logo is hovered, and while an action logo's task runs: spin, pulse, float, draw (traces the stroke), march (moves a dashed stroke) or blink.",
+     "values": [
+      "spin",
+      "pulse",
+      "float",
+      "draw",
+      "march",
+      "blink"
+     ]
     },
     {
      "key": "animateDelay",
@@ -1330,7 +1518,14 @@
      "key": "dominantBaseline",
      "kind": "STRING",
      "required": false,
-     "description": "Where y is on the text."
+     "description": "Where y is on the text.",
+     "values": [
+      "auto",
+      "middle",
+      "central",
+      "hanging",
+      "alphabetic"
+     ]
     },
     {
      "key": "fill",
@@ -1348,7 +1543,11 @@
      "key": "fillRule",
      "kind": "STRING",
      "required": false,
-     "description": "Which parts of a self-intersecting shape are inside."
+     "description": "Which parts of a self-intersecting shape are inside.",
+     "values": [
+      "nonzero",
+      "evenodd"
+     ]
     },
     {
      "key": "fontFamily",
@@ -1397,13 +1596,23 @@
      "key": "strokeLinecap",
      "kind": "STRING",
      "required": false,
-     "description": "How open line ends are drawn."
+     "description": "How open line ends are drawn.",
+     "values": [
+      "butt",
+      "round",
+      "square"
+     ]
     },
     {
      "key": "strokeLinejoin",
      "kind": "STRING",
      "required": false,
-     "description": "How corners are drawn."
+     "description": "How corners are drawn.",
+     "values": [
+      "miter",
+      "round",
+      "bevel"
+     ]
     },
     {
      "key": "strokeOpacity",
@@ -1427,7 +1636,12 @@
      "key": "textAnchor",
      "kind": "STRING",
      "required": false,
-     "description": "Where x is on the text."
+     "description": "Where x is on the text.",
+     "values": [
+      "start",
+      "middle",
+      "end"
+     ]
     },
     {
      "key": "title",

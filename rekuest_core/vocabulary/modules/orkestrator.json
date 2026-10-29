@@ -299,7 +299,12 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Avatar size."
+     "description": "Avatar size.",
+     "values": [
+      "default",
+      "sm",
+      "lg"
+     ]
     },
     {
      "key": "src",
@@ -420,7 +425,13 @@
      "key": "overflow",
      "kind": "STRING",
      "required": false,
-     "description": "Overflow behaviour."
+     "description": "Overflow behaviour.",
+     "values": [
+      "visible",
+      "hidden",
+      "auto",
+      "scroll"
+     ]
     },
     {
      "key": "padding",
@@ -555,7 +566,13 @@
      "key": "overflow",
      "kind": "STRING",
      "required": false,
-     "description": "Overflow behaviour."
+     "description": "Overflow behaviour.",
+     "values": [
+      "visible",
+      "hidden",
+      "auto",
+      "scroll"
+     ]
     },
     {
      "key": "padding",
@@ -704,7 +721,11 @@
      "key": "orientation",
      "kind": "STRING",
      "required": false,
-     "description": "Orientation."
+     "description": "Orientation.",
+     "values": [
+      "horizontal",
+      "vertical"
+     ]
     }
    ]
   },
@@ -785,7 +806,11 @@
      "key": "orientation",
      "kind": "STRING",
      "required": false,
-     "description": "Scroll direction."
+     "description": "Scroll direction.",
+     "values": [
+      "horizontal",
+      "vertical"
+     ]
     },
     {
      "key": "showControls",
@@ -877,7 +902,13 @@
      "key": "type",
      "kind": "STRING",
      "required": false,
-     "description": "Chart kind. Defaults to \"line\"."
+     "description": "Chart kind. Defaults to \"line\".",
+     "values": [
+      "line",
+      "bar",
+      "area",
+      "pie"
+     ]
     }
    ]
   },
@@ -1779,7 +1810,13 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Where the addon sits relative to the input."
+     "description": "Where the addon sits relative to the input.",
+     "values": [
+      "inline-start",
+      "inline-end",
+      "block-start",
+      "block-end"
+     ]
     },
     {
      "key": "className",
@@ -1891,7 +1928,11 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Item density."
+     "description": "Item density.",
+     "values": [
+      "default",
+      "sm"
+     ]
     },
     {
      "key": "title",
@@ -1903,7 +1944,12 @@
      "key": "variant",
      "kind": "STRING",
      "required": false,
-     "description": "Item appearance."
+     "description": "Item appearance.",
+     "values": [
+      "default",
+      "outline",
+      "muted"
+     ]
     }
    ]
   },
@@ -2372,7 +2418,13 @@
      "key": "kind",
      "kind": "STRING",
      "required": false,
-     "description": "Which control this item is. Defaults to \"page\"."
+     "description": "Which control this item is. Defaults to \"page\".",
+     "values": [
+      "page",
+      "previous",
+      "next",
+      "ellipsis"
+     ]
     },
     {
      "key": "label",
@@ -2429,7 +2481,11 @@
      "key": "direction",
      "kind": "STRING",
      "required": false,
-     "description": "\"row\" splits left/right, \"column\" top/bottom."
+     "description": "\"row\" splits left/right, \"column\" top/bottom.",
+     "values": [
+      "row",
+      "column"
+     ]
     }
    ]
   },
@@ -2560,7 +2616,13 @@
      "key": "side",
      "kind": "STRING",
      "required": false,
-     "description": "Which edge the surface is anchored to."
+     "description": "Which edge the surface is anchored to.",
+     "values": [
+      "top",
+      "right",
+      "bottom",
+      "left"
+     ]
     }
    ]
   },

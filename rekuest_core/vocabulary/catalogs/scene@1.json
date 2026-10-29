@@ -343,7 +343,11 @@
      "key": "mode",
      "kind": "STRING",
      "required": false,
-     "description": "Where the opened blok shows: \"popout\" as a card on the clicked spot (the viewer can drag it aside), \"panel\" beside the scene. Defaults to popout."
+     "description": "Where the opened blok shows: \"popout\" as a card on the clicked spot (the viewer can drag it aside), \"panel\" beside the scene. Defaults to popout.",
+     "values": [
+      "popout",
+      "panel"
+     ]
     },
     {
      "key": "node",
@@ -441,7 +445,12 @@
      "key": "trigger",
      "kind": "STRING",
      "required": false,
-     "description": "What shows the card: a click on the node, the pointer over it, or always. Defaults to click."
+     "description": "What shows the card: a click on the node, the pointer over it, or always. Defaults to click.",
+     "values": [
+      "click",
+      "hover",
+      "always"
+     ]
     }
    ]
   },
@@ -652,7 +661,13 @@
      "key": "camera",
      "kind": "STRING",
      "required": false,
-     "description": "Where the camera starts looking from; it frames the models whatever their size. Defaults to iso."
+     "description": "Where the camera starts looking from; it frames the models whatever their size. Defaults to iso.",
+     "values": [
+      "iso",
+      "front",
+      "side",
+      "top"
+     ]
     },
     {
      "key": "grid",
@@ -738,7 +753,12 @@
      "key": "mode",
      "kind": "STRING",
      "required": false,
-     "description": "What the gizmo does: \"translate\" (the default), \"rotate\" or \"scale\"."
+     "description": "What the gizmo does: \"translate\" (the default), \"rotate\" or \"scale\".",
+     "values": [
+      "translate",
+      "rotate",
+      "scale"
+     ]
     },
     {
      "key": "persist",

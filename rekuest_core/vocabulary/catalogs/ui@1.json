@@ -173,7 +173,11 @@
      "key": "variant",
      "kind": "STRING",
      "required": false,
-     "description": "Alert appearance."
+     "description": "Alert appearance.",
+     "values": [
+      "default",
+      "destructive"
+     ]
     }
    ]
   },
@@ -210,7 +214,15 @@
      "key": "variant",
      "kind": "STRING",
      "required": false,
-     "description": "Badge appearance."
+     "description": "Badge appearance.",
+     "values": [
+      "default",
+      "secondary",
+      "destructive",
+      "outline",
+      "ghost",
+      "link"
+     ]
     }
    ]
   },
@@ -272,13 +284,33 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Button size."
+     "description": "Button size.",
+     "values": [
+      "default",
+      "xs",
+      "sm",
+      "lg",
+      "icon",
+      "icon-xs",
+      "icon-sm",
+      "icon-lg"
+     ]
     },
     {
      "key": "variant",
      "kind": "STRING",
      "required": false,
-     "description": "Button appearance. \"primary\" maps to default, \"borderless\" to ghost."
+     "description": "Button appearance. \"primary\" maps to default, \"borderless\" to ghost.",
+     "values": [
+      "default",
+      "outline",
+      "secondary",
+      "ghost",
+      "destructive",
+      "link",
+      "primary",
+      "borderless"
+     ]
     }
    ]
   },
@@ -339,7 +371,11 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Card density."
+     "description": "Card density.",
+     "values": [
+      "default",
+      "sm"
+     ]
     },
     {
      "key": "width",
@@ -426,7 +462,14 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Alignment across the cross axis."
+     "description": "Alignment across the cross axis.",
+     "values": [
+      "start",
+      "center",
+      "end",
+      "stretch",
+      "baseline"
+     ]
     },
     {
      "key": "className",
@@ -444,7 +487,15 @@
      "key": "justify",
      "kind": "STRING",
      "required": false,
-     "description": "Distribution along the main axis."
+     "description": "Distribution along the main axis.",
+     "values": [
+      "start",
+      "center",
+      "end",
+      "between",
+      "around",
+      "evenly"
+     ]
     },
     {
      "key": "padding",
@@ -599,7 +650,12 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Horizontal text alignment."
+     "description": "Horizontal text alignment.",
+     "values": [
+      "start",
+      "center",
+      "end"
+     ]
     },
     {
      "key": "block",
@@ -617,7 +673,13 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Text size step."
+     "description": "Text size step.",
+     "values": [
+      "xs",
+      "sm",
+      "base",
+      "lg"
+     ]
     },
     {
      "key": "text",
@@ -629,7 +691,13 @@
      "key": "tone",
      "kind": "STRING",
      "required": false,
-     "description": "Semantic text colour."
+     "description": "Semantic text colour.",
+     "values": [
+      "default",
+      "muted",
+      "destructive",
+      "success"
+     ]
     },
     {
      "key": "truncate",
@@ -641,7 +709,13 @@
      "key": "weight",
      "kind": "STRING",
      "required": false,
-     "description": "Font weight."
+     "description": "Font weight.",
+     "values": [
+      "regular",
+      "medium",
+      "semibold",
+      "bold"
+     ]
     }
    ]
   },
@@ -660,7 +734,14 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Alignment across the cross axis."
+     "description": "Alignment across the cross axis.",
+     "values": [
+      "start",
+      "center",
+      "end",
+      "stretch",
+      "baseline"
+     ]
     },
     {
      "key": "background",
@@ -690,7 +771,11 @@
      "key": "direction",
      "kind": "STRING",
      "required": false,
-     "description": "Main axis direction."
+     "description": "Main axis direction.",
+     "values": [
+      "row",
+      "column"
+     ]
     },
     {
      "key": "gap",
@@ -714,7 +799,15 @@
      "key": "justify",
      "kind": "STRING",
      "required": false,
-     "description": "Distribution along the main axis."
+     "description": "Distribution along the main axis.",
+     "values": [
+      "start",
+      "center",
+      "end",
+      "between",
+      "around",
+      "evenly"
+     ]
     },
     {
      "key": "margin",
@@ -750,7 +843,13 @@
      "key": "overflow",
      "kind": "STRING",
      "required": false,
-     "description": "Overflow behaviour."
+     "description": "Overflow behaviour.",
+     "values": [
+      "visible",
+      "hidden",
+      "auto",
+      "scroll"
+     ]
     },
     {
      "key": "padding",
@@ -1085,7 +1184,12 @@
      "key": "orientation",
      "kind": "STRING",
      "required": false,
-     "description": "Label placement."
+     "description": "Label placement.",
+     "values": [
+      "vertical",
+      "horizontal",
+      "responsive"
+     ]
     }
    ]
   },
@@ -1123,7 +1227,14 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Alignment across the cross axis."
+     "description": "Alignment across the cross axis.",
+     "values": [
+      "start",
+      "center",
+      "end",
+      "stretch",
+      "baseline"
+     ]
     },
     {
      "key": "background",
@@ -1153,7 +1264,11 @@
      "key": "direction",
      "kind": "STRING",
      "required": false,
-     "description": "Main axis direction."
+     "description": "Main axis direction.",
+     "values": [
+      "row",
+      "column"
+     ]
     },
     {
      "key": "gap",
@@ -1177,7 +1292,15 @@
      "key": "justify",
      "kind": "STRING",
      "required": false,
-     "description": "Distribution along the main axis."
+     "description": "Distribution along the main axis.",
+     "values": [
+      "start",
+      "center",
+      "end",
+      "between",
+      "around",
+      "evenly"
+     ]
     },
     {
      "key": "margin",
@@ -1213,7 +1336,13 @@
      "key": "overflow",
      "kind": "STRING",
      "required": false,
-     "description": "Overflow behaviour."
+     "description": "Overflow behaviour.",
+     "values": [
+      "visible",
+      "hidden",
+      "auto",
+      "scroll"
+     ]
     },
     {
      "key": "padding",
@@ -1346,7 +1475,13 @@
      "key": "overflow",
      "kind": "STRING",
      "required": false,
-     "description": "Overflow behaviour."
+     "description": "Overflow behaviour.",
+     "values": [
+      "visible",
+      "hidden",
+      "auto",
+      "scroll"
+     ]
     },
     {
      "key": "padding",
@@ -1389,7 +1524,12 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Horizontal text alignment."
+     "description": "Horizontal text alignment.",
+     "values": [
+      "start",
+      "center",
+      "end"
+     ]
     },
     {
      "key": "className",
@@ -1401,7 +1541,15 @@
      "key": "level",
      "kind": "STRING",
      "required": false,
-     "description": "Heading level, which also sets the type scale."
+     "description": "Heading level, which also sets the type scale.",
+     "values": [
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6"
+     ]
     },
     {
      "key": "text",
@@ -1635,7 +1783,12 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Horizontal text alignment."
+     "description": "Horizontal text alignment.",
+     "values": [
+      "start",
+      "center",
+      "end"
+     ]
     },
     {
      "key": "className",
@@ -1678,7 +1831,13 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Text size step."
+     "description": "Text size step.",
+     "values": [
+      "xs",
+      "sm",
+      "base",
+      "lg"
+     ]
     },
     {
      "key": "text",
@@ -1690,7 +1849,13 @@
      "key": "tone",
      "kind": "STRING",
      "required": false,
-     "description": "Semantic text colour."
+     "description": "Semantic text colour.",
+     "values": [
+      "default",
+      "muted",
+      "destructive",
+      "success"
+     ]
     },
     {
      "key": "truncate",
@@ -1702,7 +1867,13 @@
      "key": "weight",
      "kind": "STRING",
      "required": false,
-     "description": "Font weight."
+     "description": "Font weight.",
+     "values": [
+      "regular",
+      "medium",
+      "semibold",
+      "bold"
+     ]
     }
    ]
   },
@@ -1926,7 +2097,11 @@
      "key": "orientation",
      "kind": "STRING",
      "required": false,
-     "description": "Orientation."
+     "description": "Orientation.",
+     "values": [
+      "horizontal",
+      "vertical"
+     ]
     },
     {
      "key": "value",
@@ -1988,7 +2163,14 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Alignment across the cross axis."
+     "description": "Alignment across the cross axis.",
+     "values": [
+      "start",
+      "center",
+      "end",
+      "stretch",
+      "baseline"
+     ]
     },
     {
      "key": "background",
@@ -2018,7 +2200,11 @@
      "key": "direction",
      "kind": "STRING",
      "required": false,
-     "description": "Main axis direction."
+     "description": "Main axis direction.",
+     "values": [
+      "row",
+      "column"
+     ]
     },
     {
      "key": "gap",
@@ -2042,7 +2228,15 @@
      "key": "justify",
      "kind": "STRING",
      "required": false,
-     "description": "Distribution along the main axis."
+     "description": "Distribution along the main axis.",
+     "values": [
+      "start",
+      "center",
+      "end",
+      "between",
+      "around",
+      "evenly"
+     ]
     },
     {
      "key": "margin",
@@ -2078,7 +2272,13 @@
      "key": "overflow",
      "kind": "STRING",
      "required": false,
-     "description": "Overflow behaviour."
+     "description": "Overflow behaviour.",
+     "values": [
+      "visible",
+      "hidden",
+      "auto",
+      "scroll"
+     ]
     },
     {
      "key": "padding",
@@ -2326,7 +2526,11 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Trigger size."
+     "description": "Trigger size.",
+     "values": [
+      "default",
+      "sm"
+     ]
     }
    ]
   },
@@ -2351,7 +2555,11 @@
      "key": "orientation",
      "kind": "STRING",
      "required": false,
-     "description": "Orientation."
+     "description": "Orientation.",
+     "values": [
+      "horizontal",
+      "vertical"
+     ]
     }
    ]
   },
@@ -2901,7 +3109,12 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Horizontal text alignment."
+     "description": "Horizontal text alignment.",
+     "values": [
+      "start",
+      "center",
+      "end"
+     ]
     },
     {
      "key": "className",
@@ -2925,7 +3138,13 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Text size step."
+     "description": "Text size step.",
+     "values": [
+      "xs",
+      "sm",
+      "base",
+      "lg"
+     ]
     },
     {
      "key": "text",
@@ -2937,7 +3156,13 @@
      "key": "tone",
      "kind": "STRING",
      "required": false,
-     "description": "Semantic text colour."
+     "description": "Semantic text colour.",
+     "values": [
+      "default",
+      "muted",
+      "destructive",
+      "success"
+     ]
     },
     {
      "key": "truncate",
@@ -2949,7 +3174,13 @@
      "key": "weight",
      "kind": "STRING",
      "required": false,
-     "description": "Font weight."
+     "description": "Font weight.",
+     "values": [
+      "regular",
+      "medium",
+      "semibold",
+      "bold"
+     ]
     }
    ]
   },
@@ -3153,13 +3384,22 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Toggle size."
+     "description": "Toggle size.",
+     "values": [
+      "default",
+      "sm",
+      "lg"
+     ]
     },
     {
      "key": "variant",
      "kind": "STRING",
      "required": false,
-     "description": "Toggle appearance."
+     "description": "Toggle appearance.",
+     "values": [
+      "default",
+      "outline"
+     ]
     }
    ]
   },
@@ -3215,13 +3455,22 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Item size."
+     "description": "Item size.",
+     "values": [
+      "default",
+      "sm",
+      "lg"
+     ]
     },
     {
      "key": "variant",
      "kind": "STRING",
      "required": false,
-     "description": "Item appearance."
+     "description": "Item appearance.",
+     "values": [
+      "default",
+      "outline"
+     ]
     }
    ]
   },

@@ -90,7 +90,13 @@
      "key": "overflow",
      "kind": "STRING",
      "required": false,
-     "description": "Overflow behaviour."
+     "description": "Overflow behaviour.",
+     "values": [
+      "visible",
+      "hidden",
+      "auto",
+      "scroll"
+     ]
     },
     {
      "key": "padding",
@@ -133,7 +139,12 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Horizontal text alignment."
+     "description": "Horizontal text alignment.",
+     "values": [
+      "start",
+      "center",
+      "end"
+     ]
     },
     {
      "key": "className",
@@ -157,7 +168,13 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Text size step."
+     "description": "Text size step.",
+     "values": [
+      "xs",
+      "sm",
+      "base",
+      "lg"
+     ]
     },
     {
      "key": "text",
@@ -169,7 +186,13 @@
      "key": "tone",
      "kind": "STRING",
      "required": false,
-     "description": "Semantic text colour."
+     "description": "Semantic text colour.",
+     "values": [
+      "default",
+      "muted",
+      "destructive",
+      "success"
+     ]
     },
     {
      "key": "truncate",
@@ -181,7 +204,13 @@
      "key": "weight",
      "kind": "STRING",
      "required": false,
-     "description": "Font weight."
+     "description": "Font weight.",
+     "values": [
+      "regular",
+      "medium",
+      "semibold",
+      "bold"
+     ]
     }
    ]
   },
@@ -200,7 +229,12 @@
      "key": "align",
      "kind": "STRING",
      "required": false,
-     "description": "Horizontal text alignment."
+     "description": "Horizontal text alignment.",
+     "values": [
+      "start",
+      "center",
+      "end"
+     ]
     },
     {
      "key": "className",
@@ -224,7 +258,13 @@
      "key": "size",
      "kind": "STRING",
      "required": false,
-     "description": "Text size step."
+     "description": "Text size step.",
+     "values": [
+      "xs",
+      "sm",
+      "base",
+      "lg"
+     ]
     },
     {
      "key": "text",
@@ -236,7 +276,13 @@
      "key": "tone",
      "kind": "STRING",
      "required": false,
-     "description": "Semantic text colour."
+     "description": "Semantic text colour.",
+     "values": [
+      "default",
+      "muted",
+      "destructive",
+      "success"
+     ]
     },
     {
      "key": "truncate",
@@ -248,7 +294,13 @@
      "key": "weight",
      "kind": "STRING",
      "required": false,
-     "description": "Font weight."
+     "description": "Font weight.",
+     "values": [
+      "regular",
+      "medium",
+      "semibold",
+      "bold"
+     ]
     }
    ]
   }
