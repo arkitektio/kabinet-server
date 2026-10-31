@@ -2178,11 +2178,6 @@ input ImplementationInput {
   dependencies: [AgentDependencyInput!]! = []
 
   """
-  The tracks of the definition. This is used to track values over time during the runtime of an action. This is the state of a dependency
-  """
-  tracks: [TrackInput!] = null
-
-  """
   The interface of the implementation. This is used to group implementations together in the UI
   """
   interface: String!
@@ -4116,29 +4111,6 @@ type TimeBucket {
 }
 
 """
-A value that is being tracked over time during the runtime of an action. This is the state of a dependency
-"""
-input TrackInput {
-  """The key of the dependency whose state is being tracked."""
-  dependencyKey: String = null
-
-  """The key of the state to track."""
-  stateKey: String!
-
-  """The key of the value within the state to track."""
-  valueKey: String!
-
-  """An optional human-readable label for the track."""
-  label: String = null
-
-  """An optional description for the track."""
-  description: String = null
-
-  """The windows (aggregations) computed over the tracked value."""
-  windows: [WindowInput!] = null
-}
-
-"""
 An untyped, free-form JSON object whose shape is not known to the schema.
 """
 scalar UntypedParams
@@ -4221,25 +4193,4 @@ input ValidatorInput {
   The authoring expression the call was compiled from (informational; never parsed or validated by the server).
   """
   source: String = null
-}
-
-"""Aggregation computed over a tracked value within a window."""
-enum WindowFunction {
-  MEAN
-  MIN
-  MAX
-  SUM
-  COUNT
-  LAST
-  FIRST
-  STD
-}
-
-"""A window that is calculated"""
-input WindowInput {
-  """The aggregation to compute over the tracked value within the window."""
-  windowFunction: WindowFunction!
-
-  """An optional human-readable label for the window."""
-  label: String = null
 }

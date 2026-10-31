@@ -250,12 +250,3 @@ def test_optimistic_pointer_is_static_or_computed_from_args() -> None:
         imodels.OptimisticInputModel(state="stage")
     with pytest.raises(ValidationError, match="references 'state'"):
         imodels.OptimisticInputModel(state="stage", path_call={"operation": "sel", "arguments": [{"key": "a", "value_path": "/state/x"}]})
-
-
-def test_window_function_is_an_enum() -> None:
-    """Window function is an enum."""
-    with pytest.raises(ValidationError):
-        imodels.WindowInputModel(window_function="average")
-    window = imodels.WindowInputModel(window_function="MEAN", label="avg")
-    track = omodels.TrackModel(state_key="s", value_key="v", windows=[window.model_dump()])
-    assert track.windows[0].window_function == "MEAN"
