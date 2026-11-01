@@ -5,6 +5,7 @@ app_images:
     buildAt: '2025-08-22T17:55:39.019884'
     imageString: jhnnsrs/ome:0.1.9-vanilla
   inspection:
+    bloks: []
     implementations:
     - definition:
         args:
@@ -18,9 +19,10 @@ app_images:
           validators: []
           widget:
             kind: SEARCH
-            query: "query SearchFiles($search: String, $values: [ID!], $pagination: OffsetPaginationInput)\
-              \ {\n  options: files(\n    filters: {search: $search, ids: $values}\n    pagination: $pagination\n\
-              \  ) {\n    value: id\n    label: name\n    __typename\n  }\n}"
+            query: "query SearchFiles($search: String, $values: [ID!], $pagination:\
+              \ OffsetPaginationInput) {\n  options: files(\n    filters: {search:\
+              \ $search, ids: $values}\n    pagination: $pagination\n  ) {\n    value:\
+              \ id\n    label: name\n    __typename\n  }\n}"
             ward: mikro
         - description: The Stage in which to put the Image. Defaults to None.
           effects: []
@@ -32,9 +34,10 @@ app_images:
           validators: []
           widget:
             kind: SEARCH
-            query: "query SearchStages($search: String, $values: [ID!], $pagination: OffsetPaginationInput)\
-              \ {\n  options: stages(\n    filters: {search: $search, ids: $values}\n    pagination: $pagination\n\
-              \  ) {\n    value: id\n    label: name\n    __typename\n  }\n}"
+            query: "query SearchStages($search: String, $values: [ID!], $pagination:\
+              \ OffsetPaginationInput) {\n  options: stages(\n    filters: {search:\
+              \ $search, ids: $values}\n    pagination: $pagination\n  ) {\n    value:\
+              \ id\n    label: name\n    __typename\n  }\n}"
             ward: mikro
         collections: []
         description: Converts an Omero File in a set of Mikrodata
@@ -61,8 +64,10 @@ app_images:
         version: '1'
       dependencies: []
       interface: convert_omero_file
+    locks: []
     requirements:
-    - description: An instance of ArkitektNext Datalayer to make requests to the user's data
+    - description: An instance of ArkitektNext Datalayer to make requests to the user's
+        data
       key: datalayer
       optional: true
       service: live.arkitekt.s3
@@ -70,7 +75,8 @@ app_images:
       key: lok
       optional: false
       service: live.arkitekt.lok
-    - description: An instance of ArkitektNext Mikro to make requests to the user's data
+    - description: An instance of ArkitektNext Mikro to make requests to the user's
+        data
       key: mikro
       optional: true
       service: live.arkitekt.mikro
@@ -79,9 +85,8 @@ app_images:
       optional: false
       service: live.arkitekt.rekuest
     size: 1482598149
-    locks: []
+    spec_version: 8.0.0
     states: []
-    bloks: []
   manifest:
     author: jhnnsrs
     entrypoint: app
@@ -91,3 +96,4 @@ app_images:
     version: 0.1.9
   selectors: []
 latest_app_image: da60d36f7c1d48e69136699f4fcc901e
+spec_version: 8.0.0

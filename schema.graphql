@@ -2367,6 +2367,7 @@ input InspectedAssetInput {
 }
 
 input InspectionInput {
+  specVersion: String!
   size: Int = null
   locks: [LockImplementationInput!]!
   implementations: [ImplementationInput!]!

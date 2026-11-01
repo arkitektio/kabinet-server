@@ -178,7 +178,7 @@ async def test_invalid_config_lists_every_field(fake_github):
 @pytest.mark.asyncio
 async def test_config_without_app_images(fake_github):
     """Valid, parseable, and describes nothing -- which used to be reported as success."""
-    coordinates = await fake_github({layout.DEPLOYMENTS_PATH: "latest_app_image: null\n"})
+    coordinates = await fake_github({layout.DEPLOYMENTS_PATH: "spec_version: 8.0.0\nlatest_app_image: null\n"})
 
     with pytest.raises(InspectionError, match="lists no app images"):
         await inspect(coordinates)

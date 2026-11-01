@@ -65,8 +65,8 @@ class InspectedAssetModel(AssetInputModel):
 
 
 class InspectionInputModel(BaseModel):
-    spec_version: str | None = None
-    """The arkitekt-spec the image wrote this with. Absent from an image older than the key."""
+    spec_version: str
+    """The arkitekt-spec the image wrote this with, which may be older than the release's."""
     size: int | None = None
     locks: List[LockImplementationInputModel] = Field(alias="locks")
     implementations: List[ImplementationInputModel] = Field(alias="implementations")
@@ -162,6 +162,7 @@ class KabinetConfigFile(BaseModel):
         _description_
     """
 
+    spec_version: str
     app_images: List[AppImageInputModel] = []
     latest_app_image: Optional[str] = None
 
@@ -207,11 +208,10 @@ class ReleaseDescriptorModel(BaseModel):
     """A release as its registry repository carries it (the format is arkitekt-spec's ``release``).
 
     Unknown keys are ignored, so a newer producer can add a field. ``spec_version`` names the
-    arkitekt-spec that wrote it (the number 1 in a release older than that), and
-    :func:`parse_release` picks the model that reads it.
+    arkitekt-spec that wrote it, and :func:`parse_release` picks the model that reads it.
     """
 
-    spec_version: str | int = 1
+    spec_version: str
     manifest: ManifestInputModel
     channel: str | None = None
     revision: str | None = None
@@ -225,10 +225,14 @@ class ReleaseDescriptorModel(BaseModel):
 RELEASE_PARSERS: list[tuple[int, type[ReleaseDescriptorModel]]] = [(0, ReleaseDescriptorModel)]
 
 
+class UnversionedRelease(ValueError):
+    """A release from before releases named their spec, which no kabinet will learn to read."""
+
+
 def _spec_major(version: object) -> int:
-    """The major of the spec that wrote a release; a release from before it said so is the oldest."""
+    """The major of the spec that wrote a release."""
     if version is None or version == 1:
-        return 0
+        raise UnversionedRelease("A release that names no spec version is refused: release it again on a current arkitekt.")
     match = re.match(r"(\d+)(?:[.+]|$)", version) if isinstance(version, str) else None
     if match is None:
         raise ValueError(f"A release names {version!r} as its spec version, which is not a version.")
@@ -241,6 +245,9 @@ def parse_release(body: bytes) -> ReleaseDescriptorModel:
     if not isinstance(data, dict):
         raise ValueError(f"A release descriptor is a mapping of keys, not a {type(data).__name__}.")
     major = _spec_major(data.get("spec_version"))
+    for flavour in data.get("flavours", []):
+        # The image wrote this one, so it can be older than the release naming it.
+        _spec_major((flavour.get("inspection") or {}).get("spec_version"))
     parser = next(model for floor, model in reversed(RELEASE_PARSERS) if floor <= major)
     return parser.model_validate_json(body)
 

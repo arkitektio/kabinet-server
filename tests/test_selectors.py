@@ -51,6 +51,8 @@ FLAVOUR_SELECTORS = """
 def _app_image_with_all_selectors() -> dict:
     with open(build_relative_dir("deployments/deployments.yaml")) as f:
         app_image = yaml.safe_load(f)["app_images"][0]
+    # The fixture is a file, spelled as the spec writes it; GraphQL has its own spelling.
+    app_image["inspection"]["specVersion"] = app_image["inspection"].pop("spec_version")
     app_image["inspection"]["implementations"] = []
     app_image["selectors"] = ALL_KINDS_WIRE
     return app_image

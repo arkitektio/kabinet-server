@@ -67,7 +67,7 @@ class FakeRegistry:
         identifier: str = "ome",
         image: str | None = None,
         inspection: dict | None = None,
-        spec_version: str | int = 1,
+        spec_version: str | int | None = "8.0.0",
     ) -> None:
         """Push a release descriptor under a tag, with one flavour whose image sits beside it.
 
@@ -375,13 +375,33 @@ async def test_a_release_keeps_its_logos_and_assets(authenticated_context: HttpC
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_a_release_says_which_spec_wrote_it(authenticated_context: HttpContext, registry: FakeRegistry):
-    registry.release("org/ome", "1.0.0", "1.0.0", spec_version="7.1.0", inspection={"spec_version": "7.1.0"})
+    # The image's spec can be older than the CLI's that released it.
+    registry.release("org/ome", "1.0.0", "1.0.0", spec_version="8.0.0", inspection={"spec_version": "7.1.0"})
 
     repo = await import_repo(authenticated_context, registry.reference("org/ome"))
 
     assert _versions(repo) == [("1.0.0", None)]
     flavour = await models.Flavour.objects.aget(repo_id=repo["id"])
     assert flavour.inspection["spec_version"] == "7.1.0"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "unversioned",
+    [{"spec_version": None}, {"spec_version": 1}, {"inspection": {"spec_version": None}}],
+    ids=["no version", "the number 1", "no version on its inspection"],
+)
+async def test_a_release_that_names_no_spec_is_refused_once(authenticated_context: HttpContext, registry: FakeRegistry, unversioned: dict):
+    """It will never become readable, so a later scan does not fetch it again."""
+    registry.release("org/ome", "1.0.0", "1.0.0", **unversioned)
+    reference = registry.reference("org/ome")
+    assert (await import_repo(authenticated_context, reference))["flavours"] == []
+
+    registry.requests.clear()
+    await import_repo(authenticated_context, reference)
+
+    assert registry.fetched("blobs") == []
 
 
 @pytest.mark.django_db(transaction=True)

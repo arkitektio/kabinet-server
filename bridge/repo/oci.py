@@ -27,7 +27,7 @@ from bridge import models
 
 from .db import apply_release
 from .errors import DBError
-from .models import ReleaseDescriptorModel, parse_release
+from .models import ReleaseDescriptorModel, UnversionedRelease, parse_release
 
 logger = logging.getLogger(__name__)
 
@@ -228,11 +228,18 @@ async def scan(repo: models.OciRepo, session: aiohttp.ClientSession | None = Non
 
     async def read(tag: str) -> None:
         async with limit:
+            digest = None
             try:
                 manifest = await registry.manifest(tag)
                 if manifest is None or seen.get(tag) == manifest[0]:
                     return
-                found[tag] = manifest[0], await registry.descriptor(manifest[1])
+                digest = manifest[0]
+                found[tag] = digest, await registry.descriptor(manifest[1])
+            except UnversionedRelease as e:
+                # Remembered: it never changes and is never readable, so it is not asked for again.
+                report.problems[tag] = str(e)
+                if digest:
+                    seen[tag] = digest
             except (ValueError, RegistryError) as e:
                 # Not remembered: the registry may answer the next scan, and a kabinet that has
                 # learned to read this release reads it then. A ValidationError is a ValueError.

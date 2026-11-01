@@ -10,6 +10,7 @@ from bridge.repo.models import InspectionInputModel
 def inspection(**definition: object) -> dict:
     base = {"key": "attach", "version": "1", "name": "Attach", "kind": "FUNCTION", "args": [], "returns": []}
     return {
+        "spec_version": "8.0.0",
         "requirements": [],
         "locks": [],
         "states": [],

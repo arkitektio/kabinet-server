@@ -128,6 +128,7 @@ class InspectedAssetInput:
 
 @pydantic.input(InspectionInputModel)
 class InspectionInput:
+    spec_version: str = strawberry.field(description="The arkitekt-spec the image wrote this with. An inspection that names none is refused.")
     locks: List[LockImplementationInput] = strawberry.field(description="The locks are a list of lock implementations that the app provides")
     states: List[StateImplementationInput] = strawberry.field(description="The states are a list of state implementations that the app provides")
     implementations: List[ImplementationInput] = strawberry.field(description="The implementations are a list of functionality the the app will provide")
