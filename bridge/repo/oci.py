@@ -21,14 +21,13 @@ from typing import Any
 import aiohttp
 from asgiref.sync import sync_to_async
 from django.utils import timezone
-from pydantic import ValidationError
 from yarl import URL
 
 from bridge import models
 
 from .db import apply_release
 from .errors import DBError
-from .models import ReleaseDescriptorModel
+from .models import ReleaseDescriptorModel, parse_release
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +185,7 @@ class Registry:
             raise RegistryError(f"{self.registry} answered {status} for the descriptor {digest}.")
         if "sha256:" + hashlib.sha256(body).hexdigest() != digest:
             raise RegistryError(f"{self.registry} returned other bytes than {digest} names.")
-        return ReleaseDescriptorModel.model_validate_json(body)
+        return parse_release(body)
 
 
 @dataclass
@@ -229,19 +228,14 @@ async def scan(repo: models.OciRepo, session: aiohttp.ClientSession | None = Non
 
     async def read(tag: str) -> None:
         async with limit:
-            digest = None
             try:
                 manifest = await registry.manifest(tag)
                 if manifest is None or seen.get(tag) == manifest[0]:
                     return
-                digest = manifest[0]
-                found[tag] = digest, await registry.descriptor(manifest[1])
-            except ValidationError as e:
-                report.problems[tag] = str(e)
-                if digest:
-                    seen[tag] = digest
-            except RegistryError as e:
-                # Not remembered: the registry may answer the next scan.
+                found[tag] = manifest[0], await registry.descriptor(manifest[1])
+            except (ValueError, RegistryError) as e:
+                # Not remembered: the registry may answer the next scan, and a kabinet that has
+                # learned to read this release reads it then. A ValidationError is a ValueError.
                 report.problems[tag] = str(e)
 
     tags = await registry.tags()

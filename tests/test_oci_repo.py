@@ -67,6 +67,7 @@ class FakeRegistry:
         identifier: str = "ome",
         image: str | None = None,
         inspection: dict | None = None,
+        spec_version: str | int = 1,
     ) -> None:
         """Push a release descriptor under a tag, with one flavour whose image sits beside it.
 
@@ -76,7 +77,7 @@ class FakeRegistry:
             app_image = copy.deepcopy(yaml.safe_load(f)["app_images"][0])
         app_image["inspection"].update(inspection or {})
         descriptor = {
-            "spec_version": 1,
+            "spec_version": spec_version,
             "manifest": {**app_image["manifest"], "identifier": identifier, "version": version},
             "channel": channel,
             "revision": "3f2a9c1",
@@ -369,6 +370,32 @@ async def test_a_release_keeps_its_logos_and_assets(authenticated_context: HttpC
         {"name": "nucleus", "kind": "MODEL_3D", "ref": "sha256:" + "a" * 64, "size": 1024, "source": None, "path": "models/nucleus.glb"}
     ]
     assert [blok["key"] for blok in result["flavour"]["bloks"]] == ["ome_logo", "ome_segment"]
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_release_says_which_spec_wrote_it(authenticated_context: HttpContext, registry: FakeRegistry):
+    registry.release("org/ome", "1.0.0", "1.0.0", spec_version="7.1.0", inspection={"spec_version": "7.1.0"})
+
+    repo = await import_repo(authenticated_context, registry.reference("org/ome"))
+
+    assert _versions(repo) == [("1.0.0", None)]
+    flavour = await models.Flavour.objects.aget(repo_id=repo["id"])
+    assert flavour.inspection["spec_version"] == "7.1.0"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_release_that_cannot_be_read_is_read_again(authenticated_context: HttpContext, registry: FakeRegistry):
+    """A kabinet that learns to read it later has to find it, though it never changed."""
+    registry.release("org/ome", "1.0.0", "1.0.0", spec_version="not a version")
+    reference = registry.reference("org/ome")
+    assert (await import_repo(authenticated_context, reference))["flavours"] == []
+
+    registry.requests.clear()
+    await import_repo(authenticated_context, reference)
+
+    assert len(registry.fetched("blobs")) == 1
 
 
 def test_the_descriptor_arkitekt_spec_writes_is_read_here():

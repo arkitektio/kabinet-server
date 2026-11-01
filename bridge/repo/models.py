@@ -1,3 +1,4 @@
+import json
 import re
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing import List, Literal, Optional
@@ -64,6 +65,8 @@ class InspectedAssetModel(AssetInputModel):
 
 
 class InspectionInputModel(BaseModel):
+    spec_version: str | None = None
+    """The arkitekt-spec the image wrote this with. Absent from an image older than the key."""
     size: int | None = None
     locks: List[LockImplementationInputModel] = Field(alias="locks")
     implementations: List[ImplementationInputModel] = Field(alias="implementations")
@@ -203,16 +206,43 @@ class ReleaseFlavourModel(BaseModel):
 class ReleaseDescriptorModel(BaseModel):
     """A release as its registry repository carries it (the format is arkitekt-spec's ``release``).
 
-    Unknown keys are ignored, so a newer producer can add a field. A change this reader must
-    not survive arrives as another ``spec_version``, which fails validation here.
+    Unknown keys are ignored, so a newer producer can add a field. ``spec_version`` names the
+    arkitekt-spec that wrote it (the number 1 in a release older than that), and
+    :func:`parse_release` picks the model that reads it.
     """
 
-    spec_version: Literal[1] = 1
+    spec_version: str | int = 1
     manifest: ManifestInputModel
     channel: str | None = None
     revision: str | None = None
     source: str | None = None
     flavours: list[ReleaseFlavourModel] = Field(default_factory=list)
+
+
+#: What reads a release: the lowest major of arkitekt-spec a model reads, lowest first. A format
+#: this model cannot read gets its own entry. A newer major than any here is read by the last one:
+#: most of the spec's majors change its Python API and not this format.
+RELEASE_PARSERS: list[tuple[int, type[ReleaseDescriptorModel]]] = [(0, ReleaseDescriptorModel)]
+
+
+def _spec_major(version: object) -> int:
+    """The major of the spec that wrote a release; a release from before it said so is the oldest."""
+    if version is None or version == 1:
+        return 0
+    match = re.match(r"(\d+)(?:[.+]|$)", version) if isinstance(version, str) else None
+    if match is None:
+        raise ValueError(f"A release names {version!r} as its spec version, which is not a version.")
+    return int(match.group(1))
+
+
+def parse_release(body: bytes) -> ReleaseDescriptorModel:
+    """Read a release descriptor with the model for the spec that wrote it."""
+    data = json.loads(body)
+    if not isinstance(data, dict):
+        raise ValueError(f"A release descriptor is a mapping of keys, not a {type(data).__name__}.")
+    major = _spec_major(data.get("spec_version"))
+    parser = next(model for floor, model in reversed(RELEASE_PARSERS) if floor <= major)
+    return parser.model_validate_json(body)
 
 
 #: A blok key: what a blok is found by across scans, and part of its `origin`.
