@@ -58,7 +58,7 @@ An action's own blok (blok language v2): how a client shows a run of it in one c
 """
 input ActionBlokInput {
   """
-  Where a client shows the run with it: HTML in a task panel, SCENE as a 3D view of its own, OVERLAY drawn into the space that hosts the run (its root an `Overlay`).
+  Where a client shows the run with it: HTML in a task panel, SCENE as a 3D view (its root a `Scene`, or a `Space` placing the run's dependencies in a room whose layout is shared).
   """
   context: ComponentContext! = HTML
 
@@ -1083,14 +1083,13 @@ input CollectionOrder @oneOf {
 }
 
 """
-The renderer a catalog component lives in. A component may only be placed where its context is in force. ACTION_LOGO and OVERLAY are blok contexts only: an OVERLAY blok is an action's own, drawn into the space that hosts its run.
+The renderer a catalog component lives in. A component may only be placed where its context is in force. ACTION_LOGO is a blok context only.
 """
 enum ComponentContext {
   HTML
   SCENE
   LOGO
   ACTION_LOGO
-  OVERLAY
 }
 
 """A node of a blok tree (blok language v2)."""
@@ -1609,7 +1608,7 @@ input DefinitionInput {
   protocols: [String!]! = []
 
   """
-  The action's own bloks, at most one per context: how a client shows a run of it (HTML in a task panel, OVERLAY drawn into the space that hosts the run). They name devices only by the action's dependency keys. Not part of the action's hash.
+  The action's own bloks, at most one per context: how a client shows a run of it (HTML in a task panel, SCENE a 3D view, as a `Space` placing the run's dependencies). They name devices only by the action's dependency keys. Not part of the action's hash.
   """
   bloks: [ActionBlokInput!]! = []
 
@@ -1861,11 +1860,48 @@ A stored vector, as `<model id>:<comma-separated floats>` -- e.g. `potion-base-8
 scalar Embedding
 
 """
+A formula for how long an implementation runs, in seconds, that the action query filters and sorts by.
+"""
+input EstimatedRuntimeInput {
+  """
+  The pure blok UtilCall giving seconds, which the server compiles and the frontend evaluates: arithmetic over args/<port>/<descriptor key> of one structure argument and agent/<hardware>.
+  """
+  call: UtilCallInput!
+
+  """
+  The formula as its author wrote it (informational; never parsed or evaluated by the server).
+  """
+  source: String = null
+
+  """
+  A richer formula for the form, which only the frontend evaluates: any pure function, over args/<port>, args/<port>/<descriptor key> and agent/<hardware>.
+  """
+  uiCall: UtilCallInput = null
+
+  """That formula as its author wrote it (informational)."""
+  uiSource: String = null
+}
+
+"""
 How an implementation runs: a WORKFLOW may call other actions and is resumed from its journal when its agent dies; a PLAIN one's task ends LOST.
 """
 enum Execution {
   PLAIN
   WORKFLOW
+}
+
+"""What an implementation can handle of one structure argument."""
+input FitsInput {
+  """The key of the structure argument it is about."""
+  port: String!
+
+  """
+  The pure blok UtilCall: a comparison of numbers, or several joined by logic.all/any. Its value_paths read value/<descriptor key> and agent/<hardware>.
+  """
+  call: UtilCallInput!
+
+  """The formula as its author wrote it (informational)."""
+  source: String = null
 }
 
 """
@@ -2270,6 +2306,16 @@ input ImplementationInput {
   Whether a task may show a blok made at inform time, or any blok of the organization. Refused otherwise, and without the `rekuest_dynamic_inform` scope.
   """
   dynamicInforms: Boolean = null
+
+  """
+  How long this implementation runs, in seconds, given its arguments, the descriptors of the structures picked for them and the agent. The frontend evaluates it to show an estimate; the server only stores it.
+  """
+  estimatedRuntime: EstimatedRuntimeInput = null
+
+  """
+  What this implementation can handle, per argument. An action is not offered for an object no live implementation fits.
+  """
+  fits: [FitsInput!] = null
 }
 
 """
