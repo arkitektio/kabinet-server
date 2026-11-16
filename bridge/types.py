@@ -180,8 +180,9 @@ def _camel(value: object) -> object:
 def _install_fields(blok: models.RepoBlok) -> dict:
     """The `CreateBlokInput` a repository blok is installed with, without its `originHash`.
 
-    Only the input's own keys, its dependencies and its declarations are camelCased: a demo is
-    the blok's data, and its keys are what the blok reads.
+    Only the input's own keys and its dependencies are camelCased: a demo is the blok's data,
+    and its keys are what the blok reads. What it owns (locals, queries, subscriptions) is in
+    its BSX.
     """
     fields = {
         "name": blok.name,
@@ -191,11 +192,8 @@ def _install_fields(blok: models.RepoBlok) -> dict:
         "vocab": blok.vocab,
         "catalogs": blok.catalogs or None,
         "module": blok.module,
-        "locals": _camel(blok.locals) if blok.locals else None,
         # A demo is the blok's data: its keys are what the blok reads.
         "demo": blok.demo or None,
-        "queries": _camel(blok.queries) if blok.queries else None,
-        "subscriptions": _camel(blok.subscriptions) if blok.subscriptions else None,
         "dependencies": _camel(blok.dependencies or []),
         "forModel": blok.for_model,
         "forNode": blok.for_node,
@@ -233,10 +231,7 @@ class RepoBlok:
     vocab: int = strawberry_django.field(description="The blok language version it speaks; 2 is the only one.")
     catalogs: JSON = strawberry_django.field(description="The catalogs it needs, as name@version.")
     module: Optional[str] = strawberry_django.field(description="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when null.")
-    locals: JSON = strawberry_django.field(description="Its locals, as rekuest_core BlokLocalInputs (arg ports plus persist, snake_case keys).")
     demo: JSON = strawberry_django.field(description="What a preview renders it with, as a rekuest_core BlokDemoInput.")
-    queries: JSON = strawberry_django.field(description="Its declared reads, as rekuest_core BlokQueryInputs (snake_case keys).")
-    subscriptions: JSON = strawberry_django.field(description="Its declared streams, as rekuest_core BlokSubscriptionInputs (snake_case keys).")
     dependencies: JSON = strawberry_django.field(description="The agents it draws from, as rekuest_core AgentDependencyInputs (snake_case keys).")
     for_model: Optional[str] = strawberry_django.field(description="The model ('sha256:...') this blok decorates, if any.")
     for_node: Optional[str] = strawberry_django.field(description="The node of `forModel` it attaches to; the model's root when null.")
@@ -245,7 +240,7 @@ class RepoBlok:
     updated_at: datetime.datetime = strawberry_django.field(description="When a scan last wrote it.")
     added_at: datetime.datetime = strawberry_django.field(description="When a scan first found it.")
 
-    @strawberry_django.field(description="The renderer its root lives in.", only=["context"])
+    @strawberry_django.field(description="What draws it, as its `<Blok context=...>` says: PANEL or SCENE.", only=["context"])
     def context(self) -> rkenums.ComponentContext:
         return rkenums.ComponentContext(self.context)
 
@@ -258,7 +253,7 @@ class RepoBlok:
 
     @strawberry_django.field(
         description=(
-            "A SHA-256 of everything installing it writes: its name, description, BSX, declarations (locals, demo, queries, ...), dependencies and target. "
+            "A SHA-256 of everything installing it writes: its name, description, BSX, declarations (demo, catalogs, ...), dependencies and target. "
             "It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed."
         ),
         select_related=["repo"],
@@ -324,7 +319,7 @@ ACTION_LOGO_FIELDS = (*BLOK_FIELDS, "action_logos", "created_at")
 
 @strawberry.type(
     description=(
-        "A blok a flavour's app brings: its LOGO, an action's ACTION_LOGO, a panel (HTML) or a scene (SCENE). "
+        "A blok a flavour's app brings: its logo, an action's logo (a LOGO blok whose root says `kind=\"action\"`), a panel (PANEL) or a scene (SCENE). "
         "Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here."
     )
 )
@@ -332,7 +327,8 @@ class FlavourBlok:
     id: strawberry.ID = strawberry.field(description="`<flavour id>:<key>`: what `flavourBlok` finds it by.")
     flavour_id: strawberry.ID = strawberry.field(description="The flavour whose app brings this blok.")
     key: str = strawberry.field(description="The key the app declared this blok under, unique within it.")
-    context: rkenums.ComponentContext = strawberry.field(description="The renderer its root lives in.")
+    context: rkenums.ComponentContext = strawberry.field(description="What draws it, as its `<Blok context=...>` says.")
+    kind: str | None = strawberry.field(description="The kind its `<Blok>` root says: `agent` for the app's own bloks and logo, `action` for an action's logo. Null when its source does not parse.")
     default: bool = strawberry.field(description="Whether it is its app's default for its context (the app's logo is its default LOGO).")
     description: Optional[str] = strawberry.field(description="What the app says the blok shows.")
     hash: str = strawberry.field(
@@ -342,9 +338,7 @@ class FlavourBlok:
         description="The whole component tree as one JSON value (a list of roots) in the wire spelling (snake_case keys), as rekuest serves `Blok.componentTree`. Null when the source does not parse."
     )
     vocab: Optional[int] = strawberry.field(description="The blok language version it speaks; null for a blok an app brought before blok language v2.")
-    locals: JSON = strawberry.field(description="Its locals, as the app declared them (snake_case keys).")
     demo: Optional[JSON] = strawberry.field(description="What a preview renders it with.")
-    queries: JSON = strawberry.field(description="Its declared reads (snake_case keys).")
     for_model: Optional[str] = strawberry.field(description="The model ('sha256:...') this blok decorates, if any.")
     for_node: Optional[str] = strawberry.field(description="The node of `forModel` it attaches to; the model's root when null.")
     parse_error: Optional[str] = strawberry.field(description="Why the blok's source does not parse, or null.")
@@ -357,15 +351,14 @@ def flavour_blok(flavour: models.Flavour, blok: dict) -> FlavourBlok:
         id=strawberry.ID(f"{flavour.id}:{blok['key']}"),
         flavour_id=strawberry.ID(str(flavour.id)),
         key=blok["key"],
-        context=rkenums.ComponentContext(blok.get("context") or "HTML"),
+        context=rkenums.ComponentContext(blok.get("context") or "PANEL"),
+        kind=repo_bloks.root_kind(render["component_tree"]),
         default=bool(blok.get("default")),
         description=blok.get("description"),
         hash=render["hash"],
         component_tree=render["component_tree"],
         vocab=blok.get("vocab"),
-        locals=blok.get("locals") or [],
         demo=blok.get("demo"),
-        queries=blok.get("queries") or [],
         for_model=blok.get("for_model"),
         for_node=blok.get("for_node"),
         parse_error=render["parse_error"],
@@ -379,8 +372,14 @@ def flavour_bloks(flavour: models.Flavour, context: rkenums.ComponentContext | N
 
 
 def logo_of(flavour: models.Flavour) -> FlavourBlok | None:
-    """A flavour's app logo: its default LOGO blok, or its first."""
-    logos = [blok for blok in flavour.bloks or [] if blok.get("key") and blok.get("context") == "LOGO"]
+    """A flavour's app logo: its default agent LOGO blok, or its first (an action's logo is a LOGO too)."""
+    renders = flavour.blok_renders or {}
+
+    def kind(blok: dict) -> str | None:
+        render = renders.get(blok["key"]) or repo_bloks.render_blok(blok)
+        return repo_bloks.root_kind(render["component_tree"])
+
+    logos = [blok for blok in flavour.bloks or [] if blok.get("key") and blok.get("context") == "LOGO" and kind(blok) == "agent"]
     logos.sort(key=lambda blok: not blok.get("default"))
     return flavour_blok(flavour, logos[0]) if logos else None
 
@@ -688,7 +687,7 @@ class Flavour:
     deployments: List[Deployment] = strawberry_django.field(description="The deployments that run this flavour.")
     definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
     manifest: scalars.UntypedParams = strawberry_django.field(description="The raw app manifest this flavour was built from.")
-    bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput shape): the app's LOGO, its actions' ACTION_LOGOs, panels and scenes.")
+    bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput shape): the app's logo, its actions' logos, panels and scenes.")
 
     @strawberry_django.field(description="The files this flavour's app brings, as its inspection declared them (name, kind, ref, size, and the path in the image or an https source).", only=["inspection"])
     def assets(self) -> scalars.UntypedParams:
@@ -842,7 +841,7 @@ class Definition:
 
     @strawberry_django.field(
         description=(
-            "The ACTION_LOGO blok that draws this action: the one `flavour`'s implementation names, or without "
+            "The action logo (a LOGO blok of kind `action`) that draws this action: the one `flavour`'s implementation names, or without "
             "`flavour` the one of the newest flavour providing it that names one. Null when none does."
         ),
         prefetch_related=[Prefetch("flavours", queryset=models.Flavour.objects.only(*ACTION_LOGO_FIELDS), to_attr="logo_flavours")],

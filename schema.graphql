@@ -58,12 +58,12 @@ An action's own blok (blok language v2): how a client shows a run of it in one c
 """
 input ActionBlokInput {
   """
-  Where a client shows the run with it: HTML in a task panel, SCENE as a 3D view (its root a `Scene`, or a `Space` placing the run's dependencies in a room whose layout is shared).
+  Where a client shows the run with it, as its `<Blok context=...>` says: PANEL in a task panel, SCENE as a 3D view (a `Scene`, or a `Space` placing the run's dependencies in a room whose layout is shared).
   """
-  context: ComponentContext! = HTML
+  context: ComponentContext! = PANEL
 
   """
-  When a client shows it: RUN for a run of the action, ASSIGN before one, to start it. One blok per context and phase.
+  When a client shows it, as its `<Blok kind=...>` says: RUN for a run of the action (kind action), ASSIGN before one, to start it (kind assign). One blok per context and phase.
   """
   phase: ActionBlokPhase! = RUN
 
@@ -80,6 +80,16 @@ input ActionBlokInput {
   """
   module: String = null
 
+  """
+  The catalog the blok is written for: the address it is published at (`https://arkitekt.live/catalogs/orkestrator/v1`), or the name of one registered in the organization. The base catalog, which every renderer draws, when absent. It is what `module` named before: one of the two is sent, and `module` is kept for an agent on an older spec.
+  """
+  catalog: String = null
+
+  """
+  The minor of its catalog the blok needs: the newest `since` among the components and props it uses.
+  """
+  catalogMinor: Int = null
+
   """What the blok shows of a run."""
   description: String = null
 
@@ -89,17 +99,8 @@ input ActionBlokInput {
   """The catalogs it needs, as name@version."""
   catalogs: [String!]! = []
 
-  """Its locals: form state that feeds a call, written only through bind."""
-  locals: [BlokLocalInput!]! = []
-
   """What a preview renders it with."""
   demo: BlokDemoInput = null
-
-  """Its declared reads."""
-  queries: [BlokQueryInput!]! = []
-
-  """Its declared streams."""
-  subscriptions: [BlokSubscriptionInput!]! = []
 }
 
 """
@@ -512,6 +513,16 @@ input AskBlokInput {
   """
   module: String = null
 
+  """
+  The catalog the blok is written for: the address it is published at (`https://arkitekt.live/catalogs/orkestrator/v1`), or the name of one registered in the organization. The base catalog, which every renderer draws, when absent. It is what `module` named before: one of the two is sent, and `module` is kept for an agent on an older spec.
+  """
+  catalog: String = null
+
+  """
+  The minor of its catalog the blok needs: the newest `since` among the components and props it uses.
+  """
+  catalogMinor: Int = null
+
   """What it is opened on, read under `args.<key>`."""
   args: [ArgPortInput!]! = []
 
@@ -527,17 +538,8 @@ input AskBlokInput {
   """The catalogs it needs, as name@version."""
   catalogs: [String!]! = []
 
-  """Its locals: form state that feeds a call, written only through bind."""
-  locals: [BlokLocalInput!]! = []
-
   """What a preview renders it with."""
   demo: BlokDemoInput = null
-
-  """Its declared reads."""
-  queries: [BlokQueryInput!]! = []
-
-  """Its declared streams."""
-  subscriptions: [BlokSubscriptionInput!]! = []
 }
 
 """
@@ -764,14 +766,24 @@ input BlokImplementationInput {
   module: String = null
 
   """
+  The catalog the blok is written for: the address it is published at (`https://arkitekt.live/catalogs/orkestrator/v1`), or the name of one registered in the organization. The base catalog, which every renderer draws, when absent. It is what `module` named before: one of the two is sent, and `module` is kept for an agent on an older spec.
+  """
+  catalog: String = null
+
+  """
+  The minor of its catalog the blok needs: the newest `since` among the components and props it uses.
+  """
+  catalogMinor: Int = null
+
+  """
   A human-readable description about this Blok's purpose and functionality.
   """
   description: String = null
 
   """
-  The renderer for this Blok's root: HTML for panels and dashboards, SCENE for a full 3D view whose root is a Scene, LOGO an agent's logo, ACTION_LOGO an action's.
+  What draws it, as its `<Blok context=...>` says (the two must agree): PANEL for panels and dashboards, SCENE for a 3D view (one Scene), LOGO for a logo (one Logo): an agent's, or an action's when its kind is action.
   """
-  context: ComponentContext! = HTML
+  context: ComponentContext! = PANEL
 
   """
   Whether this Blok is its agent's default for its context. A newly declared default replaces the previous one.
@@ -779,7 +791,7 @@ input BlokImplementationInput {
   default: Boolean! = false
 
   """
-  The model ('sha256:...') this Blok decorates: viewers showing that model offer this Blok at `for_node`. HTML bloks only.
+  The model ('sha256:...') this Blok decorates: viewers showing that model offer this Blok at `for_node`. PANEL bloks only.
   """
   forModel: String = null
 
@@ -789,7 +801,7 @@ input BlokImplementationInput {
   forNode: String = null
 
   """
-  The items this Blok is opened for, declared like an action's args and read under `args.<key>`. A UI offers the Blok on any item its args accept (`MaterializedBlokFilter.demands`). HTML bloks only.
+  The items this Blok is opened for, declared like an action's args and read under `args.<key>`. A UI offers the Blok on any item its args accept (`MaterializedBlokFilter.demands`). PANEL bloks only.
   """
   args: [ArgPortInput!]! = []
 
@@ -799,139 +811,8 @@ input BlokImplementationInput {
   """The catalogs it needs, as name@version ('ui@1', 'scene@1')."""
   catalogs: [String!]! = []
 
-  """Its locals: form state that feeds a call, written only through bind."""
-  locals: [BlokLocalInput!]! = []
-
   """What a preview renders it with."""
   demo: BlokDemoInput = null
-
-  """Its declared reads, as `queries.<key>`."""
-  queries: [BlokQueryInput!]! = []
-
-  """Its declared streams, as `subscriptions.<key>`."""
-  subscriptions: [BlokSubscriptionInput!]! = []
-}
-
-"""
-A local: blok-level form state that feeds a call, written only through `bind` on controls. A local is an arg port plus `persist`; its `kind` is a port kind or ANY. Every field left out (or null) is the tree's to tell: the kind is inferred (its default, the task argument it is passed to whole, the control bound to it; ANY when nothing tells), and an inferred port fills only the fields the local leaves out.
-"""
-input BlokLocalInput {
-  """
-  Its name, read bare in the tree (`{iterations}`); never a reserved root.
-  """
-  key: String!
-
-  """
-  A port kind or ANY. Left out or null: inferred from the tree, ANY when nothing tells.
-  """
-  kind: LocalKind
-
-  """Its label."""
-  label: String
-
-  """What it is for."""
-  description: String
-
-  """The structure (or model, enum) identifier of what it holds."""
-  identifier: String
-
-  """
-  Whether it may hold null; left out, what is inferred says (false when nothing does).
-  """
-  nullable: Boolean
-
-  """Its validators."""
-  validators: [ValidatorInput!]
-
-  """Its effects."""
-  effects: [EffectInput!]
-
-  """The values it takes (an ENUM's)."""
-  choices: [ChoiceInput!]
-
-  """The value it starts with."""
-  default: AnyDefault
-
-  """Its child ports (the item of a LIST, the fields of a DICT or MODEL)."""
-  children: [ArgPortInput!]
-
-  """The widget a form of it uses."""
-  widget: AssignWidgetInput
-
-  """Its descriptor requirements."""
-  requires: [RequiresInput!]
-
-  """For a QUANTITY: its reference unit."""
-  referenceUnit: String
-
-  """For a QUANTITY: the units offered."""
-  proposedUnits: [String!]
-
-  """For a QUANTITY: its dimensionality (derived from the unit)."""
-  dimension: String
-
-  """
-  Remember the last input on this device (never on a server); false when left out.
-  """
-  persist: Boolean
-}
-
-"""
-A declared read: one GraphQL query on a service, re-run when its variables change; the blok reads it as `queries.<key>`.
-"""
-input BlokQueryInput {
-  """
-  Its name: the blok reads it as `queries.<key>` (status, value, error, refetching, fetching_more).
-  """
-  key: String!
-
-  """The service it runs on, by its key ('mikro')."""
-  service: String!
-
-  """One GraphQL `query` operation; never a mutation."""
-  document: String!
-
-  """
-  Its variables, each an expression over args, locals and dependencies (as a call argument is stored).
-  """
-  variables: [ActionArgumentInput!]! = []
-
-  """Re-run every this many seconds, besides when its variables change."""
-  poll: Float = null
-
-  """
-  The list field of its result that `queries.<key>.fetch_more(...)` appends new pages to, as a dotted path into the data (`positions`, `images.items`). A query without it cannot fetch more.
-  """
-  more: String = null
-}
-
-"""
-A declared stream: one GraphQL subscription on a service; the blok reads it as `subscriptions.<key>`.
-"""
-input BlokSubscriptionInput {
-  """
-  Its name: the blok reads it as `subscriptions.<key>` (status, value, error).
-  """
-  key: String!
-
-  """The service it runs on, by its key."""
-  service: String!
-
-  """One GraphQL `subscription` operation."""
-  document: String!
-
-  """Its variables, as a query's."""
-  variables: [ActionArgumentInput!]! = []
-
-  """
-  Keep the last this many payloads as a list; the latest only when absent.
-  """
-  keep: Int = null
-
-  """
-  A declared query to replay from while travelling; without it the value at travel start shows, stale.
-  """
-  history: String = null
 }
 
 """Requires CPU resources on the backend."""
@@ -1096,13 +977,12 @@ input CollectionOrder @oneOf {
 }
 
 """
-The renderer a catalog component lives in. A component may only be placed where its context is in force. ACTION_LOGO is a blok context only.
+What draws a blok, as its `<Blok context=...>` says, and the renderer a catalog component lives in: PANEL (panels, dashboards, popouts), SCENE (a 3D view) or LOGO (an SVG drawing: an agent's logo, or an action's when the blok's kind is action).
 """
 enum ComponentContext {
-  HTML
+  PANEL
   SCENE
   LOGO
-  ACTION_LOGO
 }
 
 """A node of a blok tree (blok language v2)."""
@@ -1476,7 +1356,7 @@ type Definition @identified(by: "@kabinet/definition") {
   embedding: Embedding
 
   """
-  The ACTION_LOGO blok that draws this action: the one `flavour`'s implementation names, or without `flavour` the one of the newest flavour providing it that names one. Null when none does.
+  The action logo (a LOGO blok of kind `action`) that draws this action: the one `flavour`'s implementation names, or without `flavour` the one of the newest flavour providing it that names one. Null when none does.
   """
   logo(flavour: ID = null): FlavourBlok
 
@@ -1621,7 +1501,7 @@ input DefinitionInput {
   protocols: [String!]! = []
 
   """
-  The action's own bloks, at most one per context: how a client shows a run of it (HTML in a task panel, SCENE a 3D view, as a `Space` placing the run's dependencies). They name devices only by the action's dependency keys. Not part of the action's hash.
+  The action's own bloks, at most one per context: how a client shows a run of it (PANEL in a task panel, SCENE a 3D view, as a `Space` placing the run's dependencies). They name devices only by the action's dependency keys. Not part of the action's hash.
   """
   bloks: [ActionBlokInput!]! = []
 
@@ -1942,7 +1822,7 @@ type Flavour @identified(by: "@kabinet/flavour") {
   manifest: UntypedParams!
 
   """
-  Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput shape): the app's LOGO, its actions' ACTION_LOGOs, panels and scenes.
+  Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput shape): the app's logo, its actions' logos, panels and scenes.
   """
   bloks: UntypedParams!
 
@@ -1997,7 +1877,7 @@ type Flavour @identified(by: "@kabinet/flavour") {
 }
 
 """
-A blok a flavour's app brings: its LOGO, an action's ACTION_LOGO, a panel (HTML) or a scene (SCENE). Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here.
+A blok a flavour's app brings: its logo, an action's logo (a LOGO blok whose root says `kind="action"`), a panel (PANEL) or a scene (SCENE). Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here.
 """
 type FlavourBlok {
   """`<flavour id>:<key>`: what `flavourBlok` finds it by."""
@@ -2009,8 +1889,13 @@ type FlavourBlok {
   """The key the app declared this blok under, unique within it."""
   key: String!
 
-  """The renderer its root lives in."""
+  """What draws it, as its `<Blok context=...>` says."""
   context: ComponentContext!
+
+  """
+  The kind its `<Blok>` root says: `agent` for the app's own bloks and logo, `action` for an action's logo. Null when its source does not parse.
+  """
+  kind: String
 
   """
   Whether it is its app's default for its context (the app's logo is its default LOGO).
@@ -2035,14 +1920,8 @@ type FlavourBlok {
   """
   vocab: Int
 
-  """Its locals, as the app declared them (snake_case keys)."""
-  locals: JSON!
-
   """What a preview renders it with."""
   demo: JSON
-
-  """Its declared reads (snake_case keys)."""
-  queries: JSON!
 
   """The model ('sha256:...') this blok decorates, if any."""
   forModel: String
@@ -2291,7 +2170,7 @@ input ImplementationInput {
   codeHash: String = null
 
   """
-  The key of the agent's action logo blok (context ACTION_LOGO) that draws this action.
+  The key of the agent's action logo blok (`<Blok kind="action" context="logo">`) that draws this action.
   """
   logo: String = null
 
@@ -2371,6 +2250,16 @@ input InformBlokInput {
   """
   module: String = null
 
+  """
+  The catalog the blok is written for: the address it is published at (`https://arkitekt.live/catalogs/orkestrator/v1`), or the name of one registered in the organization. The base catalog, which every renderer draws, when absent. It is what `module` named before: one of the two is sent, and `module` is kept for an agent on an older spec.
+  """
+  catalog: String = null
+
+  """
+  The minor of its catalog the blok needs: the newest `since` among the components and props it uses.
+  """
+  catalogMinor: Int = null
+
   """What it is opened on, read under `args.<key>`."""
   args: [ArgPortInput!]! = []
 
@@ -2383,17 +2272,8 @@ input InformBlokInput {
   """The catalogs it needs, as name@version."""
   catalogs: [String!]! = []
 
-  """Its locals: form state that feeds a call, written only through bind."""
-  locals: [BlokLocalInput!]! = []
-
   """What a preview renders it with."""
   demo: BlokDemoInput = null
-
-  """Its declared reads."""
-  queries: [BlokQueryInput!]! = []
-
-  """Its declared streams."""
-  subscriptions: [BlokSubscriptionInput!]! = []
 }
 
 """A file the app brings, as its image holds it."""
@@ -2492,72 +2372,6 @@ input LabelSelectorInput @unionElementOf(union: "SelectorInput", discriminator: 
   The value the qualifier must have; null means the key merely has to exist.
   """
   value: String = null
-}
-
-"""
-The kind of a blok local: a port kind, or ANY (an untyped value, which skips the bind and argument kind checks). No action port is ever ANY.
-"""
-enum LocalKind {
-  """An integer. No children; choices optional."""
-  INT
-
-  """A string. No children; choices optional."""
-  STRING
-
-  """
-  A reference to an object held by a service, typed by `identifier` (@package/key, required). Values are ids. No children.
-  """
-  STRUCTURE
-
-  """
-  A list; exactly one child describes the item type (conventionally keyed '...').
-  """
-  LIST
-
-  """A boolean. No children."""
-  BOOL
-
-  """
-  A string-keyed map. One child keyed '...' describes a homogeneous value type; several named children describe the known keys.
-  """
-  DICT
-
-  """A floating point number. No children; choices optional."""
-  FLOAT
-
-  """An ISO-8601 date or datetime string. No children."""
-  DATE
-
-  """One of several variants; at least two children, each a variant."""
-  UNION
-
-  """One of a fixed set of values; `choices` required."""
-  ENUM
-
-  """
-  An object with named fields; at least one child per field, `identifier` optional.
-  """
-  MODEL
-
-  """
-  A reference to an object that lives in the agent's memory, typed by `identifier` (required). Makes the action LOCAL-scoped. No children.
-  """
-  MEMORY_STRUCTURE
-
-  """
-  A reference to any object implementing an interface, typed by `identifier` (required). No children.
-  """
-  INTERFACE
-
-  """
-  A physical quantity with a unit; `reference_unit` required, `dimension` derived. No children.
-  """
-  QUANTITY
-
-  """
-  An untyped value: nothing gave the local a kind. A path below it is taken as written.
-  """
-  ANY
 }
 
 """Which locks does the agent provide in general"""
@@ -3466,21 +3280,8 @@ type RepoBlok {
   """
   module: String
 
-  """
-  Its locals, as rekuest_core BlokLocalInputs (arg ports plus persist, snake_case keys).
-  """
-  locals: JSON!
-
   """What a preview renders it with, as a rekuest_core BlokDemoInput."""
   demo: JSON!
-
-  """Its declared reads, as rekuest_core BlokQueryInputs (snake_case keys)."""
-  queries: JSON!
-
-  """
-  Its declared streams, as rekuest_core BlokSubscriptionInputs (snake_case keys).
-  """
-  subscriptions: JSON!
 
   """
   The agents it draws from, as rekuest_core AgentDependencyInputs (snake_case keys).
@@ -3505,7 +3306,7 @@ type RepoBlok {
   """When a scan first found it."""
   addedAt: DateTime!
 
-  """The renderer its root lives in."""
+  """What draws it, as its `<Blok context=...>` says: PANEL or SCENE."""
   context: ComponentContext!
 
   """
@@ -3514,7 +3315,7 @@ type RepoBlok {
   origin: String!
 
   """
-  A SHA-256 of everything installing it writes: its name, description, BSX, declarations (locals, demo, queries, ...), dependencies and target. It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed.
+  A SHA-256 of everything installing it writes: its name, description, BSX, declarations (demo, catalogs, ...), dependencies and target. It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed.
   """
   installHash: String!
 
@@ -3537,7 +3338,7 @@ input RepoBlokFilter {
   """Case-insensitive substring of the blok's name, key or description."""
   search: String
 
-  """Keep only bloks of this context (HTML or SCENE)."""
+  """Keep only bloks of this context (PANEL or SCENE)."""
   context: String
 
   """Keep only bloks of these repositories."""

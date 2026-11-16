@@ -19,7 +19,9 @@ JSON = None | bool | int | float | str | list["JSON"] | dict[str, "JSON"]
 """A JSON value, as ``json.loads`` returns it."""
 
 VOCAB: Literal[2] = 2
-"""The language version this package speaks: every v2 blok stores ``vocab: 2``."""
+"""The language version this package speaks: every v2 blok stores ``vocab: 2``. What the
+language gained since (a root, a record field, a function) is counted in ``Vocabulary.minor``;
+what is drawn is a catalog's, versioned on its own."""
 
 Level = Literal["error", "warning"]
 
@@ -73,6 +75,9 @@ class Function:
     effect: bool = False
     sees_status: bool = False
     task_operation: bool = False
+    command: bool = False
+    """An effect that changes the world (it acts on a task, or starts one); an effect without
+    it only changes what the viewer sees."""
 
     @property
     def keys(self) -> tuple[str, ...]:
@@ -94,6 +99,29 @@ class Kind:
     locals: bool
     contexts: tuple[str, ...]
     description: str = ""
+    within: Mapping[str, "Kind"] = field(default_factory=dict[str, "Kind"])
+    """Per context, the row the kind reads there when it reads less (an action's logo reads only ``task``)."""
+
+    def drawn_in(self, context: str) -> "Kind":
+        """The row of this kind in ``context``: its own, or the narrower one it has there."""
+        return self.within.get(context, self)
+
+
+@dataclass(frozen=True)
+class BlokElement:
+    """The one element every blok is (``vocabulary.json`` ``blok``)."""
+
+    component: str
+    """``Blok``."""
+    attributes: tuple[str, ...]
+    contexts: Mapping[str, str]
+    """The ``context`` attribute's spelling -> the context (``panel`` -> ``PANEL``)."""
+    content: Mapping[str, tuple[str, ...]]
+    """Per context, the components its one element may be (a panel holds anything)."""
+    chrome: frozenset[str]
+    """The contexts ``chrome`` is said in."""
+    declarations: tuple[str, ...]
+    """The components that declare what a blok owns and draw nothing (``local``, ``query``, ...)."""
 
 
 @dataclass(frozen=True)
@@ -173,6 +201,8 @@ class Vocabulary:
     """``vocabulary.json``, parsed."""
 
     vocab: int
+    minor: int
+    """How far the language has grown within ``vocab``: it only ever gains."""
     data_roots: tuple[str, ...]
     scoped_roots: tuple[str, ...]
     function_namespaces: tuple[str, ...]
@@ -184,8 +214,8 @@ class Vocabulary:
     agent_fields: tuple[str, ...]
     kinds: Mapping[str, Kind]
     contexts: Mapping[str, Context]
-    blok_roots: Mapping[str, str]
-    """A blok's root component -> the blok context it names (``Html`` -> ``HTML``)."""
+    blok: BlokElement
+    """The one element every blok is: ``<Blok kind context catalog chrome>``."""
     records: Mapping[str, Record]
     idle_task: Mapping[str, JSON]
     functions: Mapping[str, Function]
@@ -193,9 +223,21 @@ class Vocabulary:
     explicit_id: re.Pattern[str]
     theme: Theme
     limits: Limits
-    base_version: int
-    catalogs: Mapping[str, int]
-    """The standard catalogs by name, at the version this vocabulary speaks (``ui``: 1)."""
+    base_catalog: str
+    """The id of the base catalog: what a blok is written for when it names no catalog."""
+    bundled_catalogs: Mapping[str, str]
+    """The catalogs that ship with this vocabulary, id -> file (the base catalog first)."""
+    catalog_id: re.Pattern[str]
+    """What a published catalog's id looks like: the https address it is published at, ending in its version."""
+    catalog_name: re.Pattern[str]
+    """What the name of a catalog registered in an organization looks like."""
+    host_parts: tuple[str, ...]
+    """The components that place a part of the host's own interface (``args``, ``timeline``)."""
+    unportable_variants: frozenset[str]
+    unportable_utilities: tuple[str, ...]
+    """Class variants and utility prefixes outside the portable subset (``class.not_portable``)."""
+    arbitrary_values: frozenset[str]
+    """The utilities whose value may be written in brackets (``w-[12rem]``) and stay portable."""
     bind_kinds: Mapping[str, frozenset[str]]
     """Per catalog kind of a ``bind`` prop, the port kinds of the locals it writes."""
     arg_kinds: Mapping[str, frozenset[str]]
@@ -265,6 +307,7 @@ def _function(name: str, raw: JSON) -> Function:
         effect=_flag(entry, "effect"),
         sees_status=_flag(entry, "sees_status"),
         task_operation=_flag(entry, "task_operation"),
+        command=_flag(entry, "command"),
     )
 
 
@@ -296,20 +339,39 @@ def parse_vocabulary(raw: JSON) -> Vocabulary:
         if unknown:
             raise ValueError(f"vocabulary.json: kind {name} reads unknown roots {unknown}")
         description = entry.get("description", "")
+        within: dict[str, Kind] = {}
+        for context_name, narrower in _object(entry.get("in", {}), f"kinds.{name}.in").items():
+            row = _object(narrower, f"kinds.{name}.in.{context_name}")
+            narrower_roots = frozenset(_strings(row.get("roots"), f"kinds.{name}.in.{context_name}.roots"))
+            if not narrower_roots <= kind_roots:
+                raise ValueError(f"vocabulary.json: kind {name} reads more in {context_name} than it reads")
+            within[context_name] = Kind(name=name, roots=narrower_roots, locals=_flag(row, "locals"), contexts=(context_name,))
         kinds[name] = Kind(
             name=name,
             roots=kind_roots,
             locals=_flag(entry, "locals"),
             contexts=_strings(entry.get("contexts"), f"kinds.{name}.contexts"),
             description=description if isinstance(description, str) else "",
+            within=within,
         )
 
     contexts: dict[str, Context] = {}
     for name, item in _object(top.get("contexts"), "contexts").items():
         entry = _object(item, f"contexts.{name}")
         contexts[name] = Context(name=name, text=_flag(entry, "text"))
-    roots_entry = _object(_object(top.get("blok_roots"), "blok_roots").get("roots"), "blok_roots.roots")
-    blok_roots = {root: _string(context, f"blok_roots.roots.{root}") for root, context in roots_entry.items()}
+    blok_entry = _object(top.get("blok"), "blok")
+    content_entry = _object(blok_entry.get("content"), "blok.content")
+    blok = BlokElement(
+        component=_string(blok_entry.get("component"), "blok.component"),
+        attributes=tuple(_object(blok_entry.get("attributes"), "blok.attributes")),
+        contexts={spelled: _string(context, f"blok.contexts.{spelled}") for spelled, context in _object(blok_entry.get("contexts"), "blok.contexts").items()},
+        content={context: _strings(components, f"blok.content.{context}") for context, components in content_entry.items() if context != "description"},
+        chrome=frozenset(_strings(blok_entry.get("chrome"), "blok.chrome")),
+        declarations=tuple(name for name in _object(blok_entry.get("declarations"), "blok.declarations") if name != "description"),
+    )
+    unknown_contexts = sorted({*blok.contexts.values(), *blok.content} - set(contexts))
+    if unknown_contexts:
+        raise ValueError(f"vocabulary.json: blok names unknown contexts {unknown_contexts}")
     for kind in kinds.values():
         unknown = sorted(set(kind.contexts) - set(contexts))
         if unknown:
@@ -328,9 +390,11 @@ def parse_vocabulary(raw: JSON) -> Vocabulary:
         if name == "description":
             continue
         namespace = name.split(".", 1)[0]
-        if namespace not in namespaces and name not in ("task.answer", "assign.start"):
+        function = _function(name, item)
+        # A root's own operations (task.answer, assign.start) are effects named after the root.
+        if namespace not in namespaces and not (function.effect and namespace in data_roots):
             raise ValueError(f"vocabulary.json: function {name} is in no function namespace")
-        functions[name] = _function(name, item)
+        functions[name] = function
 
     operators = {
         key: value
@@ -343,8 +407,12 @@ def parse_vocabulary(raw: JSON) -> Vocabulary:
     hints = _object(theme.get("palette_role_hints"), "theme.palette_role_hints")
     limits = _object(top.get("limits"), "limits")
     catalogs = _object(top.get("catalogs"), "catalogs")
-    standard = _object(catalogs.get("standard"), "catalogs.standard")
-    base_version = catalogs.get("base")
+    bundled = {key: _string(value, "catalogs.bundled") for key, value in _object(catalogs.get("bundled"), "catalogs.bundled").items()}
+    base_catalog = _string(catalogs.get("base"), "catalogs.base")
+    if base_catalog not in bundled:
+        raise ValueError("vocabulary.json: the base catalog is not among the bundled ones")
+    host_parts = _object(catalogs.get("host_parts"), "catalogs.host_parts")
+    classes = _object(top.get("classes"), "classes")
     local_rules = _object(top.get("locals"), "locals")
 
     def kind_table(name: str) -> dict[str, frozenset[str]]:
@@ -374,6 +442,7 @@ def parse_vocabulary(raw: JSON) -> Vocabulary:
 
     return Vocabulary(
         vocab=number(top.get("vocab"), "vocab"),
+        minor=number(top.get("minor", 0), "minor"),
         data_roots=data_roots,
         scoped_roots=scoped_roots,
         function_namespaces=namespaces,
@@ -385,7 +454,7 @@ def parse_vocabulary(raw: JSON) -> Vocabulary:
         agent_fields=tuple(_object(segments.get("fields"), "agent_segments.fields")),
         kinds=kinds,
         contexts=contexts,
-        blok_roots=blok_roots,
+        blok=blok,
         records=records,
         idle_task=idle_task,
         functions=functions,
@@ -411,8 +480,14 @@ def parse_vocabulary(raw: JSON) -> Vocabulary:
             logo_max_foreach_items=number(limits.get("logo_max_foreach_items"), "limits.logo_max_foreach_items"),
             logo_path_data_props=_strings(limits.get("logo_path_data_props"), "limits.logo_path_data_props"),
         ),
-        base_version=number(base_version, "catalogs.base"),
-        catalogs={name: number(version, f"catalogs.standard.{name}") for name, version in standard.items()},
+        base_catalog=base_catalog,
+        bundled_catalogs=bundled,
+        catalog_id=re.compile(_string(catalogs.get("id"), "catalogs.id")),
+        catalog_name=re.compile(_string(catalogs.get("name"), "catalogs.name")),
+        host_parts=_strings(host_parts.get("parts"), "catalogs.host_parts.parts"),
+        unportable_variants=frozenset(_strings(classes.get("variants"), "classes.variants")),
+        unportable_utilities=_strings(classes.get("utilities"), "classes.utilities"),
+        arbitrary_values=frozenset(_strings(classes.get("arbitrary_values"), "classes.arbitrary_values")),
         bind_kinds=kind_table("bind_kinds"),
         arg_kinds=kind_table("arg_kinds"),
         diagnostics=diagnostics,
@@ -564,6 +639,7 @@ class BlokError(ValueError):
 __all__ = [
     "JSON",
     "VOCAB",
+    "BlokElement",
     "BlokError",
     "Context",
     "DiagnosticSpec",

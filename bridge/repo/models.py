@@ -9,9 +9,6 @@ from rekuest_core.inputs.models import (
     AssetInputModel,
     BlokDemoInputModel,
     BlokImplementationInputModel,
-    BlokLocalInputModel,
-    BlokQueryInputModel,
-    BlokSubscriptionInputModel,
     ImplementationInputModel,
     LockImplementationInputModel,
     StateImplementationInputModel,
@@ -260,23 +257,21 @@ class RepoBlokDeclarationModel(BaseModel):
     """One blok of a repository's ``.arkitekt/bloks.yaml``.
 
     Its BSX is either in a file of the repository (``source``, a path from the repository's
-    root) or written inline (``bsx``). Only panels and scenes are published this way: a logo
-    belongs to an app.
+    root) or written inline (``bsx``), one ``<Blok kind="custom" context="panel|scene">`` whose
+    ``<local>``, ``<query>`` and ``<subscription>`` nodes declare what it owns. Only panels and
+    scenes are published this way: a logo belongs to an app.
     """
 
     key: str = Field(description="Unique in the repository; the blok's identity across scans.")
     name: str = Field(min_length=1, max_length=1000, description="The name it is installed under in rekuest.")
     description: str | None = None
-    context: rkenums.ComponentContext = rkenums.ComponentContext.HTML
+    context: rkenums.ComponentContext = Field(default=rkenums.ComponentContext.PANEL, description="What draws it, as its `<Blok context=...>` says: PANEL or SCENE.")
     source: str | None = Field(default=None, description="A path in the repository to the blok's BSX.")
     bsx: str | None = Field(default=None, description="The blok's BSX (blok language v2), inline.")
     vocab: Literal[2] = Field(description="The blok language version the blok speaks; 2 is the only one.")
     catalogs: list[str] = Field(default_factory=list, description="The catalogs it needs, as name@version ('ui@1').")
     module: str | None = Field(default=None, max_length=1000, description="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when absent.")
-    locals: list[BlokLocalInputModel] = Field(default_factory=list, description="Its locals: form state that feeds a call, written only through bind.")
     demo: BlokDemoInputModel | None = Field(default=None, description="What a preview renders it with.")
-    queries: list[BlokQueryInputModel] = Field(default_factory=list, description="Its declared reads.")
-    subscriptions: list[BlokSubscriptionInputModel] = Field(default_factory=list, description="Its declared streams.")
     dependencies: list[AgentDependencyInputModel] = Field(default_factory=list)
     for_model: str | None = None
     for_node: str | None = None
@@ -305,15 +300,11 @@ class RepoBlokDeclarationModel(BaseModel):
     def _one_source(self) -> "RepoBlokDeclarationModel":
         if (self.source is None) == (self.bsx is None):
             raise ValueError("A blok names exactly one of `source` (a file) and `bsx` (inline).")
-        if self.context not in (rkenums.ComponentContext.HTML, rkenums.ComponentContext.SCENE):
-            raise ValueError(f"A repository publishes panels (HTML) and scenes (SCENE), not {self.context.value} bloks.")
+        if self.context not in (rkenums.ComponentContext.PANEL, rkenums.ComponentContext.SCENE):
+            raise ValueError(f"A repository publishes panels (PANEL) and scenes (SCENE), not {self.context.value} bloks.")
         check_blok_target(self.context, self.for_model, self.for_node)
         check_blok_declarations(
-            kind="custom",
             catalogs=self.catalogs,
-            locals=self.locals,
-            queries=self.queries,
-            subscriptions=self.subscriptions,
             dependency_keys={dependency.key for dependency in self.dependencies},
             demo=self.demo,
         )
@@ -325,10 +316,7 @@ class RepoBlokDeclarationModel(BaseModel):
             "vocab": self.vocab,
             "catalogs": self.catalogs,
             "module": self.module,
-            "locals": [local.model_dump(mode="json", exclude_none=True) for local in self.locals],
             "demo": self.demo.model_dump(mode="json", exclude_none=True) if self.demo is not None else {},
-            "queries": [query.model_dump(mode="json", exclude_none=True) for query in self.queries],
-            "subscriptions": [subscription.model_dump(mode="json", exclude_none=True) for subscription in self.subscriptions],
         }
 
 

@@ -137,14 +137,14 @@ FLAVOUR_BLOKS = """
 async def test_create_app_image_persists_bloks(authenticated_context: HttpContext) -> None:
     """Blok manifests in the inspection are stored on the flavour instead of being validated and dropped."""
     payload = _app_image_input()
-    payload["inspection"]["bloks"] = [{"key": "demo", "vocab": 2, "components": [{"id": "Html[0]", "component": "Html", "children": [{"id": "Html[0]/Text[0]", "component": "Text"}]}]}]
+    payload["inspection"]["bloks"] = [{"key": "demo", "vocab": 2, "components": [{"id": "Blok[0]", "component": "Blok", "props": [{"key": "kind", "staticValue": "agent"}, {"key": "context", "staticValue": "panel"}], "children": [{"id": "Blok[0]/Text[0]", "component": "Text"}]}]}]
 
     release = (await execute(FLAVOUR_BLOKS, authenticated_context, {"input": payload}))["createAppImage"]
 
     bloks = release["flavours"][0]["bloks"]
     assert len(bloks) == 1
     assert bloks[0]["key"] == "demo"
-    assert bloks[0]["components"][0]["component"] == "Html"
+    assert bloks[0]["components"][0]["component"] == "Blok"
     assert bloks[0]["components"][0]["children"][0]["component"] == "Text"
 
 

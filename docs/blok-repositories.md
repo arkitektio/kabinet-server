@@ -1,7 +1,7 @@
 # Blok repositories
 
 A GitHub repository kabinet tracks can publish bloks on their own, apart from any app: panels
-(`HTML`) and scenes (`SCENE`) anyone in the organization can install. It lists them in
+(`PANEL`) and scenes (`SCENE`) anyone in the organization can install. It lists them in
 `.arkitekt/bloks.yaml` on the tracked branch. A repository may publish app images
 (`.arkitekt/deployments.yaml`), bloks, or both; either file is enough to track it.
 
@@ -11,16 +11,19 @@ bloks:
   - key: layer-picker                # unique in the repository: the blok's identity across scans
     name: Layer picker               # the name it is installed under
     description: Pick the visible layers
-    context: HTML                    # HTML (a panel) or SCENE
+    context: PANEL                   # PANEL (the default) or SCENE, as its <Blok context=...> says
     source: bloks/layer_picker.bsx   # its BSX, a path from the repository's root …
     # bsx: |                         # … or written inline: exactly one of the two
-    #   <Panel>…</Panel>
-    demo_state: {}                   # what it is drawn against when shown on its own
+    #   <Blok kind="custom" context="panel">…</Blok>
+    demo: {}                         # what a preview renders it with
     dependencies: []                 # the agents it draws from (rekuest_core AgentDependencyInput)
-    for_model: null                  # 'sha256:…' of a model it decorates (HTML only)
+    for_model: null                  # 'sha256:…' of a model it decorates (PANEL only)
     for_node: null
 ```
 
+- The BSX is one `<Blok kind="custom" context="panel|scene">`; its locals, queries and
+  subscriptions are `<local>`, `<query>` and `<subscription>` nodes in it, not keys of this file.
+  A root whose context disagrees with `context` is written with a `parseError`.
 - A key is lowercase letters, digits, `.`, `_` and `-`. Logos are not published this way: they
   belong to an app.
 - `source` is read from `raw.githubusercontent.com` in the same scan, up to 512 KiB. A path
@@ -44,7 +47,7 @@ rekuest's `createBlok` as it is: a `CreateBlokInput` with the BSX, and with
   again. rekuest finds an installed blok again by it, so installing again updates the same blok
   (its materializations stay), and never replaces a blok made by hand under the same name.
 - `originHash`: the blok's `installHash` when it was installed, a hash of everything installing
-  writes (name, description, BSX, demo state, dependencies, target). When the `RepoBlok`'s
+  writes (name, description, BSX, demo, dependencies, target). When the `RepoBlok`'s
   `installHash` differs from the installed copy's `originHash`, the repository has an update.
   `hash` covers only what the blok draws and keys its preview.
 

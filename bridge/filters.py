@@ -74,7 +74,7 @@ class RepoBlokFilter:
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}name__icontains": value}) | Q(**{f"{prefix}key__icontains": value}) | Q(**{f"{prefix}description__icontains": value})
 
-    @strawberry_django.filter_field(description="Keep only bloks of this context (HTML or SCENE).")
+    @strawberry_django.filter_field(description="Keep only bloks of this context (PANEL or SCENE).")
     def context(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}context": value})
 

@@ -19,13 +19,13 @@ from bridge.repo.db import upsert_app_image
 from bridge.repo.models import AppImageInputModel
 from tests.utils import build_relative_dir, execute
 
-APP_LOGO = '<AgentLogo viewBox="0 0 24 24"><Circle r="4" fill="brand" /></AgentLogo>'
-ACTION_LOGO = '<ActionLogo viewBox="0 0 24 24" title="Segment"><Circle r="4" fill={task.running ? "brand" : "muted"} /></ActionLogo>'
-BROKEN = "<Html><Card><Text></Card></Html>"
+APP_LOGO = '<Blok kind="agent" context="logo"><Logo viewBox="0 0 24 24"><Circle r="4" fill="brand" /></Logo></Blok>'
+ACTION_LOGO = '<Blok kind="action" context="logo"><Logo viewBox="0 0 24 24" title="Segment"><Circle r="4" fill={task.running ? "brand" : "muted"} /></Logo></Blok>'
+BROKEN = '<Blok kind="agent" context="panel"><Card><Text></Card></Blok>'
 
 
 def _app_image(*, logo: str | None = "ome_segment", version: str = "1.0.0") -> tuple[AppImageInputModel, str]:
-    """The fixture's app image with a LOGO, an ACTION_LOGO its first action names, and a panel that does not parse."""
+    """The fixture's app image with its logo, an action logo its first action names, and a panel that does not parse."""
     with open(build_relative_dir("deployments/deployments.yaml")) as f:
         app_image = copy.deepcopy(yaml.safe_load(f)["app_images"][0])
     app_image["manifest"]["version"] = version
@@ -34,8 +34,8 @@ def _app_image(*, logo: str | None = "ome_segment", version: str = "1.0.0") -> t
     app_image["inspection"]["implementations"] = [implementation]
     app_image["inspection"]["bloks"] = [
         {"key": "ome_logo", "vocab": 2, "context": "LOGO", "default": True, "source": APP_LOGO},
-        {"key": "ome_segment", "vocab": 2, "context": "ACTION_LOGO", "source": ACTION_LOGO, "demo": {"task": {"running": True}}},
-        {"key": "ome_broken", "vocab": 2, "context": "HTML", "source": BROKEN},
+        {"key": "ome_segment", "vocab": 2, "context": "LOGO", "source": ACTION_LOGO, "demo": {"task": {"running": True}}},
+        {"key": "ome_broken", "vocab": 2, "context": "PANEL", "source": BROKEN},
     ]
     model = AppImageInputModel.model_validate(app_image)
     return model, model.inspection.implementations[0].definition.unique_hash
@@ -49,13 +49,15 @@ def _import(ctx: HttpContext, **kwargs) -> tuple[models.Flavour, str]:
 
 def test_a_source_is_parsed_into_a_list_of_roots_in_the_wire_spelling() -> None:
     """The tree is what rekuest serves as `Blok.componentTree`: roots, snake_case, nothing None."""
-    render = bloks.render_blok({"key": "a", "context": "ACTION_LOGO", "source": ACTION_LOGO})
+    render = bloks.render_blok({"key": "a", "context": "LOGO", "source": ACTION_LOGO})
 
     assert render["parse_error"] is None
     [root] = render["component_tree"]
-    assert root["component"] == "ActionLogo"
-    assert {"key": "viewBox", "static_value": "0 0 24 24"} in root["props"]
-    assert root["children"][0]["id"] == "ActionLogo[0]/Circle[0]"
+    assert root["component"] == "Blok"
+    [logo] = root["children"]
+    assert {"key": "viewBox", "static_value": "0 0 24 24"} in logo["props"]
+    assert logo["children"][0]["id"] == "Blok[0]/Logo[0]/Circle[0]"
+    assert bloks.root_kind(render["component_tree"]) == "action"
     assert render["hash"].startswith("sha256:")
 
 
@@ -71,15 +73,18 @@ def test_the_hash_is_what_the_blok_draws() -> None:
 
 def test_a_source_that_does_not_parse_says_why() -> None:
     """A broken blok is the blok's problem: no tree, an error, never an exception."""
-    render = bloks.render_blok({"key": "a", "context": "HTML", "source": BROKEN})
+    render = bloks.render_blok({"key": "a", "context": "PANEL", "source": BROKEN})
 
     assert render["component_tree"] is None
     assert render["parse_error"]
+    # A root that disagrees with the context it is sent as is the blok's problem too.
+    assert "its <Blok> says LOGO" in bloks.render_blok({"key": "a", "context": "PANEL", "source": APP_LOGO})["parse_error"]
 
 
 def test_a_blok_sent_as_its_tree_keeps_it() -> None:
-    tree = [{"id": "html", "component": "Html", "children": [{"id": "root", "component": "Text"}]}]
-    assert bloks.render_blok({"key": "a", "context": "HTML", "components": tree})["component_tree"] == tree
+    tree = [{"id": "Blok[0]", "component": "Blok", "props": [{"key": "kind", "static_value": "agent"}, {"key": "context", "static_value": "panel"}], "children": [{"id": "root", "component": "Text"}]}]
+    render = bloks.render_blok({"key": "a", "context": "PANEL", "components": tree})
+    assert render["component_tree"] == tree and render["parse_error"] is None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -102,8 +107,8 @@ async def test_a_flavour_serves_its_bloks_and_its_logo(authenticated_context: Ht
         await execute(
             """query($id: ID!) { flavour(id: $id) {
                 logoBlok { id key context default hash }
-                blokImplementations { key context componentTree parseError }
-                actionLogos: blokImplementations(context: ACTION_LOGO) { key vocab demo }
+                blokImplementations { key context kind componentTree parseError }
+                logos: blokImplementations(context: LOGO) { key kind vocab demo }
             } }""",
             authenticated_context,
             {"id": str(flavour.id)},
@@ -114,10 +119,11 @@ async def test_a_flavour_serves_its_bloks_and_its_logo(authenticated_context: Ht
     assert result["logoBlok"]["default"] is True
     assert result["logoBlok"]["hash"] == flavour.blok_renders["ome_logo"]["hash"]
     by_key = {blok["key"]: blok for blok in result["blokImplementations"]}
-    assert by_key["ome_segment"]["componentTree"][0]["component"] == "ActionLogo"
+    assert by_key["ome_segment"]["componentTree"][0]["children"][0]["component"] == "Logo"
     assert by_key["ome_broken"]["componentTree"] is None and by_key["ome_broken"]["parseError"]
-    [action_logo] = result["actionLogos"]
-    assert action_logo["key"] == "ome_segment" and action_logo["vocab"] == 2
+    # An action's logo is a LOGO too: its root's kind tells it from the app's.
+    _, action_logo = result["logos"]
+    assert action_logo["key"] == "ome_segment" and action_logo["kind"] == "action" and action_logo["vocab"] == 2
     assert action_logo["demo"]["task"] == {"running": True}
 
 
@@ -166,7 +172,7 @@ async def test_a_definition_is_drawn_by_the_logo_its_implementation_names(authen
             {"id": str(stored.id), "older": str(older.id), "newer": str(newer.id)},
         )
     )["definition"]
-    assert definition["logo"] == {"id": f"{newer.id}:ome_segment", "key": "ome_segment", "context": "ACTION_LOGO"}
+    assert definition["logo"] == {"id": f"{newer.id}:ome_segment", "key": "ome_segment", "context": "LOGO"}
     assert definition["ofOlder"] is None
     assert definition["ofNewer"] == {"key": "ome_segment"}
 

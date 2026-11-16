@@ -139,16 +139,13 @@ class RepoBlok(models.Model):
     key = models.CharField(max_length=100, help_text="Unique in its repository: what a scan finds it again by")
     name = models.CharField(max_length=1000, help_text="The name it is installed under in rekuest")
     description = models.TextField(null=True, blank=True)
-    context = models.CharField(max_length=16, default="HTML", help_text="The renderer its root lives in (rekuest_core ComponentContext): HTML or SCENE")
+    context = models.CharField(max_length=16, default="PANEL", help_text="What draws it, as its <Blok context=...> says (rekuest_core ComponentContext): PANEL or SCENE")
     source = models.TextField(help_text="The blok as BSX, as the repository publishes it")
     source_path = models.CharField(max_length=1000, null=True, blank=True, help_text="The file of the repository its BSX was read from; null when it is written inline")
     vocab = models.PositiveSmallIntegerField(default=2, help_text="The blok language version it speaks; 2 is the only one")
     catalogs = models.JSONField(default=list, help_text="The catalogs it needs, as name@version")
     module = models.CharField(max_length=1000, null=True, blank=True, help_text="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when null")
-    locals = models.JSONField(default=list, help_text="Its locals (rekuest_core BlokLocalInput: an arg port plus persist)")
     demo = models.JSONField(default=dict, help_text="What a preview renders it with (rekuest_core BlokDemoInput)")
-    queries = models.JSONField(default=list, help_text="Its declared reads (rekuest_core BlokQueryInput)")
-    subscriptions = models.JSONField(default=list, help_text="Its declared streams (rekuest_core BlokSubscriptionInput)")
     dependencies = models.JSONField(default=list, help_text="The agents it draws from (rekuest_core AgentDependencyInput)")
     for_model = models.CharField(max_length=71, null=True, blank=True)
     for_node = models.CharField(max_length=1000, null=True, blank=True)
@@ -261,7 +258,7 @@ class Flavour(EmbeddedDescriptionMixin, Described):
     requirements = models.JSONField(default=list)
     bloks = models.JSONField(default=list, help_text="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput).")
     blok_renders = models.JSONField(default=dict, db_default=models.Value({}, output_field=models.JSONField()), help_text="What each blok draws, by its key: its component tree parsed from its source, the hash of what it draws, and why its source did not parse (bridge/repo/bloks.py).")
-    action_logos = models.JSONField(default=dict, db_default=models.Value({}, output_field=models.JSONField()), help_text="The key of the ACTION_LOGO blok each action's implementation names as its logo, by the action's definition hash.")
+    action_logos = models.JSONField(default=dict, db_default=models.Value({}, output_field=models.JSONField()), help_text="The key of the action logo (a LOGO blok of kind action) each action's implementation names as its logo, by the action's definition hash.")
 
     #: ``manifest`` is JSON, so the text pulled out of it is assembled below; it is listed
     #: here so the healer loads the column and so a manifest change re-embeds the row.

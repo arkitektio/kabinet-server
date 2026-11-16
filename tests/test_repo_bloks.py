@@ -22,9 +22,9 @@ from tests.utils import build_relative_dir, execute
 
 VALID_CONFIG = Path(build_relative_dir("deployments/deployments.yaml")).read_text()
 
-PANEL = "<Html><Card><Text>Layers</Text></Card></Html>"
-SCENE = '<Scene id="volume" persist />'
-BROKEN = "<Html><Card><Text></Card></Html>"
+PANEL = '<Blok kind="custom" context="panel"><local name="show_all" kind="BOOL" default={true} persist /><Card><Text>Layers</Text></Card></Blok>'
+SCENE = '<Blok kind="custom" context="scene"><Scene id="volume" persist /></Blok>'
+BROKEN = '<Blok kind="custom" context="panel"><Card><Text></Card></Blok>'
 
 
 def bloks_file(*bloks: dict) -> str:
@@ -95,7 +95,7 @@ async def test_a_blok_names_one_source(fake_github):
 async def test_a_logo_is_not_published_on_its_own(fake_github):
     coordinates = await fake_github({layout.BLOKS_PATH: bloks_file({**VOLUME, "context": "LOGO"})})
 
-    with pytest.raises(InspectionError, match="panels \\(HTML\\) and scenes"):
+    with pytest.raises(InspectionError, match="panels \\(PANEL\\) and scenes"):
         await aget_repo_contents(coordinates)
 
 
@@ -120,7 +120,7 @@ def _repo(ctx: HttpContext) -> models.GithubRepo:
 async def test_a_scan_writes_its_bloks_by_key_and_drops_the_rest(fake_github, authenticated_context: HttpContext):
     organization = authenticated_context.request.organization
     repo = await _repo(authenticated_context)
-    coordinates = await fake_github({layout.BLOKS_PATH: bloks_file(LAYERS, {**VOLUME, "bsx": BROKEN, "context": "HTML"}), "bloks/layers.bsx": PANEL})
+    coordinates = await fake_github({layout.BLOKS_PATH: bloks_file(LAYERS, {**VOLUME, "bsx": BROKEN, "context": "PANEL"}), "bloks/layers.bsx": PANEL})
 
     await sync_to_async(apply_contents)(await aget_repo_contents(coordinates), repo, organization)
     first = {blok.key: blok async for blok in models.RepoBlok.objects.filter(repo=repo)}
@@ -142,7 +142,7 @@ async def test_a_blok_says_how_rekuest_installs_it(fake_github, authenticated_co
     repo = await _repo(authenticated_context)
     dependency = {"key": "viewer", "app": "napari", "action_dependencies": [{"key": "open", "demand": {"key": "open_image", "app": "napari"}}]}
     coordinates = await fake_github(
-        {layout.BLOKS_PATH: bloks_file({**LAYERS, "dependencies": [dependency], "demo": {"args": {"layer_names": ["a"]}}, "locals": [{"key": "show_all", "kind": "BOOL", "default": True, "persist": True}], "catalogs": ["ui@1"], "module": "orkestrator"}), "bloks/layers.bsx": PANEL}
+        {layout.BLOKS_PATH: bloks_file({**LAYERS, "dependencies": [dependency], "demo": {"args": {"layer_names": ["a"]}}, "catalogs": ["ui@1"], "module": "orkestrator"}), "bloks/layers.bsx": PANEL}
     )
     await sync_to_async(apply_contents)(await aget_repo_contents(coordinates), repo, authenticated_context.request.organization)
 
@@ -155,7 +155,7 @@ async def test_a_blok_says_how_rekuest_installs_it(fake_github, authenticated_co
 
     [blok] = result["repoBloks"]
     assert blok["origin"] == f"github:{COORDINATES.user}/{COORDINATES.repo}:{COORDINATES.branch}#layers"
-    assert blok["context"] == "HTML"
+    assert blok["context"] == "PANEL"
     install = blok["installInput"]
     assert install["name"] == "Layer picker"
     assert install["source"] == PANEL
@@ -167,7 +167,6 @@ async def test_a_blok_says_how_rekuest_installs_it(fake_github, authenticated_co
     # A demo is the blok's data: its keys are what the blok reads, so they stay as written.
     assert install["vocab"] == 2
     assert install["demo"] == {"args": {"layer_names": ["a"]}}
-    assert install["locals"] == [{"key": "show_all", "kind": "BOOL", "nullable": False, "default": True, "persist": True}]
     assert install["catalogs"] == ["ui@1"]
     assert install["module"] == "orkestrator"
 
@@ -200,7 +199,6 @@ async def test_a_blok_speaks_blok_language_v2(fake_github):
         ({key: value for key, value in VOLUME.items() if key != "vocab"}, "vocab"),
         ({**VOLUME, "vocab": 1}, "vocab"),
         ({**VOLUME, "demo_state": {"z": 1}}, "demo_state"),
-        ({**VOLUME, "locals": [{"key": "task", "kind": "STRING"}]}, r"\[roots\.reserved\]"),
         ({**VOLUME, "catalogs": ["ui"]}, r"\[manifest\.catalog\]"),
     ]:
         coordinates = await fake_github({layout.BLOKS_PATH: bloks_file(blok)})

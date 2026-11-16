@@ -335,7 +335,7 @@ async def test_rescanning_the_repositories_reads_the_imported_ones_again(authent
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_a_release_keeps_its_logos_and_assets(authenticated_context: HttpContext, registry: FakeRegistry):
-    """An app's bloks travel as an SDK sends them (BSX source, a LOGO and ACTION_LOGOs), and its assets with them."""
+    """An app's bloks travel as an SDK sends them (BSX source, its logo and its actions' logos), and its assets with them."""
     with open(build_relative_dir("deployments/deployments.yaml")) as f:
         implementation = copy.deepcopy(yaml.safe_load(f)["app_images"][0]["inspection"]["implementations"][0])
     implementation["logo"] = "ome_segment"
@@ -346,12 +346,12 @@ async def test_a_release_keeps_its_logos_and_assets(authenticated_context: HttpC
         inspection={
             "implementations": [implementation],
             "bloks": [
-                {"key": "ome_logo", "vocab": 2, "context": "LOGO", "default": True, "source": '<AgentLogo viewBox="0 0 24 24"><Circle r="4" fill="brand" /></AgentLogo>'},
+                {"key": "ome_logo", "vocab": 2, "context": "LOGO", "default": True, "source": '<Blok kind="agent" context="logo"><Logo viewBox="0 0 24 24"><Circle r="4" fill="brand" /></Logo></Blok>'},
                 {
                     "key": "ome_segment",
                     "vocab": 2,
-                    "context": "ACTION_LOGO",
-                    "source": '<ActionLogo viewBox="0 0 24 24"><Circle r="4" fill={task.running ? "brand" : "muted"} /></ActionLogo>',
+                    "context": "LOGO",
+                    "source": '<Blok kind="action" context="logo"><Logo viewBox="0 0 24 24"><Circle r="4" fill={task.running ? "brand" : "muted"} /></Logo></Blok>',
                 },
             ],
             "assets": [{"name": "nucleus", "kind": "MODEL_3D", "ref": "sha256:" + "a" * 64, "size": 1024, "path": "models/nucleus.glb"}],
@@ -361,8 +361,8 @@ async def test_a_release_keeps_its_logos_and_assets(authenticated_context: HttpC
     repo = await import_repo(authenticated_context, registry.reference("org/ome"))
 
     flavour = await models.Flavour.objects.aget(repo_id=repo["id"])
-    assert [(blok["key"], blok["context"], blok["default"]) for blok in flavour.bloks] == [("ome_logo", "LOGO", True), ("ome_segment", "ACTION_LOGO", False)]
-    assert flavour.bloks[1]["source"].startswith("<ActionLogo")
+    assert [(blok["key"], blok["context"], blok["default"]) for blok in flavour.bloks] == [("ome_logo", "LOGO", True), ("ome_segment", "LOGO", False)]
+    assert flavour.bloks[1]["source"].startswith('<Blok kind="action"')
     assert flavour.inspection["implementations"][0]["logo"] == "ome_segment"
 
     result = await execute("query($id: ID!) { flavour(id: $id) { bloks assets } }", authenticated_context, {"id": str(flavour.id)})
