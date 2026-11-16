@@ -33,7 +33,7 @@ dependencies = [
     "pgvector>=0.5",
     "model2vec>=0.9",
     "arkitekt-service>=9.0.0",
-    "arkitekt-spec>=4.0.0",
+    "arkitekt-spec>=12",
     "arkitekt-datalayer>=3.0.0",
 ]
 
