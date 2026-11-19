@@ -10,7 +10,7 @@ import strawberry_django
 from koherent.strawberry.extension import KoherentExtension
 from authentikate.strawberry.extension import AuthentikateExtension
 from authentikate.strawberry import AuthExtension, AuthSubscribeExtension
-from arkitekt_service.graphql import annotate_schema
+from arkitekt_service.graphql import TelemetryExtension, annotate_schema
 from typing import List
 from rekuest_core.constants import interface_types, input_union_types
 from rekuest_core.scalars import scalar_map as rscalar_map
@@ -193,7 +193,7 @@ schema = Schema(
     mutation=Mutation,
     subscription=Subscription,
     schema_directives=[unionElementOf],
-    extensions=[DjangoOptimizerExtension, AuthentikateExtension, KoherentExtension],
+    extensions=[TelemetryExtension, DjangoOptimizerExtension, AuthentikateExtension, KoherentExtension],
     types=[
         types.Selector,
         types.CudaSelector,
