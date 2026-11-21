@@ -28,6 +28,8 @@ class RequirementInputModel(BaseModel):
     """ The optional flag indicates if the requirement is optional or not. Users should be able to use the client even if the requirement is not met. """
     description: Optional[str] = None
     """ The description is a human readable description of the requirement. Will be show to the user when asking for the requirement."""
+    version: Optional[str] = None
+    """ The versions of the service the app was written for, as a specifier ('>=12.1,<14'). Advisory. """
 
 
 # Selectors have ONE model set for input, storage and output — see

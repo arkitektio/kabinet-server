@@ -654,6 +654,7 @@ class Requirement:
     service: str = strawberry.field(description="The name of the required service.")
     description: str | None = strawberry.field(default=None, description="An optional human-readable description of the requirement.")
     optional: bool = strawberry.field(default=False, description="Whether the flavour can still run if this service is unavailable.")
+    version: str | None = strawberry.field(default=None, description="The versions of the service the app was written for, as a specifier ('>=12.1,<14'). Advisory: an instance outside it is still used.")
 
 
 @strawberry_django.type(
