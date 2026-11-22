@@ -56,8 +56,13 @@ def _app_image(
 
 
 @sync_to_async
-def _import(ctx: HttpContext, **kwargs) -> tuple[models.Flavour, str]:
-    app_image, definition_hash = _app_image(**kwargs)
+def _import(
+    ctx: HttpContext,
+    *,
+    logo: str | None = "ome_segment",
+    version: str = "1.0.0",
+) -> tuple[models.Flavour, str]:
+    app_image, definition_hash = _app_image(logo=logo, version=version)
     return upsert_app_image(app_image, ctx.request.organization), definition_hash
 
 

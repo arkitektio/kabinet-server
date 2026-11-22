@@ -10,6 +10,7 @@ import asyncio
 import copy
 import hashlib
 import json
+from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
@@ -21,7 +22,7 @@ from kante.context import HttpContext
 from bridge import models
 from bridge.repo.oci import RELEASE_MEDIA_TYPE
 from kabinet_server.hook_agent import rescan_sources
-from tests.utils import build_relative_dir, execute, execute_raw
+from tests.utils import build_relative_dir, execute, execute_raw, load_yaml
 
 IMPORT = """
     mutation Import($input: ImportRepoInput!) {
@@ -154,7 +155,7 @@ class FakeRegistry:
 
 
 @pytest_asyncio.fixture
-async def registry():
+async def registry() -> AsyncIterator[FakeRegistry]:
     fake = FakeRegistry()
     app = web.Application()
     app.router.add_get("/token", fake.handle)
@@ -191,7 +192,7 @@ def _versions(repo: dict) -> list[tuple[str, str | None]]:
 @pytest.mark.asyncio
 async def test_importing_a_repository_writes_its_releases(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     registry.release("org/ome", "1.0.0", "1.0.0")
     registry.release("org/ome", "1.1.0", "1.1.0")
 
@@ -219,7 +220,7 @@ async def test_importing_a_repository_writes_its_releases(
 @pytest.mark.asyncio
 async def test_a_release_is_read_once(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     """Releases never change, so the next scan asks for the tag list and for nothing it has seen."""
     registry.release("org/ome", "1.0.0", "1.0.0")
     await import_repo(authenticated_context, registry.reference("org/ome"))
@@ -242,7 +243,7 @@ async def test_a_release_is_read_once(
 @pytest.mark.asyncio
 async def test_a_followed_channel_moves_to_its_next_build(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     registry.release("org/ome", "1.0.0", "1.0.0")
     registry.release("org/ome", "main", "1.0.0-dev.aaaaaaa", channel="main")
     reference = registry.reference("org/ome")
@@ -262,7 +263,7 @@ async def test_a_followed_channel_moves_to_its_next_build(
 @pytest.mark.asyncio
 async def test_a_superseded_channel_build_stays_while_it_is_deployed(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     registry.release("org/ome", "main", "1.0.0-dev.aaaaaaa", channel="main")
     reference = registry.reference("org/ome")
     repo = await import_repo(authenticated_context, reference, channels=["main"])
@@ -291,7 +292,7 @@ async def test_a_superseded_channel_build_stays_while_it_is_deployed(
 @pytest.mark.asyncio
 async def test_a_channel_nobody_follows_is_not_taken(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     registry.release("org/ome", "1.0.0", "1.0.0")
     registry.release("org/ome", "main", "1.0.0-dev.aaaaaaa", channel="main")
 
@@ -304,7 +305,7 @@ async def test_a_channel_nobody_follows_is_not_taken(
 @pytest.mark.asyncio
 async def test_a_second_repository_cannot_publish_an_app_the_first_one_holds(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     """Importing is trust in one registry namespace; an identifier is not up for grabs after that."""
     registry.release("org/ome", "1.0.0", "1.0.0")
     registry.release("mallory/ome", "9.9.9", "9.9.9")
@@ -323,7 +324,7 @@ async def test_a_second_repository_cannot_publish_an_app_the_first_one_holds(
 @pytest.mark.asyncio
 async def test_a_release_naming_an_image_elsewhere_is_not_taken(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     registry.release(
         "org/ome", "1.0.0", "1.0.0", image="docker.io/somebody/else@sha256:" + "a" * 64
     )
@@ -337,7 +338,7 @@ async def test_a_release_naming_an_image_elsewhere_is_not_taken(
 @pytest.mark.asyncio
 async def test_a_descriptor_under_another_versions_tag_is_not_taken(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     registry.release("org/ome", "1.0.0", "2.0.0")
 
     repo = await import_repo(authenticated_context, registry.reference("org/ome"))
@@ -349,7 +350,7 @@ async def test_a_descriptor_under_another_versions_tag_is_not_taken(
 @pytest.mark.asyncio
 async def test_a_repository_that_cannot_be_read_is_not_imported(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     result = await execute_raw(
         IMPORT,
         authenticated_context,
@@ -364,7 +365,7 @@ async def test_a_repository_that_cannot_be_read_is_not_imported(
 @pytest.mark.asyncio
 async def test_a_reference_with_a_tag_is_refused(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     result = await execute_raw(
         IMPORT,
         authenticated_context,
@@ -378,7 +379,7 @@ async def test_a_reference_with_a_tag_is_refused(
 @pytest.mark.asyncio
 async def test_the_hook_action_reads_every_imported_repository_again(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     """What a schedule runs: one pass, new releases written, an unreadable repository counted."""
     registry.release("org/ome", "1.0.0", "1.0.0")
     registry.release("org/other", "1.0.0", "1.0.0", identifier="other")
@@ -412,7 +413,7 @@ RESCAN = """
 @pytest.mark.asyncio
 async def test_rescanning_the_repositories_reads_the_imported_ones_again(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     """`rescanRepos` (the Rescan Repos button) reads OCI repositories too; one that cannot be read does not stop it."""
     registry.release("org/ome", "1.0.0", "1.0.0")
     registry.release("org/other", "1.0.0", "1.0.0", identifier="other")
@@ -430,12 +431,13 @@ async def test_rescanning_the_repositories_reads_the_imported_ones_again(
 @pytest.mark.asyncio
 async def test_a_release_keeps_its_logos_and_assets(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     """An app's bloks travel as an SDK sends them (BSX source, its logo and its actions' logos), and its assets with them."""
-    with open(build_relative_dir("deployments/deployments.yaml")) as f:
-        implementation = copy.deepcopy(
-            yaml.safe_load(f)["app_images"][0]["inspection"]["implementations"][0]
-        )
+    implementation = copy.deepcopy(
+        load_yaml("deployments/deployments.yaml")["app_images"][0]["inspection"][
+            "implementations"
+        ][0]
+    )
     implementation["logo"] = "ome_segment"
     registry.release(
         "org/ome",
@@ -504,7 +506,7 @@ async def test_a_release_keeps_its_logos_and_assets(
 @pytest.mark.asyncio
 async def test_a_release_says_which_spec_wrote_it(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     # The image's spec can be older than the CLI's that released it.
     registry.release(
         "org/ome",
@@ -534,7 +536,7 @@ async def test_a_release_says_which_spec_wrote_it(
 )
 async def test_a_release_that_names_no_spec_is_refused_once(
     authenticated_context: HttpContext, registry: FakeRegistry, unversioned: dict
-):
+) -> None:
     """It will never become readable, so a later scan does not fetch it again."""
     registry.release("org/ome", "1.0.0", "1.0.0", **unversioned)
     reference = registry.reference("org/ome")
@@ -550,7 +552,7 @@ async def test_a_release_that_names_no_spec_is_refused_once(
 @pytest.mark.asyncio
 async def test_a_release_that_cannot_be_read_is_read_again(
     authenticated_context: HttpContext, registry: FakeRegistry
-):
+) -> None:
     """A kabinet that learns to read it later has to find it, though it never changed."""
     registry.release("org/ome", "1.0.0", "1.0.0", spec_version="not a version")
     reference = registry.reference("org/ome")
@@ -562,7 +564,7 @@ async def test_a_release_that_cannot_be_read_is_read_again(
     assert len(registry.fetched("blobs")) == 1
 
 
-def test_the_descriptor_arkitekt_spec_writes_is_read_here():
+def test_the_descriptor_arkitekt_spec_writes_is_read_here() -> None:
     """The format is arkitekt-spec's; this is its golden file, copied. A drift between the two fails here."""
     from bridge.repo.models import ReleaseDescriptorModel
 

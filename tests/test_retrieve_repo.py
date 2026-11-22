@@ -1,7 +1,4 @@
-import typing
-
 import pytest
-import yaml
 from asgiref.sync import sync_to_async
 from authentikate.models import Organization
 from django.contrib.auth import get_user_model
@@ -9,13 +6,12 @@ from django.contrib.auth import get_user_model
 from bridge.models import GithubRepo
 from bridge.repo.db import parse_config
 from bridge.repo.models import KabinetConfigFile
-from tests.utils import build_relative_dir
+from tests.utils import load_yaml
 
 
 @pytest.mark.asyncio
-async def test_parse_deployments(db: typing.Any) -> None:
-    with open(build_relative_dir("deployments/deployments.yaml")) as deployment_file:
-        deployment = yaml.safe_load(deployment_file)
+async def test_parse_deployments(db: None) -> None:
+    deployment = load_yaml("deployments/deployments.yaml")
 
     config = KabinetConfigFile(**deployment)
 
@@ -25,7 +21,7 @@ async def test_parse_deployments(db: typing.Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_db_deployments(db: typing.Any) -> None:
+async def test_db_deployments(db: None) -> None:
     organization, _ = await Organization.objects.aget_or_create(
         identifier="test-organization"
     )
@@ -40,8 +36,7 @@ async def test_db_deployments(db: typing.Any) -> None:
         organization=organization,
     )
 
-    with open(build_relative_dir("deployments/deployments.yaml")) as deployment_file:
-        deployment = yaml.safe_load(deployment_file)
+    deployment = load_yaml("deployments/deployments.yaml")
 
     config = KabinetConfigFile(**deployment)
 

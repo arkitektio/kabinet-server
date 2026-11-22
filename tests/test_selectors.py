@@ -66,7 +66,9 @@ def _app_image_with_all_selectors() -> dict:
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_every_selector_kind_round_trips(authenticated_context: HttpContext):
+async def test_every_selector_kind_round_trips(
+    authenticated_context: HttpContext,
+) -> None:
     """Author → store → serve for all six kinds, through the real wire."""
     created = await execute(
         CREATE_APP_IMAGE,
@@ -101,7 +103,7 @@ async def test_every_selector_kind_round_trips(authenticated_context: HttpContex
     assert by_kind["cuda"]["weight"] == 1
 
 
-def test_stored_json_round_trips_without_aliases():
+def test_stored_json_round_trips_without_aliases() -> None:
     """Storage dumps python field names; the read side must accept them."""
     stored = [
         {"kind": "cuda", "compute_capability": "8.6", "cuda_cores": 100},

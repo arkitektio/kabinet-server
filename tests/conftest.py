@@ -1,23 +1,30 @@
 import os
 import time
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 
 import psycopg
 import pytest
 import pytest_asyncio
-import yaml
+from aiohttp import web
+from arkitekt_service import trust
 from asgiref.sync import sync_to_async
 from authentikate.models import Client, Membership, Organization, User
 from django.contrib.contenttypes.management import create_contenttypes
 from django.db.models.signals import post_migrate
 from dokker import PortNotFoundError, testing
+from dokker.deployment import Deployment
 from kante.context import HttpContext, UniversalRequest
+from pytest_django import DjangoDbBlocker
+from pytest_django.fixtures import SettingsWrapper
 from strawberry.http.temporal_response import TemporalResponse
 
-from tests.utils import build_relative_dir
+from bridge.repo import layout
+from bridge.repo.fetch import RepoCoordinates
+from tests.utils import COORDINATES, INTAKE_KEY, Intake, ServeRepo, load_yaml
 
 
 def _wait_for_port(
-    e, service: str, container_port: int, deadline_seconds: float = 30.0
+    e: Deployment, service: str, container_port: int, deadline_seconds: float = 30.0
 ) -> int:
     """The host port docker published for ``service:container_port``, once the container is up."""
     deadline = time.monotonic() + deadline_seconds
@@ -31,7 +38,7 @@ def _wait_for_port(
 
 
 @pytest.fixture(scope="session")
-def backend_stack():
+def backend_stack() -> Iterator[dict[str, int]]:
     docker_compose_path = os.path.join(
         os.path.dirname(__file__), "integration", "docker-compose.yaml"
     )
@@ -94,7 +101,7 @@ def backend_stack():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def embedding_model_warm():
+def embedding_model_warm() -> Iterator[None]:
     """Load the embedding model once per session, outside any test's DB transaction.
 
     Every save of a Definition embeds its text, so the first one would otherwise pay the
@@ -107,7 +114,7 @@ def embedding_model_warm():
 
 
 @pytest.fixture(scope="session")
-def django_db_modify_db_settings(backend_stack):
+def django_db_modify_db_settings(backend_stack: dict[str, int]) -> Iterator[None]:
     """Start the backend services, and point Django at the ports they came up on.
 
     pytest-django calls this before creating the test database, which is the only window
@@ -122,7 +129,9 @@ def django_db_modify_db_settings(backend_stack):
 
 
 @pytest.fixture(scope="session")
-def django_db_setup(django_db_setup, django_db_blocker):
+def django_db_setup(
+    django_db_setup: None, django_db_blocker: DjangoDbBlocker
+) -> Iterator[None]:
     # Every transaction=True test teardown flushes the DB and re-fires
     # post_migrate, which rebuilds all contenttypes and permissions from the
     # model registry (~1s per test). The rows never change between tests, so
@@ -140,7 +149,7 @@ def django_db_setup(django_db_setup, django_db_blocker):
     )
     post_migrate.disconnect(create_contenttypes)
 
-    def restore_contenttypes_and_permissions(sender, **kwargs):
+    def restore_contenttypes_and_permissions(sender: object, **kwargs: object) -> None:
         # post_migrate fires once per app config on flush; restore once.
         if getattr(sender, "label", None) != "contenttypes":
             return
@@ -171,7 +180,7 @@ def django_db_setup(django_db_setup, django_db_blocker):
 
 
 @pytest.fixture(scope="function")
-def authenticated_context(db, backend_stack):
+def authenticated_context(db: None, backend_stack: dict[str, int]) -> HttpContext:
     # Match the identity the static "test" token resolves to (see settings_test
     # STATIC_TOKENS + authentikate's token expansion), so the org/user on this
     # context is the same one the schema's AuthentikateExtension authenticates as
@@ -203,7 +212,7 @@ def authenticated_context(db, backend_stack):
 
 
 @pytest.fixture(scope="function")
-def other_org_context(db, backend_stack) -> HttpContext:
+def other_org_context(db: None, backend_stack: dict[str, int]) -> HttpContext:
     """A context for a user in a different organization (static token "othertest")."""
     user, _ = User.objects.get_or_create(
         sub="9", iss="static_issuer", defaults={"username": "static_issuer_9"}
@@ -232,7 +241,7 @@ def other_org_context(db, backend_stack) -> HttpContext:
 
 
 @pytest.fixture(scope="function")
-def simple_api_context(db, backend_stack) -> HttpContext:
+def simple_api_context(db: None, backend_stack: dict[str, int]) -> HttpContext:
     user, _ = User.objects.get_or_create(
         sub="1", iss="static_issuer", defaults={"username": "static_issuer_1"}
     )
@@ -260,7 +269,7 @@ def simple_api_context(db, backend_stack) -> HttpContext:
 
 
 @pytest_asyncio.fixture
-async def built_chain(authenticated_context: HttpContext) -> dict:
+async def built_chain(authenticated_context: HttpContext) -> dict[str, str]:
     """Build a full App -> Release -> DockerImage -> Flavour -> Definition chain plus
     its GithubRepo, offline via parse_config (the path test_db_deployments proves stays
     network-free for a logo-less manifest). Returns the created ids for query tests.
@@ -281,8 +290,7 @@ async def built_chain(authenticated_context: HttpContext) -> dict:
         branch="main",
     )
 
-    with open(build_relative_dir("deployments/deployments.yaml")) as f:
-        config = KabinetConfigFile(**yaml.safe_load(f))
+    config = KabinetConfigFile(**load_yaml("deployments/deployments.yaml"))
 
     # `parse_config` is synchronous (it runs inside `transaction.atomic`), so it has
     # to be thrown to a thread from this async fixture.
@@ -291,6 +299,59 @@ async def built_chain(authenticated_context: HttpContext) -> dict:
 
 
 @pytest_asyncio.fixture
-async def flavour_id(built_chain: dict) -> str:
+async def flavour_id(built_chain: dict[str, str]) -> str:
     """The Flavour id from the built chain, as a GraphQL id string."""
     return built_chain["flavour_id"]
+
+
+@pytest.fixture
+def intake(settings: SettingsWrapper) -> Iterator[Intake]:
+    """rekuest's signal intake, served locally, with this instance's key trusted by it."""
+    server = Intake()
+    settings.REKUEST_SERVICE = {"REKUEST_URL": server.url, "SERVICE": "kabinet"}
+    settings.INSTANCE = {
+        "PRIVATE_KEY": INTAKE_KEY.as_pem(private=True).decode(),
+        "TRUST_JWKS": {
+            "keys": [{**trust.public_jwk(INTAKE_KEY), "service": "kabinet"}]
+        },
+    }
+    yield server
+    server.server.shutdown()
+    # Closed, not only stopped: a signal still queued for this intake is refused at once
+    # instead of holding the one sender thread until its timeout.
+    server.server.server_close()
+
+
+@pytest_asyncio.fixture
+async def fake_github(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[ServeRepo]:
+    """Serve a dict of ``{repo path: body or status}`` as if it were the raw file host."""
+
+    async def serve(
+        tree: Mapping[str, str | int],
+        handler: Callable[[web.Request], Awaitable[web.StreamResponse]] | None = None,
+    ) -> RepoCoordinates:
+        async def handle(request: web.Request) -> web.Response:
+            # /<user>/<repo>/<branch>/<path...>
+            path = "/".join(request.match_info["tail"].split("/"))
+            entry = tree.get(path)
+            if entry is None:
+                raise web.HTTPNotFound()
+            if isinstance(entry, int):
+                return web.Response(status=entry)
+            return web.Response(text=entry)
+
+        app = web.Application()
+        app.router.add_get("/{user}/{repo}/{branch}/{tail:.*}", handler or handle)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "127.0.0.1", 0)
+        await site.start()
+        servers.append(runner)
+        port = runner.addresses[0][1]
+        monkeypatch.setattr(layout, "RAW_BASE", f"http://127.0.0.1:{port}")
+        return COORDINATES
+
+    servers: list[web.AppRunner] = []
+    yield serve
+    for runner in servers:
+        await runner.cleanup()

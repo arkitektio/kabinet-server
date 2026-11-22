@@ -31,9 +31,9 @@ def _broadcast_pod(
 @receiver(post_save, sender=models.Pod)
 def publish_pod_change(
     sender: type[models.Pod],
-    instance: models.Pod = None,
+    instance: models.Pod,
     created: bool = False,
-    **kwargs,
+    **kwargs: object,
 ) -> None:
     """Announce a pod creation or update to its subscribers."""
     signal = (
@@ -69,7 +69,7 @@ def publish_log_dump(
 
 @receiver(post_delete, sender=models.Pod)
 def publish_pod_del(
-    sender: type[models.Pod], instance: models.Pod = None, **kwargs
+    sender: type[models.Pod], instance: models.Pod, **kwargs: object
 ) -> None:
     """Announce a pod deletion to its subscribers."""
     _broadcast_pod(
@@ -127,7 +127,7 @@ def ensure_default_repos_for_organization(
     sender: type[Organization],
     instance: Organization | None = None,
     created: bool = False,
-    **kwargs,
+    **kwargs: object,
 ) -> None:
     if not created or instance is None:
         return

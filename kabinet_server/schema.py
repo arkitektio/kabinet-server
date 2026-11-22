@@ -1,3 +1,5 @@
+from typing import Any
+
 import strawberry
 import strawberry_django
 from arkitekt_service.graphql import TelemetryExtension, annotate_schema
@@ -19,12 +21,14 @@ from rekuest_core.constants import input_union_types, interface_types
 from rekuest_core.scalars import scalar_map as rscalar_map
 
 
-def field(scope: str = "kabinet_read", **kwargs):
+def field(scope: str = "kabinet_read", **kwargs: Any) -> Any:  # noqa: ANN401 - as strawberry_django.field: the value of `x: T = field()`
     "A field an app needs ``scope`` for (``kabinet_read``, unless it says otherwise)."
     return strawberry_django.field(extensions=[AuthExtension(scopes=[scope])], **kwargs)
 
 
-def mutation(scope: str = "kabinet_deploy", roles: list[str] | None = None, **kwargs):
+def mutation(
+    scope: str = "kabinet_deploy", roles: list[str] | None = None, **kwargs: Any
+) -> Any:  # noqa: ANN401 - as strawberry_django.mutation: the value of `x: T = mutation()`
     """A write: an app needs ``scope`` for it, a member one of ``roles`` (``kabinet_deployer`` unless it
     says otherwise; ``kabinet_admin`` holds every role)."""
     return strawberry_django.mutation(
@@ -33,7 +37,7 @@ def mutation(scope: str = "kabinet_deploy", roles: list[str] | None = None, **kw
     )
 
 
-def subscription(**kwargs):
+def subscription(**kwargs: Any) -> Any:  # noqa: ANN401 - as strawberry.subscription: the value of `x: T = subscription()`
     """A subscription: what it streams is read, so an app needs ``kabinet_read`` for it."""
     return strawberry.subscription(
         extensions=[AuthSubscribeExtension(scopes=["kabinet_read"])], **kwargs

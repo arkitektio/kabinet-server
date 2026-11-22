@@ -6,9 +6,12 @@ revoked approval, a release re-published differently since, a backend the approv
 did not allow.
 """
 
+from typing import Any
+
 import pytest
 from asgiref.sync import sync_to_async
 from kante.context import HttpContext
+from strawberry.types import ExecutionResult
 
 from bridge import models
 from tests.test_pods import (
@@ -28,7 +31,9 @@ RELEASE_APPROVALS = """
 """
 
 
-async def _deploy(context, flavour_id, approval_id):
+async def _deploy(
+    context: HttpContext, flavour_id: str, approval_id: str
+) -> ExecutionResult:
     return await execute_raw(
         CREATE_DEPLOYMENT,
         context,
@@ -36,7 +41,7 @@ async def _deploy(context, flavour_id, approval_id):
     )
 
 
-async def _declare_backend(context):
+async def _declare_backend(context: HttpContext) -> dict[str, Any]:
     return (
         await execute(
             DECLARE_BACKEND,
@@ -109,7 +114,7 @@ async def test_republishing_the_release_makes_the_approval_stale(
     await _declare_backend(authenticated_context)
     approval = await approve(authenticated_context, flavour_id)
 
-    def _republish_with_more_scopes():
+    def _republish_with_more_scopes() -> int:
         release = models.Flavour.objects.get(id=flavour_id).release
         release.scopes = [*release.scopes, "write:everything"]
         release.save()
@@ -134,7 +139,7 @@ async def test_a_changed_image_makes_the_approval_stale(
     await _declare_backend(authenticated_context)
     approval = await approve(authenticated_context, flavour_id)
 
-    def _swap_image():
+    def _swap_image() -> None:
         flavour = models.Flavour.objects.select_related("image").get(id=flavour_id)
         flavour.image = models.DockerImage.objects.create(
             image_string="evil/image:latest", organization=flavour.image.organization
@@ -170,7 +175,7 @@ async def test_approval_limited_to_other_backends_is_refused(
 ) -> None:
     mine_id = (await _declare_backend(authenticated_context))["id"]
 
-    def _someone_elses_backend():
+    def _someone_elses_backend() -> int:
         from authentikate.models import Client
 
         mine = models.Backend.objects.get(id=mine_id)
@@ -198,7 +203,7 @@ async def test_resources_can_only_be_declared_on_your_own_backend(
 ) -> None:
     mine_id = (await _declare_backend(authenticated_context))["id"]
 
-    def _foreign_backend():
+    def _foreign_backend() -> int:
         from authentikate.models import Client
 
         mine = models.Backend.objects.get(id=mine_id)

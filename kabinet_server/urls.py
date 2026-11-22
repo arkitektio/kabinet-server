@@ -17,7 +17,7 @@ Including another URLconf
 
 from arkitekt_service.service.views import answers_challenge
 from django.contrib import admin
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.urls import include
 from django.views.decorators.csrf import csrf_exempt
 from health_check.views import MainView
@@ -29,7 +29,7 @@ from kabinet_server.service import service as rekuest_service
 from .schema import schema
 
 
-def graphql_schema(request):
+def graphql_schema(request: HttpRequest) -> HttpResponse:
     return HttpResponse(content=schema.as_str(), content_type="text/plain")
 
 

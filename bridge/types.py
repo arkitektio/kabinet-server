@@ -2,14 +2,15 @@ import datetime
 import hashlib
 import json
 import re
-from typing import Optional
+from collections.abc import Callable, Iterable
+from typing import Optional, TypeVar
 
 import strawberry
 import strawberry.django
 import strawberry_django
 from authentikate import models as auth_models
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Model, Prefetch, Q, QuerySet
 from django.db.models.fields.json import KeyTextTransform
 from kante.types import Info
 from strawberry import auto
@@ -44,14 +45,16 @@ def stored_logo(store: models.MediaStore | None) -> str | None:
 DESCRIPTORS_DESCRIPTION = "This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test (e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none"
 
 
-def resolve_descriptors(root) -> JSON:  # noqa: ANN001 - the model instance behind any hosted type
+def resolve_descriptors(root: Model) -> JSON:
     """The descriptors of a hosted object, as they are stored on it (``kabinet_server.service``)."""
     from kabinet_server.service import service  # the declaration imports bridge.models
 
     return service.describe(root)
 
 
-def build_prescoped_queryset(info: Info, queryset, field: str | None = None):
+def build_prescoped_queryset(
+    info: Info, queryset: QuerySet, field: str | None = None
+) -> QuerySet:
     """Narrow ``queryset`` to the request's organization.
 
     Everything is always organization-scoped; there is no per-request scope override.
@@ -73,8 +76,10 @@ def build_prescoped_queryset(info: Info, queryset, field: str | None = None):
     return queryset.filter(**{field: info.context.request.organization})
 
 
-def build_prescoper(field=None):
-    def prescoper(queryset, info):
+def build_prescoper(
+    field: str | None = None,
+) -> Callable[[QuerySet, Info], QuerySet]:
+    def prescoper(queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset, field=field)
 
     return prescoper
@@ -229,7 +234,7 @@ class GithubRepo:
         return f"https://github.com/{self.user}/{self.repo}"
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset, field="organization")
 
 
@@ -383,7 +388,7 @@ class RepoBlok:
         return {**fields, "originHash": _install_hash(fields)}
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset, field="organization")
 
 
@@ -434,7 +439,7 @@ class OciRepo:
         return self.reference
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset, field="organization")
 
 
@@ -587,7 +592,12 @@ def app_gpus(app: models.App) -> set[str]:
     return {gpu for gpu in gpus if isinstance(gpu, str) and gpu}
 
 
-def prefetched(instance, attr: str, fallback):  # noqa: ANN001, ANN201
+_T = TypeVar("_T")
+
+
+def prefetched(
+    instance: object, attr: str, fallback: Callable[[], Iterable[_T]]
+) -> list[_T]:
     """What a `Prefetch(to_attr=attr)` stored on ``instance``; ``fallback()`` when it did not run."""
     if hasattr(instance, attr):
         return getattr(instance, attr)
@@ -761,7 +771,9 @@ class App:
             self, "logo_releases", lambda: self.releases.order_by("-released_at")
         ):
             for flavour in prefetched(
-                release, "logo_flavours", lambda: release.flavours.only(*BLOK_FIELDS)
+                release,
+                "logo_flavours",
+                lambda release=release: release.flavours.only(*BLOK_FIELDS),
             ):
                 logo = logo_of(flavour)
                 if logo:
@@ -769,7 +781,7 @@ class App:
         return None
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset)
 
 
@@ -928,7 +940,7 @@ class Release:
         }
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         # Release has no direct organization; it inherits it via app__organization.
         return build_prescoped_queryset(info, queryset)
 
@@ -975,7 +987,7 @@ class Deployment:
         return self.backend.name + "-" + self.flavour.name
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         # Deployment has no direct organization. This comment used to say it is scoped
         # by `backend__organization`, but no field is passed, so `organization_path`
         # picks the first required FK in declaration order -- `flavour` -- and the path
@@ -1109,7 +1121,7 @@ class DockerImage:
     )
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset)
 
 
@@ -1243,7 +1255,7 @@ class Flavour:
     # for every flavour. Removed rather than left as API-shaped filler.
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         # Flavour has no direct organization; it inherits it via release__app__organization.
         return build_prescoped_queryset(info, queryset)
 
@@ -1266,7 +1278,7 @@ class Collection:
     )
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset)
 
 
@@ -1285,7 +1297,7 @@ class Protocol:
     )
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset)
 
 
@@ -1450,7 +1462,7 @@ class Definition:
         )
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset)
 
 
@@ -1472,7 +1484,7 @@ class LogDump:
     )
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         # LogDump has no direct organization; it inherits it via pod__backend__organization.
         return build_prescoped_queryset(info, queryset)
 
@@ -1513,7 +1525,7 @@ class Backend:
         return self.client.client_id
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset, field="organization")
 
 
@@ -1543,7 +1555,7 @@ class Resource:
     )
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         # Resource has no direct organization; it inherits it from its backend.
         return build_prescoped_queryset(info, queryset, field="backend__organization")
 
@@ -1597,7 +1609,7 @@ class Pod:
         )
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         # Pod has no direct organization; it inherits it from its backend.
         return build_prescoped_queryset(info, queryset, field="backend__organization")
 
@@ -1653,5 +1665,5 @@ class ReleaseApproval:
         return is_active(self)
 
     @classmethod
-    def get_queryset(cls, queryset, info: Info):
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
         return build_prescoped_queryset(info, queryset, field="organization")

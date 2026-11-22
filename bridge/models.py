@@ -286,7 +286,7 @@ class S3Store(models.Model):
 
 
 class MediaStore(S3Store):
-    def put_file(self, datalayer: Datalayer, file: str):
+    def put_file(self, datalayer: Datalayer, file: str) -> None:
         s3 = datalayer.s3
         s3.upload_fileobj(file, self.bucket, self.key)
         self.save()
@@ -719,7 +719,7 @@ class Pod(Described):
             )
         ]
 
-    def latest_log_dump(self):
+    def latest_log_dump(self) -> "LogDump | None":
         return self.log_dumps.order_by("-created_at").first()
 
 

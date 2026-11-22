@@ -1,4 +1,5 @@
 import re
+from typing import Any
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -16,7 +17,7 @@ def validate_s3(value: str) -> None:
 class S3Field(models.CharField):
     description = "CharField to store S3 path for Zarr dataset with validation"
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         kwargs["max_length"] = kwargs.get("max_length", 500)
 
         super().__init__(*args, **kwargs)

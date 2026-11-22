@@ -29,7 +29,7 @@ DEPLOYMENT = """
 @pytest.mark.asyncio
 async def test_update_deployment_persists_the_status(
     authenticated_context: HttpContext, flavour_id: str
-):
+) -> None:
     """The status round-trips: it is stored, and a later read sees it."""
     ids = await setup_pod(authenticated_context, flavour_id)
     deployment_id = ids["deployment"]["id"]
@@ -62,7 +62,7 @@ async def test_update_deployment_is_org_scoped(
     authenticated_context: HttpContext,
     other_org_context: HttpContext,
     flavour_id: str,
-):
+) -> None:
     """Another organization cannot move a deployment's status."""
     ids = await setup_pod(authenticated_context, flavour_id)
     deployment_id = ids["deployment"]["id"]

@@ -1,7 +1,7 @@
 import datetime
 from collections.abc import Callable
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Protocol
 
 import strawberry
 import strawberry_django
@@ -25,10 +25,20 @@ from django.db.models.functions import (
     TruncWeek,
     TruncYear,
 )
+from django.db.models.functions.datetime import TruncBase
 from kante import Info
 
 # ---------- Resolver spec ----------
 ResolverSpec = dict[str, tuple[Callable[[QuerySet, str], Any], type, str]]
+
+
+class _StatsSelf(Protocol):
+    """A generated stats object: the selection and its per-field aggregate cache."""
+
+    _qs: QuerySet
+    _cache: dict[str, dict[str, Any]]
+
+    def _get_field_summary(self, mf: str) -> dict[str, Any]: ...
 
 
 # --------- Bucket return type ---------
@@ -107,7 +117,7 @@ def create_stats_type(
         TimestampEnum = None  # type: ignore
 
     # --------- Helpers ---------
-    def _truncate(dt_field: str, by: Granularity) -> Any:
+    def _truncate(dt_field: str, by: Granularity) -> TruncBase:
         return {
             "hour": TruncHour(dt_field),
             "day": TruncDay(dt_field),
@@ -162,22 +172,22 @@ def create_stats_type(
         ),
         "max": (
             lambda qs, mf: _all_stats_for_field(qs, mf)["max"],
-            Optional[float],
+            float | None,
             "Maximum",
         ),
         "min": (
             lambda qs, mf: _all_stats_for_field(qs, mf)["min"],
-            Optional[float],
+            float | None,
             "Minimum",
         ),
         "avg": (
             lambda qs, mf: _all_stats_for_field(qs, mf)["avg"],
-            Optional[float],
+            float | None,
             "Average",
         ),
         "sum": (
             lambda qs, mf: _all_stats_for_field(qs, mf)["sum"],
-            Optional[float],
+            float | None,
             "Sum",
         ),
     }
@@ -208,9 +218,10 @@ def create_stats_type(
 
     # Attach scalar stat fields that share the same cached aggregate
     for stat_name, (_fn, return_type, desc) in resolvers.items():
-
-        def _make_resolver(stat_key: str):
-            def _resolver(self, field: FieldEnumPy):
+        # strawberry types each field by the class annotation set below, which it
+        # prefers to the resolver's return annotation.
+        def _make_resolver(stat_key: str) -> Callable[..., float | None]:
+            def _resolver(self: _StatsSelf, field: FieldEnumPy) -> float | None:
                 mf: str = field.value
                 summary = self._get_field_summary(mf)
                 if stat_key == "distinctCount":
@@ -221,7 +232,7 @@ def create_stats_type(
                     # fallback: compute via function if someone extended `resolvers`
                     return resolvers[stat_key][0](self._qs, mf)
 
-            _resolver.__name__ = stat_name
+            _resolver.__name__ = stat_key
             return _resolver
 
         body["__annotations__"][stat_name] = return_type
@@ -233,7 +244,10 @@ def create_stats_type(
     if TimestampEnum is not None:
 
         def _series(
-            self, field: FieldEnumPy, timestampField: TimestampEnumPy, by: Granularity
+            self: _StatsSelf,
+            field: FieldEnumPy,
+            timestampField: TimestampEnumPy,
+            by: Granularity,
         ) -> list[TimeBucket]:
             mf = field.value
             tf = timestampField.value
@@ -276,7 +290,7 @@ def create_stats_type(
     new_type = strawberry.type(type(cls_name, (), body))
 
     # --------- Root field resolver (fixed filter handling + cache init) ---------
-    def resolver(info: Info, filters: Any | None = None) -> Any:
+    def resolver(info: Info, filters: object | None = None) -> object:
         qs = model.objects
 
         if prescope is not None:
@@ -292,6 +306,6 @@ def create_stats_type(
 
     # Expose argument types nicely on the callable (optional)
     if filters_type is not None:
-        resolver.__annotations__["filters"] = Optional[filters_type]  # type: ignore
+        resolver.__annotations__["filters"] = filters_type | None  # type: ignore
 
     return new_type, resolver

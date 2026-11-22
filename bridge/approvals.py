@@ -13,6 +13,7 @@ import json
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
+from kante.context import Organization, User
 
 from bridge import models
 
@@ -113,8 +114,8 @@ acheck_deployable = sync_to_async(check_deployable)
 def create_approval(
     *,
     release: models.Release,
-    approver,
-    organization,
+    approver: User,
+    organization: Organization,
     mandate_id: str,
     agent: str,
     backends: list[models.Backend] | None = None,

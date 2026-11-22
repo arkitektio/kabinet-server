@@ -1,5 +1,6 @@
 import json
 import typing as t
+from typing import TypeAlias
 
 from django.db import connection
 
@@ -8,6 +9,9 @@ from rekuest_core.inputs.types import PortMatchInput
 #: The constraints a port states on the objects that flow through it, by demand type: an
 #: argument ``requires``, a return ``provides``.
 CONSTRAINT_FIELD = {"args": "requires", "returns": "provides"}
+
+#: The named parameters a built query binds: keys, kinds, flags and positions.
+SqlParams: TypeAlias = dict[str, str | int | bool]
 
 
 def _jsonpath_condition(constraint: str) -> str:
@@ -77,7 +81,7 @@ def build_port_conditions(
     value_path: str,
     field: str,
     parts: list[str],
-    params: dict,
+    params: SqlParams,
 ) -> None:
     """What ``item`` asks of one port, besides its position: shape, nullability, constraints.
 
@@ -114,8 +118,13 @@ def build_port_conditions(
 
 
 def build_child_recursively(
-    item: PortMatchInput, prefix, value_path, parts, params, field: str = "requires"
-):
+    item: PortMatchInput,
+    prefix: str,
+    value_path: str,
+    parts: list[str],
+    params: SqlParams,
+    field: str = "requires",
+) -> None:
     build_port_conditions(item, prefix, value_path, field, parts, params)
 
     if item.children:
@@ -132,9 +141,9 @@ def build_sql_for_item_recursive(
     at_value: int | None = None,
     prefix: str = "arg",
     field: str = "requires",
-):
-    sql_parts = []
-    params = {}
+) -> tuple[str, SqlParams]:
+    sql_parts: list[str] = []
+    params: SqlParams = {}
 
     if at_value is not None:
         sql_parts.append(f"idx = %({prefix}_at_{index})s")
@@ -144,8 +153,8 @@ def build_sql_for_item_recursive(
 
     if item.children:
         # Adjusting the prefix for recursion
-        child_parts = []
-        child_params = {}
+        child_parts: list[str] = []
+        child_params: SqlParams = {}
         for idx, child in enumerate(item.children):
             build_child_recursively(
                 child,
@@ -169,9 +178,9 @@ def build_params(
     force_non_nullable_length: int | None = None,
     force_structure_length: int | None = None,
     model: str = "bridge_definition",
-):
-    individual_queries = []
-    all_params = {}
+) -> tuple[str, SqlParams]:
+    individual_queries: list[str] = []
+    all_params: SqlParams = {}
     if search_params:
         for index, item in enumerate(search_params):
             sql_part, params = build_sql_for_item_recursive(
@@ -214,13 +223,13 @@ def build_params(
 
 
 def get_action_ids_by_demands(
-    demands: list[PortMatchInput] = None,
+    demands: list[PortMatchInput] | None = None,
     type: t.Literal["args", "returns"] = "args",
     force_length: int | None = None,
     force_non_nullable_length: int | None = None,
     force_structure_length: int | None = None,
     model: str = "bridge_definition",
-):
+) -> list[int]:
     if type not in ["args", "returns"]:
         raise ValueError("Type must be either 'args' or 'returns'")
 

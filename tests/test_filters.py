@@ -48,9 +48,8 @@ async def test_null_filters_do_not_crash(
         ("githubRepos", "GithubRepoFilter"),
     ]
     for field, filter_type in cases:
-        document = "query($filters: %s){ %s(filters: $filters){ id } }" % (
-            filter_type,
-            field,
+        document = (
+            f"query($filters: {filter_type}){{ {field}(filters: $filters){{ id }} }}"
         )
 
         explicit_null = (

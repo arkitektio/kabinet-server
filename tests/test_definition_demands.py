@@ -25,7 +25,7 @@ def _port(
     identifier: str | None = None,
     kind: str = "STRUCTURE",
     requires: list | None = None,
-    **extra,
+    **extra: object,
 ) -> dict:
     return {
         "key": key,
@@ -59,7 +59,7 @@ def _args(*matches: dict) -> dict:
     return {"kind": "ARGS", "matches": list(matches)}
 
 
-def _image(at: int = 0, **descriptors) -> dict:
+def _image(at: int = 0, **descriptors: object) -> dict:
     match = {"at": at, "kind": "STRUCTURE", "identifier": "@mikro/image"}
     if descriptors:
         match["descriptors"] = [

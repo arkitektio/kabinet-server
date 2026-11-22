@@ -47,7 +47,7 @@ def _tree(blok: dict[str, Any]) -> list[dict[str, Any]]:
     return [parse_bsx(source).model_dump(mode="json", exclude_none=True)]
 
 
-def header_of(component_tree: Any) -> BlokHeader:
+def header_of(component_tree: list[dict[str, Any]]) -> BlokHeader:
     """What the ``<Blok>`` root of a stored tree (a list of roots) says.
 
     Raises:
@@ -57,7 +57,7 @@ def header_of(component_tree: Any) -> BlokHeader:
     return blok_header(ComponentNodeInputModel.model_validate(component_tree[0]))
 
 
-def root_kind(component_tree: Any) -> str | None:
+def root_kind(component_tree: list[dict[str, Any]] | None) -> str | None:
     """The kind a stored tree's ``<Blok>`` says (``agent``, ``action``, ...); None without one."""
     if not component_tree:
         return None
@@ -67,7 +67,11 @@ def root_kind(component_tree: Any) -> str | None:
         return None
 
 
-def blok_hash(component_tree: Any, context: Any, declared: dict[str, Any]) -> str:
+def blok_hash(
+    component_tree: list[dict[str, Any]] | None,
+    context: str | None,
+    declared: dict[str, Any],
+) -> str:
     """``sha256:`` of what a blok draws: the same tree, context and declarations hash alike."""
     parts = {"component_tree": component_tree, "context": context}
     parts.update(

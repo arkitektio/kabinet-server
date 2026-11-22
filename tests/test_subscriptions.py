@@ -20,6 +20,7 @@ is the group keying and the event shape. The transport itself
 (``kante.testing.GraphQLWebSocketTestClient``) is still uncovered.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -46,7 +47,7 @@ class _Info:
 @pytest.mark.asyncio
 async def test_pod_signal_broadcasts_to_pod_and_org_groups(
     authenticated_context: HttpContext, flavour_id: str
-):
+) -> None:
     """Saving a pod publishes to both its own group and its organization's group.
 
     The publisher and the subscribers agree on the group names because both derive them
@@ -54,9 +55,9 @@ async def test_pod_signal_broadcasts_to_pod_and_org_groups(
     """
     from bridge import channels
 
-    sent: list[tuple[object, list[str]]] = []
+    sent: list[tuple[object, Sequence[str] | None]] = []
 
-    def record(message, groups=None):
+    def record(message: object, groups: Sequence[str] | None = None) -> None:
         sent.append((message, groups))
 
     original = channels.pod_channel.broadcast
@@ -86,7 +87,7 @@ async def test_pod_subscription_refuses_another_organization(
     authenticated_context: HttpContext,
     other_org_context: HttpContext,
     flavour_id: str,
-):
+) -> None:
     """Subscribing to a foreign pod is refused before the stream is established."""
     from bridge import models
     from bridge.subscriptions.pod import pod as pod_subscription
@@ -103,7 +104,7 @@ async def test_pod_subscription_refuses_another_organization(
 @pytest.mark.asyncio
 async def test_pod_event_resolves_each_kind(
     authenticated_context: HttpContext, flavour_id: str
-):
+) -> None:
     """A signal becomes the matching PodEvent; a vanished pod is skipped, not fatal."""
     from bridge.channel_signals import PodSignal
     from bridge.subscriptions.pod import _resolve
@@ -144,7 +145,7 @@ async def test_pod_event_resolves_each_kind(
 @pytest.mark.asyncio
 async def test_broadcast_waits_for_commit(
     authenticated_context: HttpContext, flavour_id: str
-):
+) -> None:
     """Nothing is published until the surrounding transaction commits.
 
     ``post_save`` fires before commit, and no write path here was atomic, so a subscriber
@@ -160,7 +161,7 @@ async def test_broadcast_waits_for_commit(
     original = channels.pod_channel.broadcast
     channels.pod_channel.broadcast = lambda message, groups=None: sent.append(message)
 
-    def touch_then_roll_back():
+    def touch_then_roll_back() -> None:
         try:
             with transaction.atomic():
                 pod = models.Pod.objects.get(id=ids["pod"]["id"])

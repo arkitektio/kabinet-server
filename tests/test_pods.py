@@ -437,7 +437,7 @@ async def test_list_queries_are_org_scoped(
     await setup_pod(authenticated_context, flavour_id)
 
     for field in ("backends", "pods", "resources"):
-        query = "query{ %s { id } }" % field
+        query = f"query{{ {field} {{ id }} }}"
 
         mine = (await execute(query, authenticated_context))[field]
         assert len(mine) == 1, f"{field} should be visible to its own org"

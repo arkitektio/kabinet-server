@@ -21,7 +21,7 @@ import re
 from bridge.management.commands.printschema import SCHEMA_PATH, render_sdl
 
 
-def test_schema_snapshot_is_current():
+def test_schema_snapshot_is_current() -> None:
     """The committed SDL is byte-identical to what the schema renders today."""
     assert SCHEMA_PATH.exists(), (
         f"{SCHEMA_PATH} is missing. Run `python manage.py printschema`."
@@ -46,7 +46,7 @@ def test_schema_snapshot_is_current():
         )
 
 
-def test_schema_sdl_is_not_empty():
+def test_schema_sdl_is_not_empty() -> None:
     """Guard against a schema that builds but renders to nothing."""
     assert render_sdl().strip(), "Schema SDL should not be empty"
 
@@ -70,7 +70,7 @@ def _fields_named_embedding(sdl: str) -> dict[str, set[str]]:
     return found
 
 
-def test_only_the_embedded_types_publish_a_vector():
+def test_only_the_embedded_types_publish_a_vector() -> None:
     """A vector is readable, and only where a model actually carries one.
 
     This used to assert the word "embedding" appeared nowhere in the SDL at all. The vectors
@@ -81,6 +81,6 @@ def test_only_the_embedded_types_publish_a_vector():
     assert _fields_named_embedding(render_sdl())["type"] == EMBEDDING_TYPES
 
 
-def test_no_input_accepts_an_embedding():
+def test_no_input_accepts_an_embedding() -> None:
     """Read-only: a client may not write a vector, or the healer's contract is a fiction."""
     assert _fields_named_embedding(render_sdl())["input"] == set()

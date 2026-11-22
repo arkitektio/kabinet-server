@@ -9,7 +9,7 @@ blok a repository publishes (``RepoBlok``, always rendered when it is scanned). 
 again: a flavour with renders is skipped, and ``--all`` writes the same renders twice.
 """
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 
 from bridge import models
 from bridge.repo import bloks
@@ -43,12 +43,12 @@ def restore(flavour: models.Flavour) -> None:
 class Command(BaseCommand):
     help = "Store what the bloks of every flavour draw where it has none stored (--all: of every flavour)"
 
-    def add_arguments(self, parser) -> None:  # noqa: ANN001
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             "--all", action="store_true", help="Render every flavour's bloks again"
         )
 
-    def handle(self, *args, **options) -> None:  # noqa: ANN002, ANN003
+    def handle(self, *args: object, **options: object) -> None:
         flavours = models.Flavour.objects.only(
             "id", "bloks", "inspection", "blok_renders", "action_logos"
         )

@@ -17,8 +17,7 @@ from bridge import models
 from bridge.repo import layout
 from bridge.repo.db import apply_contents
 from bridge.repo.fetch import InspectionError, RepoContents, aget_repo_contents
-from tests.test_repo_inspection import COORDINATES, fake_github  # noqa: F401 - the fixture
-from tests.utils import build_relative_dir, execute
+from tests.utils import COORDINATES, ServeRepo, build_relative_dir, execute
 
 VALID_CONFIG = Path(build_relative_dir("deployments/deployments.yaml")).read_text()
 
@@ -49,7 +48,7 @@ VOLUME = {
 
 
 @pytest.mark.asyncio
-async def test_a_repository_with_only_bloks_scans(fake_github):
+async def test_a_repository_with_only_bloks_scans(fake_github: ServeRepo) -> None:
     coordinates = await fake_github(
         {layout.BLOKS_PATH: bloks_file(LAYERS, VOLUME), "bloks/layers.bsx": PANEL}
     )
@@ -64,7 +63,7 @@ async def test_a_repository_with_only_bloks_scans(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_a_repository_with_both_reads_both(fake_github):
+async def test_a_repository_with_both_reads_both(fake_github: ServeRepo) -> None:
     coordinates = await fake_github(
         {layout.DEPLOYMENTS_PATH: VALID_CONFIG, layout.BLOKS_PATH: bloks_file(VOLUME)}
     )
@@ -76,7 +75,9 @@ async def test_a_repository_with_both_reads_both(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_a_repository_with_neither_says_both_files(fake_github):
+async def test_a_repository_with_neither_says_both_files(
+    fake_github: ServeRepo,
+) -> None:
     coordinates = await fake_github({"README.md": "# ome\n"})
 
     with pytest.raises(InspectionError) as excinfo:
@@ -88,7 +89,7 @@ async def test_a_repository_with_neither_says_both_files(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_a_missing_source_file_names_the_blok(fake_github):
+async def test_a_missing_source_file_names_the_blok(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({layout.BLOKS_PATH: bloks_file(LAYERS)})
 
     with pytest.raises(InspectionError, match=r"'layers' names `bloks/layers.bsx`"):
@@ -96,7 +97,9 @@ async def test_a_missing_source_file_names_the_blok(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_a_source_outside_the_repository_is_refused(fake_github):
+async def test_a_source_outside_the_repository_is_refused(
+    fake_github: ServeRepo,
+) -> None:
     coordinates = await fake_github(
         {layout.BLOKS_PATH: bloks_file({**LAYERS, "source": "../secrets.bsx"})}
     )
@@ -106,7 +109,7 @@ async def test_a_source_outside_the_repository_is_refused(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_a_blok_names_one_source(fake_github):
+async def test_a_blok_names_one_source(fake_github: ServeRepo) -> None:
     coordinates = await fake_github(
         {
             layout.BLOKS_PATH: bloks_file({**LAYERS, "bsx": PANEL}),
@@ -119,7 +122,7 @@ async def test_a_blok_names_one_source(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_a_logo_is_not_published_on_its_own(fake_github):
+async def test_a_logo_is_not_published_on_its_own(fake_github: ServeRepo) -> None:
     coordinates = await fake_github(
         {layout.BLOKS_PATH: bloks_file({**VOLUME, "context": "LOGO"})}
     )
@@ -129,7 +132,7 @@ async def test_a_logo_is_not_published_on_its_own(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_keys_are_unique(fake_github):
+async def test_keys_are_unique(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({layout.BLOKS_PATH: bloks_file(VOLUME, VOLUME)})
 
     with pytest.raises(InspectionError, match="used by more than one blok"):
@@ -151,8 +154,8 @@ def _repo(ctx: HttpContext) -> models.GithubRepo:
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_a_scan_writes_its_bloks_by_key_and_drops_the_rest(
-    fake_github, authenticated_context: HttpContext
-):
+    fake_github: ServeRepo, authenticated_context: HttpContext
+) -> None:
     organization = authenticated_context.request.organization
     repo = await _repo(authenticated_context)
     coordinates = await fake_github(
@@ -187,8 +190,8 @@ async def test_a_scan_writes_its_bloks_by_key_and_drops_the_rest(
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_a_blok_says_how_rekuest_installs_it(
-    fake_github, authenticated_context: HttpContext
-):
+    fake_github: ServeRepo, authenticated_context: HttpContext
+) -> None:
     repo = await _repo(authenticated_context)
     dependency = {
         "key": "viewer",
@@ -254,8 +257,8 @@ INSTALL_HASH = "query { repoBloks { hash installHash } }"
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_a_change_to_anything_installed_is_an_update(
-    fake_github, authenticated_context: HttpContext
-):
+    fake_github: ServeRepo, authenticated_context: HttpContext
+) -> None:
     """Its dependencies are not drawn, so `hash` stays; what installing writes changed, so `installHash` does not."""
     organization = authenticated_context.request.organization
     repo = await _repo(authenticated_context)
@@ -277,7 +280,7 @@ async def test_a_change_to_anything_installed_is_an_update(
 
 
 @pytest.mark.asyncio
-async def test_a_blok_speaks_blok_language_v2(fake_github):
+async def test_a_blok_speaks_blok_language_v2(fake_github: ServeRepo) -> None:
     for blok, message in [
         ({key: value for key, value in VOLUME.items() if key != "vocab"}, "vocab"),
         ({**VOLUME, "vocab": 1}, "vocab"),

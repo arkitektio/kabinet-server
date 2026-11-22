@@ -10,49 +10,15 @@ import asyncio
 from pathlib import Path
 
 import pytest
-import pytest_asyncio
 import yaml
 from aiohttp import web
+from kante.context import HttpContext
 
 from bridge.repo import fetch, layout
 from bridge.repo.fetch import InspectionError, RepoCoordinates, aget_kabinet_config
-from tests.utils import build_relative_dir, execute_raw
-
-COORDINATES = RepoCoordinates("arkitektio-apps", "ome", "main")
+from tests.utils import COORDINATES, ServeRepo, build_relative_dir, execute_raw
 
 VALID_CONFIG = Path(build_relative_dir("deployments/deployments.yaml")).read_text()
-
-
-@pytest_asyncio.fixture
-async def fake_github(monkeypatch):
-    """Serve a dict of ``{repo path: body or status}`` as if it were the raw file host."""
-
-    async def serve(tree: dict[str, object], handler=None) -> RepoCoordinates:
-        async def handle(request: web.Request) -> web.Response:
-            # /<user>/<repo>/<branch>/<path...>
-            path = "/".join(request.match_info["tail"].split("/"))
-            entry = tree.get(path)
-            if entry is None:
-                raise web.HTTPNotFound()
-            if isinstance(entry, int):
-                return web.Response(status=entry)
-            return web.Response(text=entry)
-
-        app = web.Application()
-        app.router.add_get("/{user}/{repo}/{branch}/{tail:.*}", handler or handle)
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "127.0.0.1", 0)
-        await site.start()
-        servers.append(runner)
-        port = runner.addresses[0][1]
-        monkeypatch.setattr(layout, "RAW_BASE", f"http://127.0.0.1:{port}")
-        return COORDINATES
-
-    servers: list[web.AppRunner] = []
-    yield serve
-    for runner in servers:
-        await runner.cleanup()
 
 
 async def inspect(coordinates: RepoCoordinates) -> None:
@@ -62,7 +28,7 @@ async def inspect(coordinates: RepoCoordinates) -> None:
 
 
 @pytest.mark.asyncio
-async def test_legacy_folder_is_named_in_the_error(fake_github):
+async def test_legacy_folder_is_named_in_the_error(fake_github: ServeRepo) -> None:
     """The folder was renamed from `.arkitekt_next` -- say so instead of "not an Arkitekt repo"."""
     coordinates = await fake_github({".arkitekt_next/deployments.yaml": VALID_CONFIG})
 
@@ -76,7 +42,9 @@ async def test_legacy_folder_is_named_in_the_error(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_hyphenated_legacy_folder_is_also_recognised(fake_github):
+async def test_hyphenated_legacy_folder_is_also_recognised(
+    fake_github: ServeRepo,
+) -> None:
     coordinates = await fake_github({".arkitekt-next/deployments.yaml": VALID_CONFIG})
 
     with pytest.raises(InspectionError, match=r"\.arkitekt-next/deployments\.yaml"):
@@ -84,7 +52,7 @@ async def test_hyphenated_legacy_folder_is_also_recognised(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_config_folder_without_deployments(fake_github):
+async def test_config_folder_without_deployments(fake_github: ServeRepo) -> None:
     """The case the rename does not explain: the folder is there, the file is not."""
     coordinates = await fake_github({".arkitekt/manifest.yaml": "identifier: test\n"})
 
@@ -97,7 +65,7 @@ async def test_config_folder_without_deployments(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_repo_without_any_config_folder(fake_github):
+async def test_repo_without_any_config_folder(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({"README.md": "# ome\n"})
 
     with pytest.raises(InspectionError) as excinfo:
@@ -109,7 +77,7 @@ async def test_repo_without_any_config_folder(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_unreachable_repo_says_so(fake_github):
+async def test_unreachable_repo_says_so(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({})
 
     with pytest.raises(InspectionError, match="not even a README"):
@@ -117,7 +85,7 @@ async def test_unreachable_repo_says_so(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_private_repo_or_rate_limit(fake_github):
+async def test_private_repo_or_rate_limit(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({layout.DEPLOYMENTS_PATH: 403})
 
     with pytest.raises(
@@ -127,7 +95,7 @@ async def test_private_repo_or_rate_limit(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_github_outage(fake_github):
+async def test_github_outage(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({layout.DEPLOYMENTS_PATH: 502})
 
     with pytest.raises(InspectionError, match="outage on their side"):
@@ -135,7 +103,7 @@ async def test_github_outage(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_empty_config(fake_github):
+async def test_empty_config(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({layout.DEPLOYMENTS_PATH: "\n  \n"})
 
     with pytest.raises(InspectionError, match="exists but is empty"):
@@ -143,7 +111,7 @@ async def test_empty_config(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_malformed_yaml_points_at_the_line(fake_github):
+async def test_malformed_yaml_points_at_the_line(fake_github: ServeRepo) -> None:
     coordinates = await fake_github(
         {layout.DEPLOYMENTS_PATH: "app_images:\n  - name: one\n   bad indent: yes\n"}
     )
@@ -157,7 +125,7 @@ async def test_malformed_yaml_points_at_the_line(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_yaml_that_is_not_a_mapping(fake_github):
+async def test_yaml_that_is_not_a_mapping(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({layout.DEPLOYMENTS_PATH: "- one\n- two\n"})
 
     with pytest.raises(InspectionError, match="contains a list, not a mapping"):
@@ -165,7 +133,7 @@ async def test_yaml_that_is_not_a_mapping(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_invalid_config_lists_every_field(fake_github):
+async def test_invalid_config_lists_every_field(fake_github: ServeRepo) -> None:
     """A pydantic ValidationError traceback is not an error message for a repo owner."""
     broken = yaml.safe_load(VALID_CONFIG)
     del broken["app_images"][0]["manifest"]["version"]
@@ -182,7 +150,7 @@ async def test_invalid_config_lists_every_field(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_config_without_app_images(fake_github):
+async def test_config_without_app_images(fake_github: ServeRepo) -> None:
     """Valid, parseable, and describes nothing -- which used to be reported as success."""
     coordinates = await fake_github(
         {layout.DEPLOYMENTS_PATH: "spec_version: 8.0.0\nlatest_app_image: null\n"}
@@ -193,7 +161,7 @@ async def test_config_without_app_images(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_a_good_config_still_parses(fake_github):
+async def test_a_good_config_still_parses(fake_github: ServeRepo) -> None:
     coordinates = await fake_github({layout.DEPLOYMENTS_PATH: VALID_CONFIG})
 
     config = await aget_kabinet_config(
@@ -204,7 +172,9 @@ async def test_a_good_config_still_parses(fake_github):
 
 
 @pytest.mark.asyncio
-async def test_slow_diagnosis_is_not_reported_as_a_timeout(fake_github, monkeypatch):
+async def test_slow_diagnosis_is_not_reported_as_a_timeout(
+    fake_github: ServeRepo, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """A slow diagnosis must not be reported as a timed-out fetch.
 
     The probes get their own budget (``DIAGNOSIS_TIMEOUT_SECONDS``) and run after the
@@ -228,8 +198,8 @@ async def test_slow_diagnosis_is_not_reported_as_a_timeout(fake_github, monkeypa
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_create_github_repo_surfaces_the_diagnosis(
-    fake_github, authenticated_context
-):
+    fake_github: ServeRepo, authenticated_context: HttpContext
+) -> None:
     """The wiring: the real fetcher, called through the mutation, with real coordinates."""
     await fake_github({".arkitekt_next/deployments.yaml": VALID_CONFIG})
 

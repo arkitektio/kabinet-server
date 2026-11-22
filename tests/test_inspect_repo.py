@@ -32,7 +32,7 @@ CREATE_GITHUB_REPO = """
 
 
 @pytest.fixture
-def stub_manifest(monkeypatch):
+def stub_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
     """Serve the checked-in deployments.yaml instead of fetching one over HTTP."""
     from bridge.mutations import repo as repo_mutations
     from bridge.repo.fetch import RepoContents
@@ -49,7 +49,9 @@ def stub_manifest(monkeypatch):
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_create_github_repo(authenticated_context: HttpContext, stub_manifest):
+async def test_create_github_repo(
+    authenticated_context: HttpContext, stub_manifest: None
+) -> None:
     """Tracking a repo by identifier creates it and populates its flavours."""
     assert authenticated_context.request.organization is not None, (
         "Organization should be set"
@@ -76,8 +78,8 @@ async def test_create_github_repo(authenticated_context: HttpContext, stub_manif
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_create_github_repo_accepts_a_url_with_a_branch(
-    authenticated_context: HttpContext, stub_manifest
-):
+    authenticated_context: HttpContext, stub_manifest: None
+) -> None:
     """A full GitHub URL with a /tree/<branch> suffix resolves to that branch.
 
     ``infer_repo_info`` used to validate this input with ``assert`` -- stripped under
@@ -106,8 +108,8 @@ async def test_create_github_repo_accepts_a_url_with_a_branch(
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_create_github_repo_rejects_a_bare_word(
-    authenticated_context: HttpContext, stub_manifest
-):
+    authenticated_context: HttpContext, stub_manifest: None
+) -> None:
     """An identifier that names no repository is refused, not guessed at."""
     from tests.utils import execute_raw
 

@@ -27,7 +27,7 @@ FILTERED = "query($f: DefinitionFilter){ definitions(filters: $f){ name } }"
 
 @sync_to_async
 def _definition(
-    ctx: HttpContext, name: str, description: str = "", **kwargs
+    ctx: HttpContext, name: str, description: str = "", **kwargs: object
 ) -> Definition:
     return Definition.objects.create(
         name=name,
@@ -57,7 +57,7 @@ async def _anchor(
     return row, np.asarray(row.embedding)
 
 
-async def _similar(ctx: HttpContext, row: Definition, **variables) -> list[str]:
+async def _similar(ctx: HttpContext, row: Definition, **variables: object) -> list[str]:
     data = await execute(SIMILAR, ctx, {"id": str(row.id), **variables})
     return [d["name"] for d in data["definition"]["similarDefinitions"]]
 

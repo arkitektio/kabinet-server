@@ -58,7 +58,7 @@ def _app_image_input() -> dict:
 @pytest.mark.asyncio
 async def test_create_app_image_builds_the_catalogue(
     authenticated_context: HttpContext,
-):
+) -> None:
     """A pushed app image creates its app, release and flavour, and returns the release."""
     payload = _app_image_input()
 
@@ -85,7 +85,9 @@ async def test_create_app_image_builds_the_catalogue(
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_create_app_image_is_idempotent(authenticated_context: HttpContext):
+async def test_create_app_image_is_idempotent(
+    authenticated_context: HttpContext,
+) -> None:
     """Pushing the same image twice updates rather than duplicating."""
     payload = _app_image_input()
 
@@ -111,7 +113,7 @@ ENTRYPOINT = """
 @pytest.mark.asyncio
 async def test_a_manifest_without_an_entrypoint_defaults_to_app(
     authenticated_context: HttpContext,
-):
+) -> None:
     """``entrypoint`` is optional in the schema; omitting it used to raise in the input's __init__."""
     payload = _app_image_input()
     payload["manifest"].pop("entrypoint", None)
@@ -125,7 +127,7 @@ async def test_a_manifest_without_an_entrypoint_defaults_to_app(
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_a_given_entrypoint_is_kept(authenticated_context: HttpContext):
+async def test_a_given_entrypoint_is_kept(authenticated_context: HttpContext) -> None:
     """It used to be accepted and dropped: the release always said 'app'."""
     payload = _app_image_input()
     payload["manifest"]["entrypoint"] = "my_app.main"

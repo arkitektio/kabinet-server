@@ -13,7 +13,7 @@ import dataclasses
 from strawberry.types.base import StrawberryObjectDefinition, StrawberryOptional
 
 
-def test_every_nullable_input_field_has_a_default():
+def test_every_nullable_input_field_has_a_default() -> None:
     from kabinet_server.schema import schema
 
     missing = []

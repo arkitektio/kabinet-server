@@ -27,8 +27,7 @@ from embeddings.healer import stale_queryset
 from kabinet_server.hook_agent import agent
 from kabinet_server.service import service
 from tests.test_pods import DECLARE_BACKEND, UPDATE_POD, setup_pod
-from tests.test_signals import intake  # noqa: F401  the fixture
-from tests.utils import build_relative_dir, execute, execute_raw
+from tests.utils import Intake, build_relative_dir, execute, execute_raw
 
 DESCRIBED = """
     query Described($flavour: ID!, $repo: ID!, $deployment: ID!, $pod: ID!) {
@@ -200,7 +199,7 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_the_field_answers_what_the_signal_carried(
-    intake,  # noqa: F811
+    intake: Intake,
     authenticated_context: HttpContext,
 ) -> None:
     flavours = await sync_to_async(_catalogue)(
@@ -210,9 +209,9 @@ async def test_the_field_answers_what_the_signal_carried(
 
     # Waits out a third signal that should not come: a new flavour is announced once, already described.
     received = [
-        r["json"]
+        r.json
         for r in await sync_to_async(intake.of)("@kabinet/flavour", count=3, timeout=2)
-        if r["json"]["object"] == cuda
+        if r.json["object"] == cuda
     ]
     assert [signal["kind"] for signal in received] == ["CREATED"]
     data = await execute(

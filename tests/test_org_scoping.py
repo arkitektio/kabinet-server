@@ -44,7 +44,7 @@ async def test_list_queries_hide_other_orgs(
     )
 
     for field in list_fields:
-        query = "query{ %s { id } }" % field
+        query = f"query{{ {field} {{ id }} }}"
 
         mine = (await execute(query, authenticated_context))[field]
         assert len(mine) >= 1, f"{field} should be visible to its own org"
@@ -84,7 +84,7 @@ async def test_single_object_queries_are_isolated(
     ]
 
     for field, obj_id in cases:
-        query = "query($id: ID!){ %s(id: $id){ id } }" % field
+        query = f"query($id: ID!){{ {field}(id: $id){{ id }} }}"
 
         # The owner org resolves the object fine.
         owner = await _execute_raw(query, authenticated_context, {"id": obj_id})
