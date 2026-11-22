@@ -40,9 +40,7 @@ def stored_logo(store: models.MediaStore | None) -> Optional[str]:
 
 
 DESCRIPTORS_DESCRIPTION = (
-    "This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test "
-    "(e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. "
-    "Empty for a structure that declares none"
+    "This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test (e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none"
 )
 
 
@@ -69,11 +67,7 @@ def build_prescoped_queryset(info: Info, queryset, field: str | None = None):
     """
     field = field or scoping.organization_path(queryset.model)
     if field is None:
-        raise LookupError(
-            f"{queryset.model.__name__} has no path to an organization and is not "
-            "registered in bridge.scoping.UNSCOPED_MODELS, so it cannot be scoped to "
-            "the requesting organization."
-        )
+        raise LookupError(f"{queryset.model.__name__} has no path to an organization and is not registered in bridge.scoping.UNSCOPED_MODELS, so it cannot be scoped to the requesting organization.")
     return queryset.filter(**{field: info.context.request.organization})
 
 
@@ -171,11 +165,7 @@ def _camel(value: object) -> object:
     A descriptor's ``value``, a local's ``default`` and a literal are any JSON, so their keys stay as they are.
     """
     if isinstance(value, dict):
-        return {
-            re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), key): item if key in LITERAL_KEYS else _camel(item)
-            for key, item in value.items()
-            if item is not None
-        }
+        return {re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), key): item if key in LITERAL_KEYS else _camel(item) for key, item in value.items() if item is not None}
     if isinstance(value, list):
         return [_camel(item) for item in value]
     return value
@@ -214,10 +204,7 @@ def _install_hash(fields: dict) -> str:
 
 @strawberry_django.type(
     models.RepoBlok,
-    description=(
-        "A blok a GitHub repository publishes on its own, in its `.arkitekt/bloks.yaml`. Read when its repository is scanned; "
-        "nothing of it runs here. It is installed by copying it into rekuest as a custom blok (`installInput`), which keeps its `origin`."
-    ),
+    description=("A blok a GitHub repository publishes on its own, in its `.arkitekt/bloks.yaml`. Read when its repository is scanned; nothing of it runs here. It is installed by copying it into rekuest as a custom blok (`installInput`), which keeps its `origin`."),
     filters=filters.RepoBlokFilter,
     pagination=True,
 )
@@ -228,9 +215,7 @@ class RepoBlok:
     description: Optional[str] = strawberry_django.field(description="What the repository says it shows.")
     source: str = strawberry_django.field(description="The blok as BSX, as the repository publishes it.")
     source_path: Optional[str] = strawberry_django.field(description="The file of the repository its BSX was read from; null when it is written inline.")
-    hash: str = strawberry_django.field(
-        description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. A client keeps its preview under it; whether an installed copy is out of date is `installHash`'s to say."
-    )
+    hash: str = strawberry_django.field(description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. A client keeps its preview under it; whether an installed copy is out of date is `installHash`'s to say.")
     component_tree: Optional[JSON] = strawberry_django.field(description="The whole component tree as one JSON value (a list of roots, snake_case keys). Null when the source does not parse.")
     vocab: int = strawberry_django.field(description="The blok language version it speaks; 2 is the only one.")
     catalogs: JSON = strawberry_django.field(description="The catalogs it needs, as name@version.")
@@ -256,10 +241,7 @@ class RepoBlok:
         return self.origin
 
     @strawberry_django.field(
-        description=(
-            "A SHA-256 of everything installing it writes: its name, description, BSX, declarations (demo, catalogs, ...), dependencies and target. "
-            "It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed."
-        ),
+        description=("A SHA-256 of everything installing it writes: its name, description, BSX, declarations (demo, catalogs, ...), dependencies and target. It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed."),
         select_related=["repo"],
     )
     def install_hash(self) -> str:
@@ -324,12 +306,7 @@ BLOK_FIELDS = ("id", "bloks", "blok_renders")
 ACTION_LOGO_FIELDS = (*BLOK_FIELDS, "action_logos", "created_at")
 
 
-@strawberry.type(
-    description=(
-        "A blok a flavour's app brings: its logo, an action's logo (a LOGO blok whose root says `kind=\"action\"`), a panel (PANEL) or a scene (SCENE). "
-        "Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here."
-    )
-)
+@strawberry.type(description=("A blok a flavour's app brings: its logo, an action's logo (a LOGO blok whose root says `kind=\"action\"`), a panel (PANEL) or a scene (SCENE). Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here."))
 class FlavourBlok:
     id: strawberry.ID = strawberry.field(description="`<flavour id>:<key>`: what `flavourBlok` finds it by.")
     flavour_id: strawberry.ID = strawberry.field(description="The flavour whose app brings this blok.")
@@ -338,12 +315,8 @@ class FlavourBlok:
     kind: str | None = strawberry.field(description="The kind its `<Blok>` root says: `agent` for the app's own bloks and logo, `action` for an action's logo. Null when its source does not parse.")
     default: bool = strawberry.field(description="Whether it is its app's default for its context (the app's logo is its default LOGO).")
     description: Optional[str] = strawberry.field(description="What the app says the blok shows.")
-    hash: str = strawberry.field(
-        description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. Two bloks with the same hash draw the same thing, so a client may keep what it drew under it."
-    )
-    component_tree: Optional[JSON] = strawberry.field(
-        description="The whole component tree as one JSON value (a list of roots) in the wire spelling (snake_case keys), as rekuest serves `Blok.componentTree`. Null when the source does not parse."
-    )
+    hash: str = strawberry.field(description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. Two bloks with the same hash draw the same thing, so a client may keep what it drew under it.")
+    component_tree: Optional[JSON] = strawberry.field(description="The whole component tree as one JSON value (a list of roots) in the wire spelling (snake_case keys), as rekuest serves `Blok.componentTree`. Null when the source does not parse.")
     vocab: Optional[int] = strawberry.field(description="The blok language version it speaks; null for a blok an app brought before blok language v2.")
     demo: Optional[JSON] = strawberry.field(description="What a preview renders it with.")
     for_model: Optional[str] = strawberry.field(description="The model ('sha256:...') this blok decorates, if any.")
@@ -403,9 +376,7 @@ APP_GPUS = ArrayAgg(KeyTextTransform("@kabinet/gpu", "releases__flavours__stored
 
 def newest_releases():  # noqa: ANN201
     """Each app's newest release: none of its app's releases is newer (the id breaks a tie)."""
-    newer = models.Release.objects.filter(app=OuterRef("app")).filter(
-        Q(released_at__gt=OuterRef("released_at")) | Q(released_at=OuterRef("released_at"), id__gt=OuterRef("id"))
-    )
+    newer = models.Release.objects.filter(app=OuterRef("app")).filter(Q(released_at__gt=OuterRef("released_at")) | Q(released_at=OuterRef("released_at"), id__gt=OuterRef("id")))
     return models.Release.objects.filter(~Exists(newer))
 
 
@@ -425,7 +396,6 @@ def prefetched(instance, attr: str, fallback):  # noqa: ANN001, ANN201
     return list(fallback())
 
 
-
 @strawberry_django.type(
     models.App,
     filters=filters.AppFilter,
@@ -437,12 +407,9 @@ class App:
     id: auto
     identifier: str = strawberry_django.field(description="The globally unique, reverse-domain identifier of the app.")
     descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION)
-    releases: List["Release"] = strawberry_django.field(description=(
-        "The versions of this app. Filter, order and paginate them exactly like the root "
-        "`releases` query -- an app page reads them from here instead of fetching every "
-        "release and grouping client-side. There is no implicit ordering; ask for "
-        "`releasedAt` to get them newest first."
-    ))
+    releases: List["Release"] = strawberry_django.field(
+        description=("The versions of this app. Filter, order and paginate them exactly like the root `releases` query -- an app page reads them from here instead of fetching every release and grouping client-side. There is no implicit ordering; ask for `releasedAt` to get them newest first.")
+    )
 
     @strawberry_django.field(description="This app's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
@@ -499,19 +466,13 @@ class App:
         prefetch_related=[
             Prefetch(
                 "releases",
-                queryset=models.Release.objects.only("id", "app_id").prefetch_related(
-                    Prefetch("flavours", queryset=models.Flavour.objects.only("id", "release_id", "requirements"), to_attr="service_flavours")
-                ),
+                queryset=models.Release.objects.only("id", "app_id").prefetch_related(Prefetch("flavours", queryset=models.Flavour.objects.only("id", "release_id", "requirements"), to_attr="service_flavours")),
                 to_attr="service_releases",
             )
         ],
     )
     def services(self) -> List[str]:
-        flavours = [
-            flavour
-            for release in prefetched(self, "service_releases", lambda: self.releases.only("id"))
-            for flavour in prefetched(release, "service_flavours", lambda release=release: release.flavours.only("id", "requirements"))
-        ]
+        flavours = [flavour for release in prefetched(self, "service_releases", lambda: self.releases.only("id")) for flavour in prefetched(release, "service_flavours", lambda release=release: release.flavours.only("id", "requirements"))]
         return sorted({requirement["service"] for flavour in flavours if isinstance(flavour.requirements, list) for requirement in flavour.requirements if requirement.get("service")})
 
     @strawberry_django.field(
@@ -519,9 +480,7 @@ class App:
         prefetch_related=[
             Prefetch(
                 "releases",
-                queryset=models.Release.objects.order_by("-released_at").prefetch_related(
-                    Prefetch("flavours", queryset=models.Flavour.objects.only(*BLOK_FIELDS, "release_id"), to_attr="logo_flavours")
-                ),
+                queryset=models.Release.objects.order_by("-released_at").prefetch_related(Prefetch("flavours", queryset=models.Flavour.objects.only(*BLOK_FIELDS, "release_id"), to_attr="logo_flavours")),
                 to_attr="logo_releases",
             )
         ],
@@ -569,6 +528,7 @@ class Release:
         # URL to `original_logo` -- so the mismatch never surfaced; the first release to
         # get a stored logo would have handed a `MediaStore` to a String field.
         return stored_logo(self.logo)
+
     deployments: List["Deployment"] = strawberry_django.field(description="The deployments that run a flavour of this release.")
 
     # `installed`, `description` and `colour` used to sit here and were placeholders
@@ -805,6 +765,7 @@ class Flavour:
     @strawberry_django.field(description="This flavour's app logo: its default LOGO blok, or its first.", only=["bloks", "blok_renders"])
     def logo_blok(self) -> FlavourBlok | None:
         return logo_of(self)
+
     descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 
     @strawberry_django.field(description="This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
@@ -942,10 +903,7 @@ class Definition:
         return embedding_of(self)
 
     @strawberry_django.field(
-        description=(
-            "The action logo (a LOGO blok of kind `action`) that draws this action: the one `flavour`'s implementation names, or without "
-            "`flavour` the one of the newest flavour providing it that names one. Null when none does."
-        ),
+        description=("The action logo (a LOGO blok of kind `action`) that draws this action: the one `flavour`'s implementation names, or without `flavour` the one of the newest flavour providing it that names one. Null when none does."),
         prefetch_related=[Prefetch("flavours", queryset=models.Flavour.objects.only(*ACTION_LOGO_FIELDS), to_attr="logo_flavours")],
     )
     def logo(self, flavour: strawberry.ID | None = None) -> FlavourBlok | None:

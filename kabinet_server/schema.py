@@ -49,9 +49,7 @@ class Query:
     release: types.Release = field(resolver=queries.release, description="Return a single app release by its ID.")
     resource: types.Resource = field(resolver=queries.resource, description="Return a single backend resource by its ID.")
     flavour: types.Flavour = field(resolver=queries.flavour, description="Return a single flavour (a buildable variant of a release) by its ID.")
-    flavour_blok: types.FlavourBlok | None = field(
-        resolver=queries.flavour_blok, description="Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none."
-    )
+    flavour_blok: types.FlavourBlok | None = field(resolver=queries.flavour_blok, description="Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none.")
     repo_blok: types.RepoBlok = field(resolver=queries.repo_blok, description="Return a single blok a repository publishes by its ID.")
     deployment: types.Deployment = field(resolver=queries.deployment, description="Return a single deployment by its ID.")
     backend: types.Backend = field(resolver=queries.backend, description="Return a single backend by its ID.")

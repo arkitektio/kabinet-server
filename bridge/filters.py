@@ -144,16 +144,18 @@ class DefinitionFilter:
         lexical = Q(**{f"{prefix}name__icontains": value}) | Q(**{f"{prefix}description__icontains": value})
         return hybrid_search(queryset, prefix, value, lexical)
 
-    @strawberry_django.filter_field(description=(
-        "Order by closeness in meaning to the given definition, nearest first, keeping "
-        "only definitions that can be compared to it (the same grouping as "
-        "`Definition.similar`). Nothing is cut off at a fixed neighbourhood size, so "
-        "this composes with the other filters and with pagination; an explicit "
-        "`ordering` replaces the ranking. Empty when the given definition cannot be "
-        "found in this organization, or has not been indexed for similarity yet. "
-        "Combined with `search` it ranks that search\'s matches by closeness instead -- "
-        "the two rankings do not stack."
-    ))
+    @strawberry_django.filter_field(
+        description=(
+            "Order by closeness in meaning to the given definition, nearest first, keeping "
+            "only definitions that can be compared to it (the same grouping as "
+            "`Definition.similar`). Nothing is cut off at a fixed neighbourhood size, so "
+            "this composes with the other filters and with pagination; an explicit "
+            "`ordering` replaces the ranking. Empty when the given definition cannot be "
+            "found in this organization, or has not been indexed for similarity yet. "
+            "Combined with `search` it ranks that search's matches by closeness instead -- "
+            "the two rankings do not stack."
+        )
+    )
     def similar_to(self, info: Info, queryset: QuerySet, value: strawberry.ID, prefix: str) -> tuple[QuerySet, Q]:
         """Restrict to the neighbourhood of one definition, found through the same helper the field uses."""
         if prefix:
@@ -232,11 +234,7 @@ class DefinitionFilter:
     def has_tests(self, queryset: QuerySet, value: bool, prefix: str) -> tuple[QuerySet, Q]:
         return queryset.distinct(), Q(**{f"{prefix}tests__isnull": not value})
 
-    @strawberry_django.filter_field(description=(
-        "Keep only definitions already deployed in their organization (a deployment of one of the "
-        "flavours that provide them, on one of its backends), or with false only those never "
-        "deployed there: what is left to install."
-    ))
+    @strawberry_django.filter_field(description=("Keep only definitions already deployed in their organization (a deployment of one of the flavours that provide them, on one of its backends), or with false only those never deployed there: what is left to install."))
     def already_deployed(self, value: bool, prefix: str) -> Q:
         # `Exists`, not a join over flavours and their deployments: a definition provided by a
         # deployed flavour of several releases would come back once per deployment.

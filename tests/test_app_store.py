@@ -53,9 +53,7 @@ def _app(
     for index, version in enumerate(versions):
         release = models.Release.objects.create(app=app, version=version)
         # `released_at` is auto_now_add: set it after the fact, oldest version first.
-        models.Release.objects.filter(id=release.id).update(
-            released_at=timezone.now() - datetime.timedelta(days=released_days_ago, hours=len(versions) - index)
-        )
+        models.Release.objects.filter(id=release.id).update(released_at=timezone.now() - datetime.timedelta(days=released_days_ago, hours=len(versions) - index))
         image = models.DockerImage.objects.create(image_string=f"jhnnsrs/{identifier}:{version}", organization=organization)
         flavour = models.Flavour.objects.create(
             release=release,
@@ -67,9 +65,7 @@ def _app(
         )
     if deployments:
         client, _ = Client.objects.get_or_create(client_id="deployer")
-        backend, _ = models.Backend.objects.get_or_create(
-            organization=organization, user=user, client=client, name="docker", kind="docker"
-        )
+        backend, _ = models.Backend.objects.get_or_create(organization=organization, user=user, client=client, name="docker", kind="docker")
         for status in deployments:
             models.Deployment.objects.create(flavour=flavour, backend=backend, status=status)
     return app
@@ -196,12 +192,8 @@ async def test_repositories_and_approvals_by_member(authenticated_context: HttpC
     repos = await execute("query($f: GithubRepoFilter){ githubRepos(filters: $f){ id creator { sub } } }", authenticated_context, {"f": {"creator": "1"}})
     assert repos["githubRepos"] == [{"id": mine, "creator": {"sub": "1"}}]
 
-    ocis = await execute(
-        "query($f: OciRepoFilter){ ociRepos(filters: $f, ordering: [{ addedAt: DESC }]){ id addedAt } }", authenticated_context, {"f": {"creator": "42"}}
-    )
+    ocis = await execute("query($f: OciRepoFilter){ ociRepos(filters: $f, ordering: [{ addedAt: DESC }]){ id addedAt } }", authenticated_context, {"f": {"creator": "42"}})
     assert [row["id"] for row in ocis["ociRepos"]] == [oci]
 
-    approvals = await execute(
-        "query($f: ReleaseApprovalFilter){ releaseApprovals(filters: $f){ id } }", authenticated_context, {"f": {"approver": "42", "revoked": False}}
-    )
+    approvals = await execute("query($f: ReleaseApprovalFilter){ releaseApprovals(filters: $f){ id } }", authenticated_context, {"f": {"approver": "42", "revoked": False}})
     assert approvals["releaseApprovals"] == [{"id": approval}]
