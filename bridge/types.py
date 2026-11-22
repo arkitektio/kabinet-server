@@ -374,10 +374,7 @@ SEVERAL_GPUS = "multiple"
 APP_GPUS = ArrayAgg(KeyTextTransform("@kabinet/gpu", "releases__flavours__stored_descriptors"), distinct=True, default=[])
 
 
-def newest_releases():  # noqa: ANN201
-    """Each app's newest release: none of its app's releases is newer (the id breaks a tie)."""
-    newer = models.Release.objects.filter(app=OuterRef("app")).filter(Q(released_at__gt=OuterRef("released_at")) | Q(released_at=OuterRef("released_at"), id__gt=OuterRef("id")))
-    return models.Release.objects.filter(~Exists(newer))
+newest_releases = filters.newest_releases
 
 
 def app_gpus(app: models.App) -> set[str]:
@@ -496,6 +493,21 @@ class App:
     @classmethod
     def get_queryset(cls, queryset, info: Info):
         return build_prescoped_queryset(info, queryset)
+
+
+@strawberry.type(description="A service apps require, and how many of the counted apps have a flavour that requires it.")
+class ServiceCount:
+    service: str = strawberry.field(description="The service, e.g. `live.arkitekt.mikro`.")
+    apps: int = strawberry.field(description="How many of the apps require it.")
+
+
+@strawberry.type(description="The store's totals over every app a filter keeps, not a page of them.")
+class AppStoreTotals:
+    apps: int = strawberry.field(description="How many apps.")
+    actions: int = strawberry.field(description="How many distinct actions their newest releases bring.")
+    flavours: int = strawberry.field(description="How many flavours their newest releases have.")
+    running: int = strawberry.field(description="How many of their deployments (of any release) are RUNNING.")
+    services: List[ServiceCount] = strawberry.field(description="The services any of their flavours require, most required first, then by name.")
 
 
 @strawberry_django.type(

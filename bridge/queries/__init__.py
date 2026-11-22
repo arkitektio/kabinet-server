@@ -1,6 +1,6 @@
 """Queries for the bridge app."""
 
-from .app import app
+from .app import app, app_store_totals
 from .repos import github_repo, oci_repo, repo_blok
 from .me import me
 from .definition import definition
@@ -13,6 +13,7 @@ from .resource import resource
 
 __all__ = [
     "app",
+    "app_store_totals",
     "backend",
     "definition",
     "deployment",

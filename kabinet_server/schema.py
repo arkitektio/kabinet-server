@@ -58,6 +58,7 @@ class Query:
     me: types.User = field(resolver=queries.me, description="Return the currently authenticated user.")
     flavours: List[types.Flavour] = field(description="List all flavours visible to the current organization.")
     apps: List[types.App] = field(description="List all apps visible to the current organization.")
+    app_store_totals: types.AppStoreTotals = field(resolver=queries.app_store_totals, description="The store's totals over every app `filters` keeps (as `apps` takes them): apps, actions, flavours, running deployments, and how many apps require each service.")
     releases: List[types.Release] = field(description="List all app releases visible to the current organization.")
     resources: List[types.Resource] = field(description="List all backend resources visible to the current organization.")
     deployments: List[types.Deployment] = field(description="List all deployments visible to the current organization.")

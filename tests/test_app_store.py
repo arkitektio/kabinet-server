@@ -7,6 +7,7 @@ past the first page.
 """
 
 import datetime
+import uuid
 
 import pytest
 from asgiref.sync import sync_to_async
@@ -160,6 +161,75 @@ async def test_one_app_reads_its_facts_without_the_list(authenticated_context: H
         {"id": str(app.id)},
     )
     assert data["app"] == {"latestRelease": {"version": "2.0.0"}, "deploymentCount": 1, "runningCount": 1, "hardware": ["CPU"], "services": []}
+
+
+@sync_to_async
+def _brings(app: models.App, bloks: list[dict] | None = None, actions: tuple[str, ...] = (), release_index: int = -1) -> None:
+    """Give one release's flavour (the newest by default) these declared bloks and actions."""
+    releases = list(app.releases.order_by("released_at"))
+    flavour = releases[release_index].flavours.get()
+    if bloks is not None:
+        models.Flavour.objects.filter(pk=flavour.pk).update(bloks=bloks)
+    for name in actions:
+        definition = models.Definition.objects.create(name=name, hash=uuid.uuid4().hex, organization=app.organization)
+        definition.flavours.add(flavour)
+
+
+def _blok(key: str, context: str = "PANEL", description: str = "") -> dict:
+    return {"key": key, "context": context, "description": description}
+
+
+async def test_apps_that_bring_bloks_and_what_a_search_names(authenticated_context: HttpContext) -> None:
+    viewer = await _app(authenticated_context, "live.arkitekt.viewer", released_days_ago=3)
+    await _brings(viewer, bloks=[_blok("volume_scene", "SCENE", "Look at a 3D stack"), _blok("logo", "LOGO")], actions=("Render Volume",))
+    # Only a logo is no blok the store offers.
+    logo_only = await _app(authenticated_context, "live.arkitekt.logoonly", released_days_ago=2)
+    await _brings(logo_only, bloks=[_blok("logo", "LOGO", "a panel-free mark")])
+    # Its newest release dropped the panel an older one brought: the store shows the newest.
+    dropped = await _app(authenticated_context, "live.arkitekt.dropped", versions=("1.0.0", "2.0.0"), released_days_ago=1)
+    await _brings(dropped, bloks=[_blok("old_panel")], actions=("Old Action",), release_index=0)
+    for index in range(3):
+        await _app(authenticated_context, f"live.arkitekt.plain{index}")
+
+    newest_first = [{"releasedAt": "DESC"}]
+    # Past a page full of apps without bloks.
+    with_bloks = await _store(authenticated_context, filters={"bloks": True}, ordering=newest_first, pagination={"limit": 2})
+    assert [app["identifier"] for app in with_bloks] == ["live.arkitekt.viewer"]
+    assert len(await _store(authenticated_context, filters={"bloks": False})) == 5
+
+    async def named(search: str) -> list[str]:
+        return [app["identifier"] for app in await _store(authenticated_context, filters={"search": search})]
+
+    assert "live.arkitekt.viewer" in await named("render vol")  # an action's name
+    assert "live.arkitekt.viewer" in await named("VOLUME_SC")  # a scene's key
+    assert "live.arkitekt.viewer" in await named("3d stack")  # a scene's description
+    assert "live.arkitekt.dropped" not in await named("Old Action")  # an older release's action
+    assert "live.arkitekt.dropped" not in await named("old_panel")
+    assert "live.arkitekt.logoonly" not in await named("panel-free")  # a logo is not searched
+    # Regex characters are taken as they are.
+    assert await named('a(["\\') == []
+
+
+async def test_store_totals_count_every_app_a_filter_keeps(authenticated_context: HttpContext, other_org_context: HttpContext) -> None:
+    viewer = await _app(authenticated_context, "live.arkitekt.viewer", services=("live.arkitekt.mikro",), deployments=("RUNNING", "STOPPED"))
+    await _brings(viewer, bloks=[_blok("scene", "SCENE")], actions=("Render", "Slice"))
+    tracker = await _app(authenticated_context, "live.arkitekt.tracker", versions=("1.0.0", "2.0.0"), services=("live.arkitekt.mikro", "live.arkitekt.kraph"), deployments=("RUNNING",))
+    await _brings(tracker, actions=("Track",))
+    await _brings(tracker, actions=("Ancient",), release_index=0)
+    await _app(authenticated_context, "live.arkitekt.plain")
+    await _app(other_org_context, "live.arkitekt.theirs", services=("live.arkitekt.mikro",), deployments=("RUNNING",))
+
+    totals = "query($f: AppFilter){ appStoreTotals(filters: $f){ apps actions flavours running services { service apps } } }"
+    everything = (await execute(totals, authenticated_context, {"f": None}))["appStoreTotals"]
+    assert everything == {
+        "apps": 3,
+        "actions": 3,  # the newest releases' actions, not the older release's
+        "flavours": 3,
+        "running": 2,
+        "services": [{"service": "live.arkitekt.mikro", "apps": 2}, {"service": "live.arkitekt.kraph", "apps": 1}],
+    }
+    only_bloks = (await execute(totals, authenticated_context, {"f": {"bloks": True}}))["appStoreTotals"]
+    assert only_bloks == {"apps": 1, "actions": 2, "flavours": 1, "running": 1, "services": [{"service": "live.arkitekt.mikro", "apps": 1}]}
 
 
 # --- by member -------------------------------------------------------------------------------

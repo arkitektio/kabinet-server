@@ -8,7 +8,9 @@ from bridge import scoping
 from bridge import enums
 import strawberry_django
 from kante.types import Info
-from django.db.models import Exists, Max, OuterRef, Q, QuerySet
+import re
+
+from django.db.models import BooleanField, Exists, F, Func, Max, OuterRef, Q, QuerySet, Value
 from rekuest_core import enums as rkenums
 from rekuest_core.inputs.types import RequiresInput
 
@@ -38,6 +40,38 @@ NO_GPU = "none"
 def app_flavours(prefix: str) -> QuerySet:
     """The flavours of the app the filter is at, for an ``Exists``."""
     return models.Flavour.objects.filter(release__app=OuterRef(f"{prefix}pk"))
+
+
+def newest_releases() -> QuerySet:
+    """Each app's newest release: none of its app's releases is newer (the id breaks a tie)."""
+    newer = models.Release.objects.filter(app=OuterRef("app")).filter(Q(released_at__gt=OuterRef("released_at")) | Q(released_at=OuterRef("released_at"), id__gt=OuterRef("id")))
+    return models.Release.objects.filter(~Exists(newer))
+
+
+def newest_flavours(prefix: str) -> QuerySet:
+    """The flavours of the newest release of the app the filter is at: what the store shows of it."""
+    return models.Flavour.objects.filter(release__app=OuterRef(f"{prefix}pk"), release__in=newest_releases())
+
+
+def _jsonpath_string(text: str) -> str:
+    """``text`` as a SQL/JSON path string literal."""
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+#: A flavour's declared bloks that the store offers: panels and scenes (a LOGO only dresses its app).
+OFFERED_BLOK = '(@.context == "PANEL" || @.context == "SCENE")'
+
+
+def bloks_match(path_filter: str) -> Func:
+    """Whether any of a flavour's declared bloks (``Flavour.bloks``) passes ``path_filter``, a SQL/JSON path filter on ``@``."""
+    path = Func(Value(f"$[*] ? ({path_filter})"), template="%(expressions)s::jsonpath")
+    return Func(F("bloks"), path, function="jsonb_path_exists", output_field=BooleanField())
+
+
+def offered_bloks_named(value: str) -> Func:
+    """A flavour offering a panel or scene whose key or description contains ``value`` (case-insensitive)."""
+    pattern = _jsonpath_string(re.escape(value))
+    return bloks_match(f'{OFFERED_BLOK} && (@.key like_regex {pattern} flag "i" || @.description like_regex {pattern} flag "i")')
 
 
 def flavour_hardware_q(hardware: "enums.AppHardware") -> Q:
@@ -436,9 +470,18 @@ class AppFilter:
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Search by identifier: a case-insensitive substring, or semantic similarity of the query to it. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
+    @strawberry_django.filter_field(
+        description="Search by identifier, by the names of the actions its newest release brings, and by the keys and descriptions of its panels and scenes (each a case-insensitive substring), or by semantic similarity of the query to the identifier. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking."
+    )
     def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
-        return hybrid_search(queryset, prefix, value, Q(**{f"{prefix}identifier__icontains": value}))
+        actions = models.Definition.objects.filter(flavours__release__app=OuterRef(f"{prefix}pk"), flavours__release__in=newest_releases(), name__icontains=value)
+        lexical = Q(**{f"{prefix}identifier__icontains": value}) | Q(Exists(actions)) | Q(Exists(newest_flavours(prefix).filter(offered_bloks_named(value))))
+        return hybrid_search(queryset, prefix, value, lexical)
+
+    @strawberry_django.filter_field(description="true: only apps whose newest release brings a panel or a scene (a blok the store offers); false: only apps whose newest release brings none.")
+    def bloks(self, value: bool, prefix: str) -> Q:
+        offers = Q(Exists(newest_flavours(prefix).filter(bloks_match(OFFERED_BLOK))))
+        return offers if value else ~offers
 
     @strawberry_django.filter_field(description="Keep only the app with exactly this identifier (unique within the organization).")
     def identifier(self, value: str, prefix: str) -> Q:
