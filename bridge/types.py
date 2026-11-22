@@ -15,7 +15,7 @@ from strawberry_django.filters import apply as apply_filters
 from bridge.repo import bloks as repo_bloks
 from bridge.repo import selectors
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from django.db.models.fields.json import KeyTextTransform
 from strawberry_django.optimizer import optimize
 from embeddings import search

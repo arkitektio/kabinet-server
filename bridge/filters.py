@@ -471,7 +471,11 @@ class AppFilter:
         return Q(**{f"{prefix}id__in": value})
 
     @strawberry_django.filter_field(
-        description="Search by identifier, by the names of the actions its newest release brings, and by the keys and descriptions of its panels and scenes (each a case-insensitive substring), or by semantic similarity of the query to the identifier. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking."
+        description=(
+            "Search by identifier, by the names of the actions its newest release brings, and by the keys and descriptions of its panels and scenes "
+            "(each a case-insensitive substring), or by semantic similarity of the query to the identifier. "
+            "Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking."
+        )
     )
     def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
         actions = models.Definition.objects.filter(flavours__release__app=OuterRef(f"{prefix}pk"), flavours__release__in=newest_releases(), name__icontains=value)
