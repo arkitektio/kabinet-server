@@ -5,9 +5,10 @@ from bridge import managers
 from bridge import inputs
 from bridge import models
 from bridge import scoping
+from bridge import enums
 import strawberry_django
 from kante.types import Info
-from django.db.models import Exists, OuterRef, Q, QuerySet
+from django.db.models import Exists, Max, OuterRef, Q, QuerySet
 from rekuest_core import enums as rkenums
 from rekuest_core.inputs.types import RequiresInput
 
@@ -26,6 +27,25 @@ def requires(model: type, value: list[RequiresInput], prefix: str) -> Q:
     from kabinet_server.service import service  # it imports the models this module filters
 
     return service.requires(model, value, prefix)
+
+
+# --- an app's flavours ---------------------------------------------------------
+
+#: ``@kabinet/gpu`` of a flavour that runs without an accelerator (``kabinet_server.descriptors.NO_GPU``).
+NO_GPU = "none"
+
+
+def app_flavours(prefix: str) -> QuerySet:
+    """The flavours of the app the filter is at, for an ``Exists``."""
+    return models.Flavour.objects.filter(release__app=OuterRef(f"{prefix}pk"))
+
+
+def flavour_hardware_q(hardware: "enums.AppHardware") -> Q:
+    """A flavour that requires an accelerator (GPU) or runs without one (CPU), by its stored ``@kabinet/gpu``."""
+    runs_on_cpu = Q(stored_descriptors__contains={"@kabinet/gpu": NO_GPU})
+    if hardware == enums.AppHardware.CPU:
+        return runs_on_cpu
+    return Q(stored_descriptors__has_key="@kabinet/gpu") & ~runs_on_cpu
 
 
 @strawberry_django.order_type(models.Definition, description="Order for action definitions.")
@@ -60,6 +80,27 @@ class GithubRepoFilter:
     @strawberry_django.filter_field(description="Case-insensitive match on the branch name.")
     def branch(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}branch__icontains": value})
+
+    @strawberry_django.filter_field(description="Keep only repositories this user added, given by their sub (their id in lok). `user` is the GitHub owner, not a member.")
+    def creator(self, value: strawberry.ID, prefix: str) -> Q:
+        return Q(**{f"{prefix}creator__sub": value})
+
+
+@strawberry_django.filter_type(models.OciRepo, description="Filter for imported OCI repositories.")
+class OciRepoFilter:
+    """Filter for imported OCI repositories."""
+
+    @strawberry_django.filter_field(description="Keep only repositories whose ID is in this list.")
+    def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
+        return Q(**{f"{prefix}id__in": value})
+
+    @strawberry_django.filter_field(description="Case-insensitive substring of the name, the registry or the repository path.")
+    def search(self, value: str, prefix: str) -> Q:
+        return Q(**{f"{prefix}name__icontains": value}) | Q(**{f"{prefix}registry__icontains": value}) | Q(**{f"{prefix}repository__icontains": value})
+
+    @strawberry_django.filter_field(description="Keep only repositories this user imported, given by their sub (their id in lok).")
+    def creator(self, value: strawberry.ID, prefix: str) -> Q:
+        return Q(**{f"{prefix}creator__sub": value})
 
 
 @strawberry_django.filter_type(models.RepoBlok, description="Filter for the bloks repositories publish.")
@@ -386,6 +427,10 @@ class ReleaseApprovalFilter:
     def revoked(self, value: bool, prefix: str) -> Q:
         return Q(**{f"{prefix}revoked_at__isnull": not value})
 
+    @strawberry_django.filter_field(description="Keep only approvals this user gave, given by their sub (their id in lok): with `revoked: false`, what they installed.")
+    def approver(self, value: strawberry.ID, prefix: str) -> Q:
+        return Q(**{f"{prefix}approver__sub": value})
+
 
 @strawberry_django.filter_type(models.App, description="Filter for apps.")
 class AppFilter:
@@ -396,6 +441,30 @@ class AppFilter:
     @strawberry_django.filter_field(description="Search by identifier: a case-insensitive substring, or semantic similarity of the query to it. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
     def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
         return hybrid_search(queryset, prefix, value, Q(**{f"{prefix}identifier__icontains": value}))
+
+    @strawberry_django.filter_field(description="Keep only the app with exactly this identifier (unique within the organization).")
+    def identifier(self, value: str, prefix: str) -> Q:
+        return Q(**{f"{prefix}identifier": value})
+
+    @strawberry_django.filter_field(description="Keep only the apps with exactly these identifiers.")
+    def identifiers(self, value: list[str], prefix: str) -> Q:
+        return Q(**{f"{prefix}identifier__in": value})
+
+    @strawberry_django.filter_field(description="true: only apps with at least one deployment of any of their flavours (installed); false: only apps with none.")
+    def deployed(self, value: bool, prefix: str) -> Q:
+        deployed = Q(Exists(models.Deployment.objects.filter(flavour__release__app=OuterRef(f"{prefix}pk"))))
+        return deployed if value else ~deployed
+
+    @strawberry_django.filter_field(description="Keep only apps with a flavour for each of these: GPU, a flavour that requires an accelerator; CPU, one that runs on a plain CPU backend. Read from the flavours' required selectors (`@kabinet/gpu`).")
+    def hardware(self, value: list[enums.AppHardware], prefix: str) -> Q:
+        condition = Q()
+        for hardware in value:
+            condition &= Q(Exists(app_flavours(prefix).filter(flavour_hardware_q(hardware))))
+        return condition
+
+    @strawberry_django.filter_field(description="Keep only apps with a flavour that requires this service (e.g. `live.arkitekt.mikro`).")
+    def service(self, value: str, prefix: str) -> Q:
+        return Q(Exists(app_flavours(prefix).filter(requirements__contains=[{"service": value}])))
 
 
 @strawberry_django.filter_type(models.DockerImage, description="Filter for Docker images.")
@@ -459,6 +528,21 @@ class GithubRepoOrder:
 class AppOrder:
     id: strawberry.auto
     identifier: strawberry.auto
+
+    @strawberry_django.order_field(description="By the time of the app's newest release (`Release.releasedAt`): DESC for the most recently released first.")
+    def released_at(self, info: Info, queryset: QuerySet, value: strawberry_django.Ordering, prefix: str) -> tuple[QuerySet, list]:
+        # `Release.created_at` is auto_now (it moves on every save); `released_at` is when the
+        # release was made.
+        queryset = queryset.annotate(_newest_release=Max(f"{prefix}releases__released_at"))
+        return queryset, [value.resolve("_newest_release")]
+
+
+@strawberry_django.order_type(models.OciRepo)
+class OciRepoOrder:
+    id: strawberry.auto
+    name: strawberry.auto
+    added_at: strawberry.auto
+    updated_at: strawberry.auto
 
 
 @strawberry_django.order_type(models.Release)

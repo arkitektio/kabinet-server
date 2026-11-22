@@ -48,3 +48,11 @@ def map_string_to_pod_status(string: str) -> PodStatus:
         return PodStatus[string.upper()]
     except KeyError:
         return PodStatus.FAILED
+
+
+@strawberry.enum(description="What an app's flavours run on: an accelerator (GPU) or a plain CPU backend.")
+class AppHardware(str, Enum):
+    """The hardware an app can be run on, read off its flavours' required selectors."""
+
+    GPU = "GPU"
+    CPU = "CPU"

@@ -14,7 +14,10 @@ from bridge import filters as filters_module
 from strawberry_django.filters import apply as apply_filters
 from bridge.repo import bloks as repo_bloks
 from bridge.repo import selectors
-from django.db.models import Prefetch
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q
+from django.db.models.fields.json import KeyTextTransform
+from strawberry_django.optimizer import optimize
 from embeddings import search
 from embeddings.strawberry import Embedding, embedding_of
 from kante.types import Info
@@ -137,6 +140,7 @@ class GithubRepo:
     bloks: List["RepoBlok"] = strawberry_django.field(description="The bloks this repository publishes on its own, in its `.arkitekt/bloks.yaml`.")
     updated_at: datetime.datetime = strawberry_django.field(description="When this repository was last updated.")
     added_at: datetime.datetime = strawberry_django.field(description="When this repository was first added to Kabinet.")
+    creator: Optional[User] = strawberry_django.field(description="The member who added this repository, if known.")
     organization: Organization = strawberry_django.field(description="The organization that owns this repository.")
     descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION)
 
@@ -277,6 +281,8 @@ class RepoBlok:
 @strawberry_django.type(
     models.OciRepo,
     description="A repository on an OCI registry that carries an app's releases beside its images. Importing it is how an app is installed.",
+    filters=filters.OciRepoFilter,
+    ordering=filters.OciRepoOrder,
     pagination=True,
 )
 class OciRepo:
@@ -289,6 +295,7 @@ class OciRepo:
     scanned_at: Optional[datetime.datetime] = strawberry_django.field(description="When the registry was last read.")
     updated_at: datetime.datetime = strawberry_django.field(description="When this repository was last updated.")
     added_at: datetime.datetime = strawberry_django.field(description="When this repository was imported.")
+    creator: Optional[User] = strawberry_django.field(description="The member who imported this repository, if known.")
     organization: Organization = strawberry_django.field(description="The organization that imported this repository.")
 
     @strawberry_django.field(description="The repository as an image reference starts: `registry/repository`.")
@@ -384,6 +391,33 @@ def logo_of(flavour: models.Flavour) -> FlavourBlok | None:
     return flavour_blok(flavour, logos[0]) if logos else None
 
 
+#: An app's deployments, through its releases and their flavours.
+APP_DEPLOYMENTS = "releases__flavours__deployments"
+#: ``@kabinet/gpu`` of a flavour without an accelerator, and of one requiring several vendors'
+#: (``kabinet_server.descriptors``).
+NO_GPU = "none"
+SEVERAL_GPUS = "multiple"
+#: The distinct ``@kabinet/gpu`` of an app's flavours, in one aggregate.
+APP_GPUS = ArrayAgg(KeyTextTransform("@kabinet/gpu", "releases__flavours__stored_descriptors"), distinct=True, default=[])
+
+
+def newest_releases():  # noqa: ANN201
+    """Each app's newest release: none of its app's releases is newer (the id breaks a tie)."""
+    newer = models.Release.objects.filter(app=OuterRef("app")).filter(
+        Q(released_at__gt=OuterRef("released_at")) | Q(released_at=OuterRef("released_at"), id__gt=OuterRef("id"))
+    )
+    return models.Release.objects.filter(~Exists(newer))
+
+
+def app_gpus(app: models.App) -> set[str]:
+    """The ``@kabinet/gpu`` values of an app's flavours: the annotation, or one query without it."""
+    if hasattr(app, "_gpus"):
+        return {gpu for gpu in app._gpus if gpu}
+    values = models.Flavour.objects.filter(release__app=app).values_list("stored_descriptors", flat=True)
+    gpus = (descriptors.get("@kabinet/gpu") for descriptors in values if isinstance(descriptors, dict))
+    return {gpu for gpu in gpus if isinstance(gpu, str) and gpu}
+
+
 def prefetched(instance, attr: str, fallback):  # noqa: ANN001, ANN201
     """What a `Prefetch(to_attr=attr)` stored on ``instance``; ``fallback()`` when it did not run."""
     if hasattr(instance, attr):
@@ -413,6 +447,72 @@ class App:
     @strawberry_django.field(description="This app's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
+
+    @strawberry_django.field(
+        description="The app's newest release, by `releasedAt` (a channel build counts as a release). Null for an app without releases.",
+        prefetch_related=[lambda info: Prefetch("releases", queryset=optimize(newest_releases(), info), to_attr="newest_releases")],
+    )
+    def latest_release(self) -> Optional["Release"]:
+        newest = prefetched(self, "newest_releases", lambda: newest_releases().filter(app=self))
+        return newest[0] if newest else None
+
+    @strawberry_django.field(
+        description="How many deployments the app's flavours have, of any release and in any status: 0 for an app that is not installed.",
+        annotate={"_deployment_count": Count(APP_DEPLOYMENTS, distinct=True)},
+    )
+    def deployment_count(self) -> int:
+        if hasattr(self, "_deployment_count"):
+            return self._deployment_count
+        return models.Deployment.objects.filter(flavour__release__app=self).count()
+
+    @strawberry_django.field(
+        description="How many of the app's deployments are RUNNING.",
+        annotate={"_running_count": Count(APP_DEPLOYMENTS, filter=Q(**{f"{APP_DEPLOYMENTS}__status": enums.PodStatus.RUNNING.value}), distinct=True)},
+    )
+    def running_count(self) -> int:
+        if hasattr(self, "_running_count"):
+            return self._running_count
+        return models.Deployment.objects.filter(flavour__release__app=self, status=enums.PodStatus.RUNNING.value).count()
+
+    @strawberry_django.field(
+        description="What the app's flavours run on: GPU when one requires an accelerator, CPU when one runs without. Read from the flavours' required selectors (`@kabinet/gpu`); empty for an app without flavours.",
+        annotate={"_gpus": APP_GPUS},
+    )
+    def hardware(self) -> List[enums.AppHardware]:
+        gpus = app_gpus(self)
+        hardware = []
+        if any(gpu != NO_GPU for gpu in gpus):
+            hardware.append(enums.AppHardware.GPU)
+        if NO_GPU in gpus:
+            hardware.append(enums.AppHardware.CPU)
+        return hardware
+
+    @strawberry_django.field(
+        description="The accelerators the app's flavours require, one entry per vendor (cuda, rocm, oneapi), as `@kabinet/gpu` names them. A flavour that requires several vendors at once is a GPU flavour but names none here.",
+        annotate={"_gpus": APP_GPUS},
+    )
+    def accelerators(self) -> List[str]:
+        return sorted(gpu for gpu in app_gpus(self) if gpu not in (NO_GPU, SEVERAL_GPUS))
+
+    @strawberry_django.field(
+        description="The services any of the app's flavours require (e.g. `live.arkitekt.mikro`), sorted.",
+        prefetch_related=[
+            Prefetch(
+                "releases",
+                queryset=models.Release.objects.only("id", "app_id").prefetch_related(
+                    Prefetch("flavours", queryset=models.Flavour.objects.only("id", "release_id", "requirements"), to_attr="service_flavours")
+                ),
+                to_attr="service_releases",
+            )
+        ],
+    )
+    def services(self) -> List[str]:
+        flavours = [
+            flavour
+            for release in prefetched(self, "service_releases", lambda: self.releases.only("id"))
+            for flavour in prefetched(release, "service_flavours", lambda release=release: release.flavours.only("id", "requirements"))
+        ]
+        return sorted({requirement["service"] for flavour in flavours if isinstance(flavour.requirements, list) for requirement in flavour.requirements if requirement.get("service")})
 
     @strawberry_django.field(
         description="The app's logo: the LOGO blok of its newest release that brings one.",
@@ -455,6 +555,7 @@ class Release:
     entrypoint: str = strawberry_django.field(description="The entrypoint used to start the app.")
     channel: Optional[str] = strawberry_django.field(description="The channel this is the latest build of. Null for a release proper, which never changes.")
     revision: Optional[str] = strawberry_django.field(description="The source revision this release was built from, when its publisher said.")
+    released_at: datetime.datetime = strawberry_django.field(description="When this release was made: what an app's newest release and `AppOrder.releasedAt` go by.")
     flavours: List["Flavour"] = strawberry_django.field(description="The flavours (buildable variants) available for this release.")
     descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
 

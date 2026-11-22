@@ -332,6 +332,34 @@ type App @identified(by: "@kabinet/app") {
   """
   embedding: Embedding
 
+  """
+  The app's newest release, by `releasedAt` (a channel build counts as a release). Null for an app without releases.
+  """
+  latestRelease: Release
+
+  """
+  How many deployments the app's flavours have, of any release and in any status: 0 for an app that is not installed.
+  """
+  deploymentCount: Int!
+
+  """How many of the app's deployments are RUNNING."""
+  runningCount: Int!
+
+  """
+  What the app's flavours run on: GPU when one requires an accelerator, CPU when one runs without. Read from the flavours' required selectors (`@kabinet/gpu`); empty for an app without flavours.
+  """
+  hardware: [AppHardware!]!
+
+  """
+  The accelerators the app's flavours require, one entry per vendor (cuda, rocm, oneapi), as `@kabinet/gpu` names them. A flavour that requires several vendors at once is a GPU flavour but names none here.
+  """
+  accelerators: [String!]!
+
+  """
+  The services any of the app's flavours require (e.g. `live.arkitekt.mikro`), sorted.
+  """
+  services: [String!]!
+
   """The app's logo: the LOGO blok of its newest release that brings one."""
   logoBlok: FlavourBlok
 }
@@ -350,6 +378,37 @@ input AppFilter {
   Search by identifier: a case-insensitive substring, or semantic similarity of the query to it. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.
   """
   search: String
+
+  """
+  Keep only the app with exactly this identifier (unique within the organization).
+  """
+  identifier: String
+
+  """Keep only the apps with exactly these identifiers."""
+  identifiers: [String!]
+
+  """
+  true: only apps with at least one deployment of any of their flavours (installed); false: only apps with none.
+  """
+  deployed: Boolean
+
+  """
+  Keep only apps with a flavour for each of these: GPU, a flavour that requires an accelerator; CPU, one that runs on a plain CPU backend. Read from the flavours' required selectors (`@kabinet/gpu`).
+  """
+  hardware: [AppHardware!]
+
+  """
+  Keep only apps with a flavour that requires this service (e.g. `live.arkitekt.mikro`).
+  """
+  service: String
+}
+
+"""
+What an app's flavours run on: an accelerator (GPU) or a plain CPU backend.
+"""
+enum AppHardware {
+  GPU
+  CPU
 }
 
 """
@@ -367,6 +426,11 @@ input AppImageInput {
 input AppOrder @oneOf {
   id: Ordering
   identifier: Ordering
+
+  """
+  By the time of the app's newest release (`Release.releasedAt`): DESC for the most recently released first.
+  """
+  releasedAt: Ordering
 }
 
 """
@@ -2037,6 +2101,9 @@ type GithubRepo @identified(by: "@kabinet/githubrepo") {
   """When this repository was first added to Kabinet."""
   addedAt: DateTime!
 
+  """The member who added this repository, if known."""
+  creator: User
+
   """The organization that owns this repository."""
   organization: Organization!
 
@@ -2085,6 +2152,11 @@ input GithubRepoFilter {
 
   """Case-insensitive match on the branch name."""
   branch: String
+
+  """
+  Keep only repositories this user added, given by their sub (their id in lok). `user` is the GitHub owner, not a member.
+  """
+  creator: ID
 }
 
 input GithubRepoOrder @oneOf {
@@ -2561,11 +2633,42 @@ type OciRepo {
   """When this repository was imported."""
   addedAt: DateTime!
 
+  """The member who imported this repository, if known."""
+  creator: User
+
   """The organization that imported this repository."""
   organization: Organization!
 
   """The repository as an image reference starts: `registry/repository`."""
   reference: String!
+}
+
+"""Filter for imported OCI repositories."""
+input OciRepoFilter {
+  AND: OciRepoFilter
+  OR: OciRepoFilter
+  NOT: OciRepoFilter
+  DISTINCT: Boolean
+
+  """Keep only repositories whose ID is in this list."""
+  ids: [ID!]
+
+  """
+  Case-insensitive substring of the name, the registry or the repository path.
+  """
+  search: String
+
+  """
+  Keep only repositories this user imported, given by their sub (their id in lok).
+  """
+  creator: ID
+}
+
+input OciRepoOrder @oneOf {
+  id: Ordering
+  name: Ordering
+  addedAt: Ordering
+  updatedAt: Ordering
 }
 
 input OffsetPaginationInput {
@@ -3039,7 +3142,7 @@ type Query {
   """
   List all imported OCI repositories visible to the current organization.
   """
-  ociRepos(pagination: OffsetPaginationInput): [OciRepo!]! @auth(required_scopes: ["kabinet_read"])
+  ociRepos(filters: OciRepoFilter, ordering: [OciRepoOrder!]! = [], pagination: OffsetPaginationInput): [OciRepo!]! @auth(required_scopes: ["kabinet_read"])
 
   """
   List the bloks the tracked GitHub repositories publish on their own, visible to the current organization.
@@ -3137,6 +3240,11 @@ type Release @identified(by: "@kabinet/release") {
   The source revision this release was built from, when its publisher said.
   """
   revision: String
+
+  """
+  When this release was made: what an app's newest release and `AppOrder.releasedAt` go by.
+  """
+  releasedAt: DateTime!
 
   """The flavours (buildable variants) available for this release."""
   flavours(filters: FlavourFilter, ordering: [FlavourOrder!]! = [], pagination: OffsetPaginationInput): [Flavour!]!
@@ -3241,6 +3349,11 @@ input ReleaseApprovalFilter {
   Keep only approvals that are not revoked. Staleness depends on the live release and is read from `isStale`.
   """
   revoked: Boolean
+
+  """
+  Keep only approvals this user gave, given by their sub (their id in lok): with `revoked: false`, what they installed.
+  """
+  approver: ID
 }
 
 """Filter for app releases."""
