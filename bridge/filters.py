@@ -10,7 +10,7 @@ import strawberry_django
 from kante.types import Info
 import re
 
-from django.db.models import BooleanField, Exists, F, Func, Max, OuterRef, Q, QuerySet, Value
+from django.db.models import BooleanField, Count, Exists, F, Func, Max, OuterRef, Q, QuerySet, Value
 from rekuest_core import enums as rkenums
 from rekuest_core.inputs.types import RequiresInput
 
@@ -145,9 +145,14 @@ class RepoBlokFilter:
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive substring of the blok's name, key or description.")
+    @strawberry_django.filter_field(description="Case-insensitive substring of the blok's name, key or description, or of its repository's name.")
     def search(self, value: str, prefix: str) -> Q:
-        return Q(**{f"{prefix}name__icontains": value}) | Q(**{f"{prefix}key__icontains": value}) | Q(**{f"{prefix}description__icontains": value})
+        return (
+            Q(**{f"{prefix}name__icontains": value})
+            | Q(**{f"{prefix}key__icontains": value})
+            | Q(**{f"{prefix}description__icontains": value})
+            | Q(**{f"{prefix}repo__name__icontains": value})
+        )
 
     @strawberry_django.filter_field(description="Keep only bloks of this context (PANEL or SCENE).")
     def context(self, value: str, prefix: str) -> Q:
@@ -495,6 +500,19 @@ class AppFilter:
     def identifiers(self, value: list[str], prefix: str) -> Q:
         return Q(**{f"{prefix}identifier__in": value})
 
+    @strawberry_django.filter_field(
+        description=(
+            "Keep only the apps of this publisher: those whose identifier is the publisher plus one last segment "
+            "(`live.arkitekt` keeps `live.arkitekt.segmentation`, not `live.arkitekt.tools.segmentation`). "
+            "Segments are separated by `.` or `/`, either way. An exact match, unlike `search`."
+        )
+    )
+    def publisher(self, value: str, prefix: str) -> Q:
+        segments = [re.escape(segment) for segment in re.split(r"[./]", value) if segment]
+        if not segments:
+            return Q(pk__in=[])
+        return Q(**{f"{prefix}identifier__regex": "^" + "[./]".join(segments) + r"[./][^./]+$"})
+
     @strawberry_django.filter_field(description="true: only apps with at least one deployment of any of their flavours (installed); false: only apps with none.")
     def deployed(self, value: bool, prefix: str) -> Q:
         deployed = Q(Exists(models.Deployment.objects.filter(flavour__release__app=OuterRef(f"{prefix}pk"))))
@@ -580,6 +598,12 @@ class AppOrder:
         # release was made.
         queryset = queryset.annotate(_newest_release=Max(f"{prefix}releases__released_at"))
         return queryset, [value.resolve("_newest_release")]
+
+    @strawberry_django.order_field(description="By how many of the app's deployments are RUNNING (`App.runningCount`): DESC for the busiest first.")
+    def running_count(self, info: Info, queryset: QuerySet, value: strawberry_django.Ordering, prefix: str) -> tuple[QuerySet, list]:
+        running = Q(**{f"{prefix}releases__flavours__deployments__status": enums.PodStatus.RUNNING.value})
+        queryset = queryset.annotate(_order_running=Count(f"{prefix}releases__flavours__deployments", filter=running, distinct=True))
+        return queryset, [value.resolve("_order_running")]
 
 
 @strawberry_django.order_type(models.OciRepo)

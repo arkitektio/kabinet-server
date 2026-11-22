@@ -179,7 +179,7 @@ class Subscription:
     )
     pods: subscriptions.PodEvent = subscription(
         resolver=subscriptions.pods,
-        description="Subscribe to lifecycle events for every pod visible to the current organization.",
+        description="Subscribe to lifecycle events for every pod visible to the current organization, or only those of one resource or backend.",
     )
 
 

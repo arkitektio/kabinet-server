@@ -142,6 +142,24 @@ class GithubRepo:
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
 
+    @strawberry_django.field(
+        description="How many flavours scanning this repository found: a count, without listing them.",
+        annotate={"_flavour_count": Count("flavours", distinct=True)},
+    )
+    def flavour_count(self) -> int:
+        if hasattr(self, "_flavour_count"):
+            return self._flavour_count
+        return self.flavours.count()
+
+    @strawberry_django.field(
+        description="How many bloks this repository publishes on its own: a count, without listing them.",
+        annotate={"_blok_count": Count("bloks", distinct=True)},
+    )
+    def blok_count(self) -> int:
+        if hasattr(self, "_blok_count"):
+            return self._blok_count
+        return self.bloks.count()
+
     @strawberry_django.field(description="The URL for opening a new issue against this repository on GitHub.")
     def issue_url(self) -> str:
         return self.issue_url
@@ -419,6 +437,15 @@ class App:
     def latest_release(self) -> Optional["Release"]:
         newest = prefetched(self, "newest_releases", lambda: newest_releases().filter(app=self))
         return newest[0] if newest else None
+
+    @strawberry_django.field(
+        description="How many releases the app has: a count, without listing them.",
+        annotate={"_release_count": Count("releases", distinct=True)},
+    )
+    def release_count(self) -> int:
+        if hasattr(self, "_release_count"):
+            return self._release_count
+        return self.releases.count()
 
     @strawberry_django.field(
         description="How many deployments the app's flavours have, of any release and in any status: 0 for an app that is not installed.",
@@ -913,6 +940,21 @@ class Definition:
     @strawberry_django.field(description="This definition's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
+
+    @strawberry_django.field(
+        description="The apps that bring this action, each once, ordered by identifier: those with a release whose flavour provides it. What a list shows instead of every flavour of every release.",
+        prefetch_related=[
+            Prefetch(
+                "flavours",
+                queryset=models.Flavour.objects.select_related("release__app").only("id", "release__id", "release__app__id", "release__app__identifier", "release__app__organization_id"),
+                to_attr="app_flavours",
+            )
+        ],
+    )
+    def apps(self) -> list["App"]:
+        flavours = prefetched(self, "app_flavours", lambda: self.flavours.select_related("release__app"))
+        unique = {flavour.release.app.id: flavour.release.app for flavour in flavours}
+        return sorted(unique.values(), key=lambda app: app.identifier)
 
     @strawberry_django.field(
         description=("The action logo (a LOGO blok of kind `action`) that draws this action: the one `flavour`'s implementation names, or without `flavour` the one of the newest flavour providing it that names one. Null when none does."),

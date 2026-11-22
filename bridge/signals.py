@@ -32,6 +32,18 @@ def publish_pod_change(sender: Type[models.Pod], instance: models.Pod = None, cr
     _broadcast_pod(signal, instance.backend.organization_id, instance.id)
 
 
+@receiver(post_save, sender=models.LogDump)
+def publish_log_dump(sender: Type[models.LogDump], instance: models.LogDump, created: bool = False, **kwargs: object) -> None:
+    """A new log dump changes its pod's `latestLogDump`: announce it as an update of the pod.
+
+    Without it a client waiting for the logs it asked for could only poll the pod.
+    """
+    if not created:
+        return
+    pod = models.Pod.objects.select_related("backend").only("id", "backend__organization_id").get(id=instance.pod_id)
+    _broadcast_pod(channel_signals.PodSignal(update=pod.id), pod.backend.organization_id, pod.id)
+
+
 @receiver(post_delete, sender=models.Pod)
 def publish_pod_del(sender: Type[models.Pod], instance: models.Pod = None, **kwargs) -> None:
     """Announce a pod deletion to its subscribers."""

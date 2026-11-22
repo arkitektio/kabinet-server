@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from typing import Annotated, AsyncGenerator
 
 import strawberry
 from kante.types import Info
@@ -60,8 +60,27 @@ async def pod(info: Info, pod_id: strawberry.ID) -> AsyncGenerator[PodEvent, Non
             yield event
 
 
-async def pods(info: Info) -> AsyncGenerator[PodEvent, None]:
-    """Stream lifecycle events for every pod in the caller's organization.
+def keeps(event: PodEvent, resource: strawberry.ID | None, backend: strawberry.ID | None) -> bool:
+    """Whether a subscriber narrowed to ``resource`` / ``backend`` gets ``event``.
+
+    A deletion names only an id, so it always passes: the subscriber knows whether it held the pod.
+    """
+    pod = event.create or event.update
+    if pod is None:
+        return True
+    if resource is not None and str(pod.resource_id) != str(resource):
+        return False
+    if backend is not None and str(pod.backend_id) != str(backend):
+        return False
+    return True
+
+
+async def pods(
+    info: Info,
+    resource: Annotated[strawberry.ID | None, strawberry.argument(description="Only the pods on this resource (and every deletion: it names only an id).")] = None,
+    backend: Annotated[strawberry.ID | None, strawberry.argument(description="Only the pods of this backend (and every deletion).")] = None,
+) -> AsyncGenerator[PodEvent, None]:
+    """Stream lifecycle events for every pod in the caller's organization, or of one resource or backend.
 
     Listens on a per-organization group. It used to listen on the literal group "all" and
     lean on `aget_for_org` raising per message to filter -- which meant another tenant's
@@ -72,5 +91,5 @@ async def pods(info: Info) -> AsyncGenerator[PodEvent, None]:
 
     async for message in channels.pod_channel.listen(info.context, groups=[org_group(organization.id)]):
         event = await _resolve(info, message)
-        if event is not None:
+        if event is not None and keeps(event, resource, backend):
             yield event
