@@ -33,7 +33,9 @@ class RepoMapSettings(BaseModel):
 async def create_github_repos(repo_map: list[RepoMap]) -> None:
     """Track every repository in ``repo_map``, reporting failures without aborting."""
     for entry in repo_map:
-        organization, _ = await Organization.objects.aget_or_create(identifier=entry.organization)
+        organization, _ = await Organization.objects.aget_or_create(
+            identifier=entry.organization
+        )
 
         for repo_identifier in entry.repos:
             # `_create_github_repo` takes the *pydantic* input model, not the strawberry
@@ -50,7 +52,9 @@ async def create_github_repos(repo_map: list[RepoMap]) -> None:
             except Exception as e:
                 # One unreachable repo should not stop the rest from being provisioned;
                 # this runs at deploy time, where a partial result beats no result.
-                print(f"Error creating repo {repo_identifier} for {entry.organization}: {e}")
+                print(
+                    f"Error creating repo {repo_identifier} for {entry.organization}: {e}"
+                )
 
 
 class Command(BaseCommand):

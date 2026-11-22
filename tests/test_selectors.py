@@ -20,7 +20,13 @@ ALL_KINDS_WIRE = [
     {"kind": "ram", "min": 16000},
     {"kind": "rocm", "apiVersion": "5.7"},
     {"kind": "oneapi", "oneapiVersion": "2024.1"},
-    {"kind": "label", "key": "microscope", "value": "lightsheet", "required": False, "weight": 10},
+    {
+        "kind": "label",
+        "key": "microscope",
+        "value": "lightsheet",
+        "required": False,
+        "weight": 10,
+    },
 ]
 
 CREATE_APP_IMAGE = """
@@ -63,7 +69,9 @@ def _app_image_with_all_selectors() -> dict:
 async def test_every_selector_kind_round_trips(authenticated_context: HttpContext):
     """Author → store → serve for all six kinds, through the real wire."""
     created = await execute(
-        CREATE_APP_IMAGE, authenticated_context, {"input": _app_image_with_all_selectors()}
+        CREATE_APP_IMAGE,
+        authenticated_context,
+        {"input": _app_image_with_all_selectors()},
     )
     flavour_id = created["createAppImage"]["flavours"][0]["id"]
 
@@ -83,8 +91,11 @@ async def test_every_selector_kind_round_trips(authenticated_context: HttpContex
     assert by_kind["oneapi"]["oneapiVersion"] == "2024.1"
     # The hard/soft split survives the trip; defaults apply where unset.
     assert by_kind["label"] == {
-        "kind": "label", "required": False, "weight": 10,
-        "key": "microscope", "value": "lightsheet",
+        "kind": "label",
+        "required": False,
+        "weight": 10,
+        "key": "microscope",
+        "value": "lightsheet",
     }
     assert by_kind["cuda"]["required"] is True
     assert by_kind["cuda"]["weight"] == 1

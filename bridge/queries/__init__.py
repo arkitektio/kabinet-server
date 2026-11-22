@@ -1,14 +1,14 @@
 """Queries for the bridge app."""
 
 from .app import app, app_store_totals
-from .repos import github_repo, oci_repo, repo_blok
-from .me import me
-from .definition import definition
-from .release import release, release_approval
-from .flavour import flavour, flavour_blok
-from .pod import pod, pod_for_agent, my_pod_at
-from .deployment import deployment
 from .backend import backend
+from .definition import definition
+from .deployment import deployment
+from .flavour import flavour, flavour_blok
+from .me import me
+from .pod import my_pod_at, pod, pod_for_agent
+from .release import release, release_approval
+from .repos import github_repo, oci_repo, repo_blok
 from .resource import resource
 
 __all__ = [

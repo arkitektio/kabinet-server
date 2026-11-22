@@ -14,24 +14,39 @@ That is all a service is. What can be *done* in this process is not declared her
 agent's to say (``kabinet_server.hook_agent``), a different thing with its own configuration.
 """
 
-
-from bridge import models
 from arkitekt_service.service import Service, organization_of
 
+from bridge import models
 from kabinet_server import descriptors
 from kabinet_server.contract import contract
 
-service = Service("kabinet", hosts=contract.description.hosts, description="The hub's app, flavour and repository registry.")
+service = Service(
+    "kabinet",
+    hosts=contract.description.hosts,
+    description="The hub's app, flavour and repository registry.",
+)
 
 
 # --- Structures: what kabinet hosts ---------------------------------------------------
 
 app = service.structure(models.App, "@kabinet/app")
-release = service.structure(models.Release, "@kabinet/release", describe=descriptors.release_descriptors)
-flavour = service.structure(models.Flavour, "@kabinet/flavour", describe=descriptors.flavour_descriptors)
-definition = service.structure(models.Definition, "@kabinet/definition", describe=descriptors.definition_descriptors)
-deployment = service.structure(models.Deployment, "@kabinet/deployment", describe=descriptors.placement_descriptors)
-pod = service.structure(models.Pod, "@kabinet/pod", describe=descriptors.placement_descriptors)
+release = service.structure(
+    models.Release, "@kabinet/release", describe=descriptors.release_descriptors
+)
+flavour = service.structure(
+    models.Flavour, "@kabinet/flavour", describe=descriptors.flavour_descriptors
+)
+definition = service.structure(
+    models.Definition,
+    "@kabinet/definition",
+    describe=descriptors.definition_descriptors,
+)
+deployment = service.structure(
+    models.Deployment, "@kabinet/deployment", describe=descriptors.placement_descriptors
+)
+pod = service.structure(
+    models.Pod, "@kabinet/pod", describe=descriptors.placement_descriptors
+)
 githubrepo = service.structure(models.GithubRepo, "@kabinet/githubrepo")
 
 

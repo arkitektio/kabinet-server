@@ -39,72 +39,18 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "basedpyright>=1.39.8",
+    "basedpyright==1.40.2",
     "pytest-cov>=7.1.0",
     "python-semantic-release>=9.21.0",
     "dokker>=2.8",
     "moto>=5.1.11",
     "pytest-asyncio>=1.1.0",
     "pytest-django>=4.11.1",
-    "ruff>=0.16.3",
+    "ruff==0.17.6",
 ]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "kabinet_server.settings_test"
-
-
-[tool.ruff]
-# `E` (pycodestyle) and `F` (pyflakes) are ruff's default select and are the CI gate:
-# `.github/workflows/lint.yaml` runs them as a required check. `ANN` and `D1` are
-# aspirational -- they flag every missing annotation and docstring in the tree, which is
-# a backlog rather than a regression, so they run advisory in the same workflow.
-#
-# These used to sit as top-level `extend-select`/`extend-ignore`, which ruff deprecated
-# in favour of the `lint` section and warned about on every invocation.
-
-# Exclude a variety of commonly ignored directories.
-exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".hg",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "venv",
-    "tests",
-    "examples",
-    "**/migrations",
-]
-
-# Same as Black.
-line-length = 300
-
-
-# Assume Python 3.12.
-target-version = "py312"
-
-[tool.ruff.lint]
-extend-select = ["ANN", "D1"]
-extend-ignore = ["ANN002", "ANN003", "D100", "ANN401"]
-
-[tool.ruff.lint.per-file-ignores]
-# `rekuest_core` is vendored from the rekuest service and has already drifted from the
-# upstream copy. Its long lines are single-line field descriptions that render into the
-# public schema; rewrapping them would widen the drift for no behavioural gain.
-"rekuest_core/**" = ["E501"]
 
 
 [tool.semantic_release]
@@ -152,16 +98,3 @@ exclude_commit_patterns = [
 
 
 
-[tool.basedpyright]
-# Scoped to the code this service owns. `rekuest_core` is vendored from the rekuest
-# service and `*/migrations` are generated, so neither is this repo's to fix.
-include = ["bridge", "datalayer", "kabinet_server"]
-exclude = ["**/migrations", "**/__pycache__", ".venv"]
-typeCheckingMode = "standard"
-reportMissingTypeStubs = false
-
-
-# `[tool.mypy]` used to sit here with `strict = true`, `ignore_missing_imports`, the
-# django-stubs and pydantic plugins -- and no workflow that ran it. A standard nothing
-# checks is not a standard. basedpyright is the checker CI actually invokes
-# (.github/workflows/typecheck.yaml); mypy and its plugins are gone with it.

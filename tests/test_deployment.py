@@ -27,22 +27,32 @@ DEPLOYMENT = """
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_update_deployment_persists_the_status(authenticated_context: HttpContext, flavour_id: str):
+async def test_update_deployment_persists_the_status(
+    authenticated_context: HttpContext, flavour_id: str
+):
     """The status round-trips: it is stored, and a later read sees it."""
     ids = await setup_pod(authenticated_context, flavour_id)
     deployment_id = ids["deployment"]["id"]
 
     # A fresh deployment starts PENDING, the same default Pod uses.
-    initial = (await execute(DEPLOYMENT, authenticated_context, {"id": deployment_id}))["deployment"]
+    initial = (await execute(DEPLOYMENT, authenticated_context, {"id": deployment_id}))[
+        "deployment"
+    ]
     assert initial["status"] == "PENDING"
 
     updated = (
-        await execute(UPDATE_DEPLOYMENT, authenticated_context, {"input": {"deployment": deployment_id, "status": "RUNNING"}})
+        await execute(
+            UPDATE_DEPLOYMENT,
+            authenticated_context,
+            {"input": {"deployment": deployment_id, "status": "RUNNING"}},
+        )
     )["updateDeployment"]
     assert updated["status"] == "RUNNING"
 
     # Read back through a separate query, so this cannot pass on the in-memory instance.
-    reread = (await execute(DEPLOYMENT, authenticated_context, {"id": deployment_id}))["deployment"]
+    reread = (await execute(DEPLOYMENT, authenticated_context, {"id": deployment_id}))[
+        "deployment"
+    ]
     assert reread["status"] == "RUNNING"
 
 
@@ -57,10 +67,16 @@ async def test_update_deployment_is_org_scoped(
     ids = await setup_pod(authenticated_context, flavour_id)
     deployment_id = ids["deployment"]["id"]
 
-    result = await execute_raw(UPDATE_DEPLOYMENT, other_org_context, {"input": {"deployment": deployment_id, "status": "STOPPED"}})
+    result = await execute_raw(
+        UPDATE_DEPLOYMENT,
+        other_org_context,
+        {"input": {"deployment": deployment_id, "status": "STOPPED"}},
+    )
 
     assert result.errors, "a cross-tenant update should not succeed"
 
     # And the status is untouched for the owning organization.
-    unchanged = (await execute(DEPLOYMENT, authenticated_context, {"id": deployment_id}))["deployment"]
+    unchanged = (
+        await execute(DEPLOYMENT, authenticated_context, {"id": deployment_id})
+    )["deployment"]
     assert unchanged["status"] == "PENDING"

@@ -26,10 +26,11 @@ django_asgi_app = get_asgi_application()
 
 from kante.router import router  # noqa: E402
 
-
 from .schema import schema  # noqa: E402
 
-_routed_application = router(schema=schema, django_asgi_app=django_asgi_app, schema_path="schema")
+_routed_application = router(
+    schema=schema, django_asgi_app=django_asgi_app, schema_path="schema"
+)
 
 
 # Nothing loops in here: stale embeddings are healed by the ``reembed_stale`` action the hub's

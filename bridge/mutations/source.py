@@ -21,7 +21,9 @@ async def import_repo(info: Info, input: inputs.ImportRepoInput) -> types.OciRep
     organization = info.context.request.organization
     registry, repository = oci.parse_reference(parsed.reference)
 
-    repo = await models.OciRepo.objects.filter(registry=registry, repository=repository, organization=organization).afirst()
+    repo = await models.OciRepo.objects.filter(
+        registry=registry, repository=repository, organization=organization
+    ).afirst()
     if repo is None:
         # Read before it is stored: a repository that cannot be read is not imported.
         repo = models.OciRepo(

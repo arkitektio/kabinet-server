@@ -1,8 +1,8 @@
-from kante.types import Info
-from bridge import types, inputs, models
-from bridge.scoping import aget_for_org, get_for_org
 import strawberry
+from kante.types import Info
 
+from bridge import inputs, models, types
+from bridge.scoping import aget_for_org, get_for_org
 from bridge.utils import aget_backend_for_info
 
 
@@ -43,7 +43,8 @@ async def update_pod(info: Info, input: inputs.UpdatePodInput) -> types.Pod:
 
     if parsed.local_id:
         pod = await aget_for_org(
-            models.Pod, info,
+            models.Pod,
+            info,
             backend=backend,
             pod_id=parsed.local_id,
         )

@@ -21,7 +21,12 @@ from bridge import models
 from . import bloks
 from .errors import DBError
 from .fetch import RepoContents
-from .models import AppImageInputModel, KabinetConfigFile, ReleaseDescriptorModel, RepoBlokModel
+from .models import (
+    AppImageInputModel,
+    KabinetConfigFile,
+    ReleaseDescriptorModel,
+    RepoBlokModel,
+)
 
 
 def upsert_app_image(
@@ -79,10 +84,18 @@ def upsert_app_image(
             repo=repo,
             image=image,
             manifest=manifest.model_dump(),
-            requirements=[requirement.model_dump() for requirement in app_image.inspection.requirements],
+            requirements=[
+                requirement.model_dump()
+                for requirement in app_image.inspection.requirements
+            ],
             bloks=[blok.model_dump(mode="json") for blok in app_image.inspection.bloks],
-            blok_renders=bloks.render_bloks(blok.model_dump(mode="json") for blok in app_image.inspection.bloks),
-            action_logos=bloks.action_logos((implementation.definition.unique_hash, implementation.logo) for implementation in app_image.inspection.implementations),
+            blok_renders=bloks.render_bloks(
+                blok.model_dump(mode="json") for blok in app_image.inspection.bloks
+            ),
+            action_logos=bloks.action_logos(
+                (implementation.definition.unique_hash, implementation.logo)
+                for implementation in app_image.inspection.implementations
+            ),
             inspection=app_image.inspection.model_dump(mode="json"),
         ),
     )
@@ -97,7 +110,9 @@ def upsert_app_image(
                 args=[port.model_dump() for port in definition.args],
                 returns=[port.model_dump() for port in definition.returns],
                 port_groups=[group.model_dump() for group in definition.port_groups],
-                kind=definition.kind.value if hasattr(definition.kind, "value") else definition.kind,
+                kind=definition.kind.value
+                if hasattr(definition.kind, "value")
+                else definition.kind,
                 pure=definition.pure,
                 idempotent=definition.idempotent,
                 name=definition.name,
@@ -128,9 +143,14 @@ def parse_config(
     every call site caught ``KeyError``, an exception this has never raised.
     """
     try:
-        return [upsert_app_image(app_image, organization, repo=repo) for app_image in config.app_images]
+        return [
+            upsert_app_image(app_image, organization, repo=repo)
+            for app_image in config.app_images
+        ]
     except Exception as e:
-        raise DBError(f"Could not create models from the app images of {repo}: {e}") from e
+        raise DBError(
+            f"Could not create models from the app images of {repo}: {e}"
+        ) from e
 
 
 @transaction.atomic
@@ -150,24 +170,34 @@ def apply_release(
     """
     manifest = descriptor.manifest
     if not descriptor.flavours:
-        raise DBError(f"The release {manifest.identifier} {manifest.version} in {repo} has no flavour.")
+        raise DBError(
+            f"The release {manifest.identifier} {manifest.version} in {repo} has no flavour."
+        )
 
-    app, _ = models.App.objects.select_for_update().get_or_create(identifier=manifest.identifier, organization=organization)
+    app, _ = models.App.objects.select_for_update().get_or_create(
+        identifier=manifest.identifier, organization=organization
+    )
     if app.source_id is None:
         app.source = repo
         app.save(update_fields=["source"])
     elif app.source_id != repo.pk:
-        raise DBError(f"The app '{manifest.identifier}' comes from {app.source}; {repo} cannot publish releases of it.")
+        raise DBError(
+            f"The app '{manifest.identifier}' comes from {app.source}; {repo} cannot publish releases of it."
+        )
 
     for flavour in descriptor.flavours:
-        release = upsert_app_image(flavour.to_app_image(manifest), organization, repo=repo).release
+        release = upsert_app_image(
+            flavour.to_app_image(manifest), organization, repo=repo
+        ).release
 
     release.channel = descriptor.channel
     release.revision = descriptor.revision
     release.save(update_fields=["channel", "revision"])
 
     if descriptor.channel is not None:
-        superseded = models.Release.objects.filter(app=app, channel=descriptor.channel).exclude(pk=release.pk)
+        superseded = models.Release.objects.filter(
+            app=app, channel=descriptor.channel
+        ).exclude(pk=release.pk)
         superseded.exclude(flavours__deployments__isnull=False).delete()
 
     return release
@@ -189,8 +219,17 @@ def apply_bloks(
         written = []
         for blok in published:
             declared = blok.declaration
-            dependencies = [dependency.model_dump(mode="json") for dependency in declared.dependencies]
-            render = bloks.render_blok({"source": blok.source, "context": declared.context.value, **declared.declared()})
+            dependencies = [
+                dependency.model_dump(mode="json")
+                for dependency in declared.dependencies
+            ]
+            render = bloks.render_blok(
+                {
+                    "source": blok.source,
+                    "context": declared.context.value,
+                    **declared.declared(),
+                }
+            )
             row, _ = models.RepoBlok.objects.update_or_create(
                 repo=repo,
                 key=declared.key,
@@ -211,13 +250,17 @@ def apply_bloks(
                 ),
             )
             written.append(row)
-        models.RepoBlok.objects.filter(repo=repo).exclude(key__in=[blok.declaration.key for blok in published]).delete()
+        models.RepoBlok.objects.filter(repo=repo).exclude(
+            key__in=[blok.declaration.key for blok in published]
+        ).delete()
         return written
     except Exception as e:
         raise DBError(f"Could not write the bloks of {repo}: {e}") from e
 
 
-def apply_contents(contents: RepoContents, repo: models.GithubRepo, organization: models.Organization) -> None:
+def apply_contents(
+    contents: RepoContents, repo: models.GithubRepo, organization: models.Organization
+) -> None:
     """Write what a scan of ``repo`` found (``fetch.RepoContents``). A file it does not publish leaves its rows alone, except bloks: no bloks file, no bloks."""
     with transaction.atomic():
         if contents.config is not None:

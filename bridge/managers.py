@@ -66,10 +66,19 @@ def accepts_object(port: str, field: str, object_param: str) -> str:
 
 def candidate_object(item: PortMatchInput) -> str:
     """The match's descriptors as the object they describe (a repeated key: the last wins)."""
-    return json.dumps({descriptor.key: descriptor.value for descriptor in item.descriptors or []})
+    return json.dumps(
+        {descriptor.key: descriptor.value for descriptor in item.descriptors or []}
+    )
 
 
-def build_port_conditions(item: PortMatchInput, port: str, value_path: str, field: str, parts: list[str], params: dict) -> None:
+def build_port_conditions(
+    item: PortMatchInput,
+    port: str,
+    value_path: str,
+    field: str,
+    parts: list[str],
+    params: dict,
+) -> None:
     """What ``item`` asks of one port, besides its position: shape, nullability, constraints.
 
     ``nullable`` and ``dimension`` used to be dropped here without a word, and ``descriptors``
@@ -94,7 +103,9 @@ def build_port_conditions(item: PortMatchInput, port: str, value_path: str, fiel
 
     if item.nullable is not None:
         # A stored port states its nullability (``PortModel.nullable`` defaults to false).
-        parts.append(f"COALESCE(({port}->>'nullable')::boolean, false) = %({value_path}_nullable)s")
+        parts.append(
+            f"COALESCE(({port}->>'nullable')::boolean, false) = %({value_path}_nullable)s"
+        )
         params[f"{value_path}_nullable"] = item.nullable
 
     if item.descriptors:
@@ -102,7 +113,9 @@ def build_port_conditions(item: PortMatchInput, port: str, value_path: str, fiel
         params[f"{value_path}_object"] = candidate_object(item)
 
 
-def build_child_recursively(item: PortMatchInput, prefix, value_path, parts, params, field: str = "requires"):
+def build_child_recursively(
+    item: PortMatchInput, prefix, value_path, parts, params, field: str = "requires"
+):
     build_port_conditions(item, prefix, value_path, field, parts, params)
 
     if item.children:
@@ -113,7 +126,13 @@ def build_child_recursively(item: PortMatchInput, prefix, value_path, parts, par
         raise ValueError("Children should not be present in the child item")
 
 
-def build_sql_for_item_recursive(item: PortMatchInput, index: int, at_value: int | None = None, prefix: str = "arg", field: str = "requires"):
+def build_sql_for_item_recursive(
+    item: PortMatchInput,
+    index: int,
+    at_value: int | None = None,
+    prefix: str = "arg",
+    field: str = "requires",
+):
     sql_parts = []
     params = {}
 
@@ -146,16 +165,18 @@ def build_sql_for_item_recursive(item: PortMatchInput, index: int, at_value: int
 def build_params(
     search_params: list[PortMatchInput] | None,
     type: t.Literal["args", "returns"] = "args",
-    force_length: t.Optional[int] = None,
-    force_non_nullable_length: t.Optional[int] = None,
-    force_structure_length: t.Optional[int] = None,
+    force_length: int | None = None,
+    force_non_nullable_length: int | None = None,
+    force_structure_length: int | None = None,
     model: str = "bridge_definition",
 ):
     individual_queries = []
     all_params = {}
     if search_params:
         for index, item in enumerate(search_params):
-            sql_part, params = build_sql_for_item_recursive(item, index, at_value=item.at, field=CONSTRAINT_FIELD[type])
+            sql_part, params = build_sql_for_item_recursive(
+                item, index, at_value=item.at, field=CONSTRAINT_FIELD[type]
+            )
             if not sql_part:
                 # Every field on `PortMatchInput` is optional, so a client can send `{}`.
                 # That produced an empty predicate and rendered
@@ -195,9 +216,9 @@ def build_params(
 def get_action_ids_by_demands(
     demands: list[PortMatchInput] = None,
     type: t.Literal["args", "returns"] = "args",
-    force_length: t.Optional[int] = None,
-    force_non_nullable_length: t.Optional[int] = None,
-    force_structure_length: t.Optional[int] = None,
+    force_length: int | None = None,
+    force_non_nullable_length: int | None = None,
+    force_structure_length: int | None = None,
     model: str = "bridge_definition",
 ):
     if type not in ["args", "returns"]:

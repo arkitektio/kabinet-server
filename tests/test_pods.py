@@ -9,10 +9,9 @@ used by ``test_retrieve_repo.py::test_db_deployments``.
 """
 
 import pytest
-
 from kante.context import HttpContext
-from tests.utils import execute
 
+from tests.utils import execute
 
 # ---------------------------------------------------------------------------
 # GraphQL documents
@@ -41,9 +40,17 @@ APPROVE_RELEASE = """
 """
 
 
-async def approve(context: HttpContext, flavour_id: str, *, backends: list[str] | None = None, mandate: str = "mandate-1") -> dict:
+async def approve(
+    context: HttpContext,
+    flavour_id: str,
+    *,
+    backends: list[str] | None = None,
+    mandate: str = "mandate-1",
+) -> dict:
     """Approve the flavour's release the way the frontend does after creating the lok mandate."""
-    release = (await execute(APPROVAL_TARGET, context, {"id": flavour_id}))["flavour"]["release"]
+    release = (await execute(APPROVAL_TARGET, context, {"id": flavour_id}))["flavour"][
+        "release"
+    ]
     return (
         await execute(
             APPROVE_RELEASE,
@@ -102,18 +109,41 @@ async def setup_pod(
 ) -> dict:
     """Drive declareBackend -> createDeployment -> declareResource -> createPod through
     GraphQL and return the created ids (and the create_pod payload)."""
-    backend = (await execute(DECLARE_BACKEND, context, {"input": {"name": "my-backend", "kind": "docker"}}))["declareBackend"]
+    backend = (
+        await execute(
+            DECLARE_BACKEND,
+            context,
+            {"input": {"name": "my-backend", "kind": "docker"}},
+        )
+    )["declareBackend"]
 
     approval = await approve(context, flavour_id)
     deployment = (
-        await execute(CREATE_DEPLOYMENT, context, {"input": {"flavour": flavour_id, "localId": "dep-1", "approval": approval["id"]}})
+        await execute(
+            CREATE_DEPLOYMENT,
+            context,
+            {
+                "input": {
+                    "flavour": flavour_id,
+                    "localId": "dep-1",
+                    "approval": approval["id"],
+                }
+            },
+        )
     )["createDeployment"]
 
     resource = (
         await execute(
             DECLARE_RESOURCE,
             context,
-            {"input": {"backend": backend["id"], "localId": resource_local_id, "name": "gpu", "qualifiers": [{"key": "gpu", "value": "true"}]}},
+            {
+                "input": {
+                    "backend": backend["id"],
+                    "localId": resource_local_id,
+                    "name": "gpu",
+                    "qualifiers": [{"key": "gpu", "value": "true"}],
+                }
+            },
         )
     )["declareResource"]
 
@@ -121,11 +151,23 @@ async def setup_pod(
         await execute(
             CREATE_POD,
             context,
-            {"input": {"deployment": deployment["id"], "localId": pod_local_id, "resource": resource["id"], "clientId": client_id}},
+            {
+                "input": {
+                    "deployment": deployment["id"],
+                    "localId": pod_local_id,
+                    "resource": resource["id"],
+                    "clientId": client_id,
+                }
+            },
         )
     )["createPod"]
 
-    return {"backend": backend, "deployment": deployment, "resource": resource, "pod": pod}
+    return {
+        "backend": backend,
+        "deployment": deployment,
+        "resource": resource,
+        "pod": pod,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -135,11 +177,18 @@ async def setup_pod(
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_backend_deployment_resource_pod_lifecycle(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_backend_deployment_resource_pod_lifecycle(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """The full create chain, each step consuming the previous step's id."""
     setup = await setup_pod(authenticated_context, flavour_id)
 
-    backend, deployment, resource, pod = setup["backend"], setup["deployment"], setup["resource"], setup["pod"]
+    backend, deployment, resource, pod = (
+        setup["backend"],
+        setup["deployment"],
+        setup["resource"],
+        setup["pod"],
+    )
 
     assert backend["id"] is not None
     assert backend["name"] == "my-backend"
@@ -161,74 +210,146 @@ async def test_backend_deployment_resource_pod_lifecycle(authenticated_context: 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_pod_queries_and_lookups(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_pod_queries_and_lookups(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """Single-object queries, list queries, and the my_pod_at / pod_for_agent lookups."""
     setup = await setup_pod(authenticated_context, flavour_id)
     ids = {k: setup[k]["id"] for k in ("backend", "deployment", "resource", "pod")}
 
-    pod = (await execute("query($id: ID!){ pod(id: $id){ id podId } }", authenticated_context, {"id": ids["pod"]}))["pod"]
+    pod = (
+        await execute(
+            "query($id: ID!){ pod(id: $id){ id podId } }",
+            authenticated_context,
+            {"id": ids["pod"]},
+        )
+    )["pod"]
     assert pod["id"] == ids["pod"]
 
     pods = (await execute("query{ pods { id podId } }", authenticated_context))["pods"]
     assert [p["id"] for p in pods] == [ids["pod"]]
 
-    backend = (await execute("query($id: ID!){ backend(id: $id){ id name } }", authenticated_context, {"id": ids["backend"]}))["backend"]
+    backend = (
+        await execute(
+            "query($id: ID!){ backend(id: $id){ id name } }",
+            authenticated_context,
+            {"id": ids["backend"]},
+        )
+    )["backend"]
     assert backend["name"] == "my-backend"
 
-    backends = (await execute("query{ backends { id } }", authenticated_context))["backends"]
+    backends = (await execute("query{ backends { id } }", authenticated_context))[
+        "backends"
+    ]
     assert [b["id"] for b in backends] == [ids["backend"]]
 
-    resource = (await execute("query($id: ID!){ resource(id: $id){ id resourceId } }", authenticated_context, {"id": ids["resource"]}))["resource"]
+    resource = (
+        await execute(
+            "query($id: ID!){ resource(id: $id){ id resourceId } }",
+            authenticated_context,
+            {"id": ids["resource"]},
+        )
+    )["resource"]
     assert resource["resourceId"] == "res-1"
 
-    resources = (await execute("query{ resources { id } }", authenticated_context))["resources"]
+    resources = (await execute("query{ resources { id } }", authenticated_context))[
+        "resources"
+    ]
     assert [r["id"] for r in resources] == [ids["resource"]]
 
-    deployment = (await execute("query($id: ID!){ deployment(id: $id){ id localId } }", authenticated_context, {"id": ids["deployment"]}))["deployment"]
+    deployment = (
+        await execute(
+            "query($id: ID!){ deployment(id: $id){ id localId } }",
+            authenticated_context,
+            {"id": ids["deployment"]},
+        )
+    )["deployment"]
     assert deployment["localId"] == "dep-1"
 
     # my_pod_at resolves the backend from the (user, client, org) context — no instance_id.
-    my_pod = (await execute("query($localId: ID!){ myPodAt(localId: $localId){ id podId } }", authenticated_context, {"localId": "pod-1"}))["myPodAt"]
+    my_pod = (
+        await execute(
+            "query($localId: ID!){ myPodAt(localId: $localId){ id podId } }",
+            authenticated_context,
+            {"localId": "pod-1"},
+        )
+    )["myPodAt"]
     assert my_pod["id"] == ids["pod"]
 
     # No pod at that local id is an answer (null), not an error.
-    missing = (await execute("query($localId: ID!){ myPodAt(localId: $localId){ id } }", authenticated_context, {"localId": "nope"}))["myPodAt"]
+    missing = (
+        await execute(
+            "query($localId: ID!){ myPodAt(localId: $localId){ id } }",
+            authenticated_context,
+            {"localId": "nope"},
+        )
+    )["myPodAt"]
     assert missing is None
 
-    for_agent = (await execute("query($clientId: ID!){ podForAgent(clientId: $clientId){ id clientId } }", authenticated_context, {"clientId": "client-1"}))["podForAgent"]
+    for_agent = (
+        await execute(
+            "query($clientId: ID!){ podForAgent(clientId: $clientId){ id clientId } }",
+            authenticated_context,
+            {"clientId": "client-1"},
+        )
+    )["podForAgent"]
     assert for_agent["id"] == ids["pod"]
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_update_pod_and_dump_logs(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_update_pod_and_dump_logs(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     setup = await setup_pod(authenticated_context, flavour_id)
     pod_id = setup["pod"]["id"]
 
     updated = (
-        await execute(UPDATE_POD, authenticated_context, {"input": {"pod": pod_id, "localId": None, "status": "RUNNING"}})
+        await execute(
+            UPDATE_POD,
+            authenticated_context,
+            {"input": {"pod": pod_id, "localId": None, "status": "RUNNING"}},
+        )
     )["updatePod"]
     assert updated["id"] == pod_id
     assert updated["status"] == "RUNNING"
 
-    dump = (await execute(DUMP_LOGS, authenticated_context, {"input": {"pod": pod_id, "logs": "hello logs"}}))["dumpLogs"]
+    dump = (
+        await execute(
+            DUMP_LOGS,
+            authenticated_context,
+            {"input": {"pod": pod_id, "logs": "hello logs"}},
+        )
+    )["dumpLogs"]
     assert dump["id"] is not None
     assert dump["logs"] == "hello logs"
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_update_pod_omitting_the_other_identifier(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_update_pod_omitting_the_other_identifier(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """Both identifiers are nullable, so a client may leave either out entirely."""
     setup = await setup_pod(authenticated_context, flavour_id)
     pod_id = setup["pod"]["id"]
 
     by_local_id = (
-        await execute(UPDATE_POD, authenticated_context, {"input": {"localId": "pod-1", "status": "RUNNING"}})
+        await execute(
+            UPDATE_POD,
+            authenticated_context,
+            {"input": {"localId": "pod-1", "status": "RUNNING"}},
+        )
     )["updatePod"]
     assert by_local_id == {"id": pod_id, "status": "RUNNING"}
 
-    by_pod = (await execute(UPDATE_POD, authenticated_context, {"input": {"pod": pod_id, "status": "STOPPED"}}))["updatePod"]
+    by_pod = (
+        await execute(
+            UPDATE_POD,
+            authenticated_context,
+            {"input": {"pod": pod_id, "status": "STOPPED"}},
+        )
+    )["updatePod"]
     assert by_pod == {"id": pod_id, "status": "STOPPED"}
 
 
@@ -238,7 +359,9 @@ async def test_delete_pod(authenticated_context: HttpContext, flavour_id: str) -
     setup = await setup_pod(authenticated_context, flavour_id)
     pod_id = setup["pod"]["id"]
 
-    deleted = await execute(DELETE_POD, authenticated_context, {"input": {"id": pod_id}})
+    deleted = await execute(
+        DELETE_POD, authenticated_context, {"input": {"id": pod_id}}
+    )
     assert deleted["deletePod"] is not None
 
     pods = (await execute("query{ pods { id } }", authenticated_context))["pods"]
@@ -247,7 +370,9 @@ async def test_delete_pod(authenticated_context: HttpContext, flavour_id: str) -
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_pods_ordering_and_filtering(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_pods_ordering_and_filtering(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """Exercise the new `ordering` and `filters` inputs on the pods list query."""
     setup = await setup_pod(authenticated_context, flavour_id, pod_local_id="pod-a")
     # A second pod on the same backend (clients are 1:1 with backends).
@@ -255,7 +380,13 @@ async def test_pods_ordering_and_filtering(authenticated_context: HttpContext, f
         await execute(
             CREATE_POD,
             authenticated_context,
-            {"input": {"deployment": setup["deployment"]["id"], "localId": "pod-b", "clientId": "client-1"}},
+            {
+                "input": {
+                    "deployment": setup["deployment"]["id"],
+                    "localId": "pod-b",
+                    "clientId": "client-1",
+                }
+            },
         )
     )["createPod"]
 
@@ -277,7 +408,9 @@ async def test_pods_ordering_and_filtering(authenticated_context: HttpContext, f
             {"ordering": [{"id": "DESC"}]},
         )
     )["pods"]
-    assert [p["id"] for p in desc] == sorted([first_id, second_id], key=int, reverse=True)
+    assert [p["id"] for p in desc] == sorted(
+        [first_id, second_id], key=int, reverse=True
+    )
 
     # filters: narrow to a single pod by id.
     filtered = (
@@ -292,7 +425,9 @@ async def test_pods_ordering_and_filtering(authenticated_context: HttpContext, f
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_list_queries_are_org_scoped(authenticated_context: HttpContext, other_org_context: HttpContext, flavour_id: str) -> None:
+async def test_list_queries_are_org_scoped(
+    authenticated_context: HttpContext, other_org_context: HttpContext, flavour_id: str
+) -> None:
     """Backend/Pod/Resource list queries prescope by organization.
 
     Backend filters on its own ``organization``; Pod and Resource inherit it via

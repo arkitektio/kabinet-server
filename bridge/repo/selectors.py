@@ -26,7 +26,7 @@ rekuest, ...) are Requirements (``InspectionInput.requirements``), which the
 deployment composes — selectors only constrain *hardware placement*.
 """
 
-from typing import Annotated, List, Literal, Optional, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -59,42 +59,82 @@ class CpuSelector(BaseSelector):
     """CPU requirements of the flavour."""
 
     kind: Literal["cpu"] = "cpu"
-    min_count: Optional[int] = Field(default=None, alias="minCount", description="The minimum number of CPU cores required.")
-    frequency: Optional[float] = Field(default=None, description="The minimum CPU frequency required, in MHz.")
-    arch: Optional[str] = Field(default=None, description="The CPU architecture the image is built for (docker platform / kubernetes.io/arch values, e.g. 'amd64', 'arm64').")
+    min_count: int | None = Field(
+        default=None,
+        alias="minCount",
+        description="The minimum number of CPU cores required.",
+    )
+    frequency: float | None = Field(
+        default=None, description="The minimum CPU frequency required, in MHz."
+    )
+    arch: str | None = Field(
+        default=None,
+        description="The CPU architecture the image is built for (docker platform / kubernetes.io/arch values, e.g. 'amd64', 'arm64').",
+    )
 
 
 class RamSelector(BaseSelector):
     """System-memory requirements of the flavour."""
 
     kind: Literal["ram"] = "ram"
-    min: Optional[int] = Field(default=None, description="The minimum amount of system memory required, in MB.")
+    min: int | None = Field(
+        default=None, description="The minimum amount of system memory required, in MB."
+    )
 
 
 class CudaSelector(BaseSelector):
     """Requires a CUDA-capable (NVIDIA) GPU."""
 
     kind: Literal["cuda"] = "cuda"
-    compute_capability: Optional[str] = Field(default=None, alias="computeCapability", description="The minimum CUDA compute capability required (e.g. '8.6') — NVIDIA's standard placement key.")
-    cuda_version: Optional[str] = Field(default=None, alias="cudaVersion", description="The minimum CUDA (driver/runtime) version required.")
-    memory: Optional[int] = Field(default=None, description="The minimum GPU memory (VRAM) required, in MB.")
-    count: Optional[int] = Field(default=None, description="The number of GPUs required (a Docker device-reservation count; unset lets the deployer decide).")
-    cuda_cores: Optional[int] = Field(default=None, alias="cudaCores", description="Deprecated: the minimum number of CUDA cores. Prefer computeCapability and memory.")
+    compute_capability: str | None = Field(
+        default=None,
+        alias="computeCapability",
+        description="The minimum CUDA compute capability required (e.g. '8.6') — NVIDIA's standard placement key.",
+    )
+    cuda_version: str | None = Field(
+        default=None,
+        alias="cudaVersion",
+        description="The minimum CUDA (driver/runtime) version required.",
+    )
+    memory: int | None = Field(
+        default=None, description="The minimum GPU memory (VRAM) required, in MB."
+    )
+    count: int | None = Field(
+        default=None,
+        description="The number of GPUs required (a Docker device-reservation count; unset lets the deployer decide).",
+    )
+    cuda_cores: int | None = Field(
+        default=None,
+        alias="cudaCores",
+        description="Deprecated: the minimum number of CUDA cores. Prefer computeCapability and memory.",
+    )
 
 
 class RocmSelector(BaseSelector):
     """Requires a ROCm-capable (AMD) GPU."""
 
     kind: Literal["rocm"] = "rocm"
-    api_version: Optional[str] = Field(default=None, alias="apiVersion", description="The minimum ROCm API version required.")
-    api_thing: Optional[str] = Field(default=None, alias="apiThing", description="An additional ROCm capability qualifier.")
+    api_version: str | None = Field(
+        default=None,
+        alias="apiVersion",
+        description="The minimum ROCm API version required.",
+    )
+    api_thing: str | None = Field(
+        default=None,
+        alias="apiThing",
+        description="An additional ROCm capability qualifier.",
+    )
 
 
 class OneApiSelector(BaseSelector):
     """Requires a oneAPI-capable (Intel) accelerator."""
 
     kind: Literal["oneapi"] = "oneapi"
-    oneapi_version: Optional[str] = Field(default=None, alias="oneapiVersion", description="The minimum oneAPI version required.")
+    oneapi_version: str | None = Field(
+        default=None,
+        alias="oneapiVersion",
+        description="The minimum oneAPI version required.",
+    )
 
 
 class LabelSelector(BaseSelector):
@@ -102,11 +142,19 @@ class LabelSelector(BaseSelector):
 
     kind: Literal["label"] = "label"
     key: str = Field(description="The qualifier key the backend resource must carry.")
-    value: Optional[str] = Field(default=None, description="The value the qualifier must have; null means the key merely has to exist.")
+    value: str | None = Field(
+        default=None,
+        description="The value the qualifier must have; null means the key merely has to exist.",
+    )
 
 
 Selector = Annotated[
-    Union[CpuSelector, RamSelector, CudaSelector, RocmSelector, OneApiSelector, LabelSelector],
+    CpuSelector
+    | RamSelector
+    | CudaSelector
+    | RocmSelector
+    | OneApiSelector
+    | LabelSelector,
     Field(discriminator="kind"),
 ]
 
@@ -114,7 +162,7 @@ Selector = Annotated[
 class SelectorFieldJson(BaseModel):
     """The shape of the ``Flavour.selectors`` JSONField."""
 
-    selectors: List[Selector] = Field(
+    selectors: list[Selector] = Field(
         description="The selectors are used to place this image on backends.",
         default_factory=list,
     )

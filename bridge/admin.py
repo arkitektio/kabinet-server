@@ -1,10 +1,10 @@
 """Admin configuration for the bridge app."""
 
 from django.contrib import admin
+from simple_history.admin import SimpleHistoryAdmin
 
 # Register your models here.
 from bridge import models
-from simple_history.admin import SimpleHistoryAdmin
 
 
 class HistoryAdmin(SimpleHistoryAdmin):  # type: ignore

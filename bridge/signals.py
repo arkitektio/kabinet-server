@@ -1,14 +1,17 @@
-from django.db import transaction
-from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
-from bridge import models, channel_signals, channels
-from typing import Type
-from django.conf import settings
-from authentikate.models import Organization
 import re
 
+from authentikate.models import Organization
+from django.conf import settings
+from django.db import transaction
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 
-def _broadcast_pod(signal: channel_signals.PodSignal, organization_id: object, pod_id: object) -> None:
+from bridge import channel_signals, channels, models
+
+
+def _broadcast_pod(
+    signal: channel_signals.PodSignal, organization_id: object, pod_id: object
+) -> None:
     """Publish a pod signal to the pod's own group and its organization's group.
 
     Deferred to commit. These fire from ``post_save``/``post_delete``, which run *before*
@@ -26,26 +29,48 @@ def _broadcast_pod(signal: channel_signals.PodSignal, organization_id: object, p
 
 
 @receiver(post_save, sender=models.Pod)
-def publish_pod_change(sender: Type[models.Pod], instance: models.Pod = None, created: bool = False, **kwargs) -> None:
+def publish_pod_change(
+    sender: type[models.Pod],
+    instance: models.Pod = None,
+    created: bool = False,
+    **kwargs,
+) -> None:
     """Announce a pod creation or update to its subscribers."""
-    signal = channel_signals.PodSignal(create=instance.id) if created else channel_signals.PodSignal(update=instance.id)
+    signal = (
+        channel_signals.PodSignal(create=instance.id)
+        if created
+        else channel_signals.PodSignal(update=instance.id)
+    )
     _broadcast_pod(signal, instance.backend.organization_id, instance.id)
 
 
 @receiver(post_save, sender=models.LogDump)
-def publish_log_dump(sender: Type[models.LogDump], instance: models.LogDump, created: bool = False, **kwargs: object) -> None:
+def publish_log_dump(
+    sender: type[models.LogDump],
+    instance: models.LogDump,
+    created: bool = False,
+    **kwargs: object,
+) -> None:
     """A new log dump changes its pod's `latestLogDump`: announce it as an update of the pod.
 
     Without it a client waiting for the logs it asked for could only poll the pod.
     """
     if not created:
         return
-    pod = models.Pod.objects.select_related("backend").only("id", "backend__organization_id").get(id=instance.pod_id)
-    _broadcast_pod(channel_signals.PodSignal(update=pod.id), pod.backend.organization_id, pod.id)
+    pod = (
+        models.Pod.objects.select_related("backend")
+        .only("id", "backend__organization_id")
+        .get(id=instance.pod_id)
+    )
+    _broadcast_pod(
+        channel_signals.PodSignal(update=pod.id), pod.backend.organization_id, pod.id
+    )
 
 
 @receiver(post_delete, sender=models.Pod)
-def publish_pod_del(sender: Type[models.Pod], instance: models.Pod = None, **kwargs) -> None:
+def publish_pod_del(
+    sender: type[models.Pod], instance: models.Pod = None, **kwargs
+) -> None:
     """Announce a pod deletion to its subscribers."""
     _broadcast_pod(
         channel_signals.PodSignal(delete=instance.id),
@@ -59,13 +84,19 @@ def _iter_default_repo_identifiers() -> list[str]:
 
     ensured_repos = getattr(settings, "ENSURED_REPOS", [])
     if isinstance(ensured_repos, list):
-        identifiers.extend([repo for repo in ensured_repos if isinstance(repo, str) and repo])
+        identifiers.extend(
+            [repo for repo in ensured_repos if isinstance(repo, str) and repo]
+        )
 
     default_repos = getattr(settings, "DEFAULT_REPOS", [])
     if isinstance(default_repos, list):
-        identifiers.extend([repo for repo in default_repos if isinstance(repo, str) and repo])
+        identifiers.extend(
+            [repo for repo in default_repos if isinstance(repo, str) and repo]
+        )
     elif isinstance(default_repos, dict):
-        identifiers.extend([repo for repo in default_repos.values() if isinstance(repo, str) and repo])
+        identifiers.extend(
+            [repo for repo in default_repos.values() if isinstance(repo, str) and repo]
+        )
 
     # Preserve order while removing duplicates.
     return list(dict.fromkeys(identifiers))
@@ -93,7 +124,7 @@ def _parse_repo_identifier(identifier: str) -> tuple[str, str, str]:
 
 @receiver(post_save, sender=Organization)
 def ensure_default_repos_for_organization(
-    sender: Type[Organization],
+    sender: type[Organization],
     instance: Organization | None = None,
     created: bool = False,
     **kwargs,

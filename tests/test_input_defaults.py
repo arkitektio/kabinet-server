@@ -19,7 +19,9 @@ def test_every_nullable_input_field_has_a_default():
     missing = []
     for name, converted in schema.schema_converter.type_map.items():
         definition = converted.definition
-        if not (isinstance(definition, StrawberryObjectDefinition) and definition.is_input):
+        if not (
+            isinstance(definition, StrawberryObjectDefinition) and definition.is_input
+        ):
             continue
         for field in definition.fields:
             if (

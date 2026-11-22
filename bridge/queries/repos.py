@@ -1,7 +1,8 @@
-from bridge import types, models
-from bridge.scoping import get_for_org
-from kante.types import Info
 import strawberry
+from kante.types import Info
+
+from bridge import models, types
+from bridge.scoping import get_for_org
 
 
 def github_repo(info: Info, id: strawberry.ID) -> types.GithubRepo:

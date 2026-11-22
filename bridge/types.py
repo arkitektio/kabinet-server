@@ -1,35 +1,37 @@
+import datetime
 import hashlib
 import json
 import re
-import datetime
-from typing import List, Optional
+from typing import Optional
 
 import strawberry
 import strawberry.django
 import strawberry_django
-from strawberry.scalars import JSON
 from authentikate import models as auth_models
-from bridge import enums, filters, models, scalars, scoping, types
-from bridge import filters as filters_module
-from strawberry_django.filters import apply as apply_filters
-from bridge.repo import bloks as repo_bloks
-from bridge.repo import selectors
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Count, Prefetch, Q
 from django.db.models.fields.json import KeyTextTransform
+from kante.types import Info
+from strawberry import auto
+from strawberry.scalars import JSON
+from strawberry_django.filters import apply as apply_filters
 from strawberry_django.optimizer import optimize
+
+from bridge import enums, filters, models, scalars, scoping, types
+from bridge import filters as filters_module
+from bridge.repo import bloks as repo_bloks
+from bridge.repo import selectors
 from embeddings import search
 from embeddings.strawberry import Embedding, embedding_of
-from kante.types import Info
 from rekuest_core import enums as rkenums
 from rekuest_core import scalars as rkscalars
 from rekuest_core.objects import models as rmodels
 from rekuest_core.objects import types as rtypes
-from strawberry import auto
+
 from .type_gen import create_stats_type
 
 
-def stored_logo(store: models.MediaStore | None) -> Optional[str]:
+def stored_logo(store: models.MediaStore | None) -> str | None:
     """The path of an ingested logo, or None when none has been ingested.
 
     A logo lives in the datalayer as a ``MediaStore`` row, but the API has always declared
@@ -39,9 +41,7 @@ def stored_logo(store: models.MediaStore | None) -> Optional[str]:
     return store.path if store is not None else None
 
 
-DESCRIPTORS_DESCRIPTION = (
-    "This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test (e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none"
-)
+DESCRIPTORS_DESCRIPTION = "This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test (e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none"
 
 
 def resolve_descriptors(root) -> JSON:  # noqa: ANN001 - the model instance behind any hosted type
@@ -67,7 +67,9 @@ def build_prescoped_queryset(info: Info, queryset, field: str | None = None):
     """
     field = field or scoping.organization_path(queryset.model)
     if field is None:
-        raise LookupError(f"{queryset.model.__name__} has no path to an organization and is not registered in bridge.scoping.UNSCOPED_MODELS, so it cannot be scoped to the requesting organization.")
+        raise LookupError(
+            f"{queryset.model.__name__} has no path to an organization and is not registered in bridge.scoping.UNSCOPED_MODELS, so it cannot be scoped to the requesting organization."
+        )
     return queryset.filter(**{field: info.context.request.organization})
 
 
@@ -78,43 +80,75 @@ def build_prescoper(field=None):
     return prescoper
 
 
-@strawberry_django.type(auth_models.User, description="Represents an authenticated user.")
+@strawberry_django.type(
+    auth_models.User, description="Represents an authenticated user."
+)
 class User:
-    sub: strawberry.ID = strawberry_django.field(description="The subject identifier of the user.")
+    sub: strawberry.ID = strawberry_django.field(
+        description="The subject identifier of the user."
+    )
 
 
-@strawberry_django.type(auth_models.Device, description="Represents a device assigned to users within an organization.")
+@strawberry_django.type(
+    auth_models.Device,
+    description="Represents a device assigned to users within an organization.",
+)
 class Device:
     id: strawberry.ID = strawberry_django.field(description="Unique ID of the device.")
-    device_id: strawberry.ID = strawberry_django.field(description="The device identifier.")
+    device_id: strawberry.ID = strawberry_django.field(
+        description="The device identifier."
+    )
 
 
-@strawberry_django.type(auth_models.App, description="A client application registered with the authentication provider.")
+@strawberry_django.type(
+    auth_models.App,
+    description="A client application registered with the authentication provider.",
+)
 class ClientApp:
     id: strawberry.ID = strawberry_django.field(description="Unique ID of the app.")
-    identifier: str = strawberry_django.field(description="The unique identifier of the app.")
+    identifier: str = strawberry_django.field(
+        description="The unique identifier of the app."
+    )
 
 
-@strawberry_django.type(auth_models.Release, description="A released version of a client application.")
+@strawberry_django.type(
+    auth_models.Release, description="A released version of a client application."
+)
 class ClientRelease:
     id: strawberry.ID = strawberry_django.field(description="Unique ID of the release.")
-    app: ClientApp = strawberry_django.field(description="The app this release belongs to.")
+    app: ClientApp = strawberry_django.field(
+        description="The app this release belongs to."
+    )
     version: str = strawberry_django.field(description="Version string of the release.")
 
 
-@strawberry_django.type(auth_models.Client, pagination=True, description="Represents a registered OAuth2 client.")
+@strawberry_django.type(
+    auth_models.Client,
+    pagination=True,
+    description="Represents a registered OAuth2 client.",
+)
 class Client:
     id: strawberry.ID = strawberry_django.field(description="Unique ID of the client.")
     name: str = strawberry_django.field(description="Name of the client.")
     client_id: str = strawberry_django.field(description="OAuth2 client ID.")
-    release: ClientRelease | None = strawberry_django.field(description="Release associated with the client.")
-    device: Device | None = strawberry_django.field(description="Device associated with the client.")
+    release: ClientRelease | None = strawberry_django.field(
+        description="Release associated with the client."
+    )
+    device: Device | None = strawberry_django.field(
+        description="Device associated with the client."
+    )
 
 
-@strawberry_django.type(auth_models.Organization, description="Represents an organization in the system.")
+@strawberry_django.type(
+    auth_models.Organization, description="Represents an organization in the system."
+)
 class Organization:
-    id: strawberry.ID = strawberry_django.field(description="This service's id of the organization.")
-    identifier: str = strawberry_django.field(description="The organization across issuers and services: `<issuer>#<org>`.")
+    id: strawberry.ID = strawberry_django.field(
+        description="This service's id of the organization."
+    )
+    identifier: str = strawberry_django.field(
+        description="The organization across issuers and services: `<issuer>#<org>`."
+    )
 
 
 @strawberry_django.type(
@@ -126,19 +160,43 @@ class Organization:
 )
 class GithubRepo:
     id: auto
-    name: str = strawberry_django.field(description="The human-readable name of the repository.")
-    repo: str = strawberry_django.field(description="The repository name on GitHub (the part after the owner).")
-    branch: str = strawberry_django.field(description="The branch that is scanned for app manifests.")
-    user: str = strawberry_django.field(description="The GitHub owner (user or organization) of the repository.")
-    flavours: List["Flavour"] = strawberry_django.field(description="The flavours discovered by scanning this repository.")
-    bloks: List["RepoBlok"] = strawberry_django.field(description="The bloks this repository publishes on its own, in its `.arkitekt/bloks.yaml`.")
-    updated_at: datetime.datetime = strawberry_django.field(description="When this repository was last updated.")
-    added_at: datetime.datetime = strawberry_django.field(description="When this repository was first added to Kabinet.")
-    creator: Optional[User] = strawberry_django.field(description="The member who added this repository, if known.")
-    organization: Organization = strawberry_django.field(description="The organization that owns this repository.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION)
+    name: str = strawberry_django.field(
+        description="The human-readable name of the repository."
+    )
+    repo: str = strawberry_django.field(
+        description="The repository name on GitHub (the part after the owner)."
+    )
+    branch: str = strawberry_django.field(
+        description="The branch that is scanned for app manifests."
+    )
+    user: str = strawberry_django.field(
+        description="The GitHub owner (user or organization) of the repository."
+    )
+    flavours: list["Flavour"] = strawberry_django.field(
+        description="The flavours discovered by scanning this repository."
+    )
+    bloks: list["RepoBlok"] = strawberry_django.field(
+        description="The bloks this repository publishes on its own, in its `.arkitekt/bloks.yaml`."
+    )
+    updated_at: datetime.datetime = strawberry_django.field(
+        description="When this repository was last updated."
+    )
+    added_at: datetime.datetime = strawberry_django.field(
+        description="When this repository was first added to Kabinet."
+    )
+    creator: User | None = strawberry_django.field(
+        description="The member who added this repository, if known."
+    )
+    organization: Organization = strawberry_django.field(
+        description="The organization that owns this repository."
+    )
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION
+    )
 
-    @strawberry_django.field(description="This repository's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
+    @strawberry_django.field(
+        description="This repository's stored vector, as `<model id>:<floats>`. Null until it has been indexed."
+    )
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
 
@@ -160,7 +218,9 @@ class GithubRepo:
             return self._blok_count
         return self.bloks.count()
 
-    @strawberry_django.field(description="The URL for opening a new issue against this repository on GitHub.")
+    @strawberry_django.field(
+        description="The URL for opening a new issue against this repository on GitHub."
+    )
     def issue_url(self) -> str:
         return self.issue_url
 
@@ -183,7 +243,13 @@ def _camel(value: object) -> object:
     A descriptor's ``value``, a local's ``default`` and a literal are any JSON, so their keys stay as they are.
     """
     if isinstance(value, dict):
-        return {re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), key): item if key in LITERAL_KEYS else _camel(item) for key, item in value.items() if item is not None}
+        return {
+            re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), key): item
+            if key in LITERAL_KEYS
+            else _camel(item)
+            for key, item in value.items()
+            if item is not None
+        }
     if isinstance(value, list):
         return [_camel(item) for item in value]
     return value
@@ -222,32 +288,73 @@ def _install_hash(fields: dict) -> str:
 
 @strawberry_django.type(
     models.RepoBlok,
-    description=("A blok a GitHub repository publishes on its own, in its `.arkitekt/bloks.yaml`. Read when its repository is scanned; nothing of it runs here. It is installed by copying it into rekuest as a custom blok (`installInput`), which keeps its `origin`."),
+    description=(
+        "A blok a GitHub repository publishes on its own, in its `.arkitekt/bloks.yaml`. Read when its repository is scanned; nothing of it runs here. It is installed by copying it into rekuest as a custom blok (`installInput`), which keeps its `origin`."
+    ),
     filters=filters.RepoBlokFilter,
     pagination=True,
 )
 class RepoBlok:
     id: auto
-    key: str = strawberry_django.field(description="Unique in its repository: what a scan finds it again by.")
-    name: str = strawberry_django.field(description="The name it is installed under in rekuest.")
-    description: Optional[str] = strawberry_django.field(description="What the repository says it shows.")
-    source: str = strawberry_django.field(description="The blok as BSX, as the repository publishes it.")
-    source_path: Optional[str] = strawberry_django.field(description="The file of the repository its BSX was read from; null when it is written inline.")
-    hash: str = strawberry_django.field(description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. A client keeps its preview under it; whether an installed copy is out of date is `installHash`'s to say.")
-    component_tree: Optional[JSON] = strawberry_django.field(description="The whole component tree as one JSON value (a list of roots, snake_case keys). Null when the source does not parse.")
-    vocab: int = strawberry_django.field(description="The blok language version it speaks; 2 is the only one.")
-    catalogs: JSON = strawberry_django.field(description="The catalogs it needs, as name@version.")
-    module: Optional[str] = strawberry_django.field(description="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when null.")
-    demo: JSON = strawberry_django.field(description="What a preview renders it with, as a rekuest_core BlokDemoInput.")
-    dependencies: JSON = strawberry_django.field(description="The agents it draws from, as rekuest_core AgentDependencyInputs (snake_case keys).")
-    for_model: Optional[str] = strawberry_django.field(description="The model ('sha256:...') this blok decorates, if any.")
-    for_node: Optional[str] = strawberry_django.field(description="The node of `forModel` it attaches to; the model's root when null.")
-    parse_error: Optional[str] = strawberry_django.field(description="Why its BSX does not parse, or null.")
-    repo: GithubRepo = strawberry_django.field(description="The repository that publishes it.")
-    updated_at: datetime.datetime = strawberry_django.field(description="When a scan last wrote it.")
-    added_at: datetime.datetime = strawberry_django.field(description="When a scan first found it.")
+    key: str = strawberry_django.field(
+        description="Unique in its repository: what a scan finds it again by."
+    )
+    name: str = strawberry_django.field(
+        description="The name it is installed under in rekuest."
+    )
+    description: str | None = strawberry_django.field(
+        description="What the repository says it shows."
+    )
+    source: str = strawberry_django.field(
+        description="The blok as BSX, as the repository publishes it."
+    )
+    source_path: str | None = strawberry_django.field(
+        description="The file of the repository its BSX was read from; null when it is written inline."
+    )
+    hash: str = strawberry_django.field(
+        description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. A client keeps its preview under it; whether an installed copy is out of date is `installHash`'s to say."
+    )
+    component_tree: JSON | None = strawberry_django.field(
+        description="The whole component tree as one JSON value (a list of roots, snake_case keys). Null when the source does not parse."
+    )
+    vocab: int = strawberry_django.field(
+        description="The blok language version it speaks; 2 is the only one."
+    )
+    catalogs: JSON = strawberry_django.field(
+        description="The catalogs it needs, as name@version."
+    )
+    module: str | None = strawberry_django.field(
+        description="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when null."
+    )
+    demo: JSON = strawberry_django.field(
+        description="What a preview renders it with, as a rekuest_core BlokDemoInput."
+    )
+    dependencies: JSON = strawberry_django.field(
+        description="The agents it draws from, as rekuest_core AgentDependencyInputs (snake_case keys)."
+    )
+    for_model: str | None = strawberry_django.field(
+        description="The model ('sha256:...') this blok decorates, if any."
+    )
+    for_node: str | None = strawberry_django.field(
+        description="The node of `forModel` it attaches to; the model's root when null."
+    )
+    parse_error: str | None = strawberry_django.field(
+        description="Why its BSX does not parse, or null."
+    )
+    repo: GithubRepo = strawberry_django.field(
+        description="The repository that publishes it."
+    )
+    updated_at: datetime.datetime = strawberry_django.field(
+        description="When a scan last wrote it."
+    )
+    added_at: datetime.datetime = strawberry_django.field(
+        description="When a scan first found it."
+    )
 
-    @strawberry_django.field(description="What draws it, as its `<Blok context=...>` says: PANEL or SCENE.", only=["context"])
+    @strawberry_django.field(
+        description="What draws it, as its `<Blok context=...>` says: PANEL or SCENE.",
+        only=["context"],
+    )
     def context(self) -> rkenums.ComponentContext:
         return rkenums.ComponentContext(self.context)
 
@@ -259,7 +366,9 @@ class RepoBlok:
         return self.origin
 
     @strawberry_django.field(
-        description=("A SHA-256 of everything installing it writes: its name, description, BSX, declarations (demo, catalogs, ...), dependencies and target. It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed."),
+        description=(
+            "A SHA-256 of everything installing it writes: its name, description, BSX, declarations (demo, catalogs, ...), dependencies and target. It is the `originHash` an installed copy keeps, so a copy whose `originHash` differs is out of date, whatever changed."
+        ),
         select_related=["repo"],
     )
     def install_hash(self) -> str:
@@ -287,18 +396,40 @@ class RepoBlok:
 )
 class OciRepo:
     id: auto
-    name: str = strawberry_django.field(description="The repository, as it was imported.")
-    registry: str = strawberry_django.field(description="The registry host, e.g. ghcr.io.")
-    repository: str = strawberry_django.field(description="The repository path on the registry, e.g. org/app.")
-    channels: List[str] = strawberry_django.field(description="The channels followed besides the releases.")
-    flavours: List["Flavour"] = strawberry_django.field(description="The flavours read from this repository.")
-    scanned_at: Optional[datetime.datetime] = strawberry_django.field(description="When the registry was last read.")
-    updated_at: datetime.datetime = strawberry_django.field(description="When this repository was last updated.")
-    added_at: datetime.datetime = strawberry_django.field(description="When this repository was imported.")
-    creator: Optional[User] = strawberry_django.field(description="The member who imported this repository, if known.")
-    organization: Organization = strawberry_django.field(description="The organization that imported this repository.")
+    name: str = strawberry_django.field(
+        description="The repository, as it was imported."
+    )
+    registry: str = strawberry_django.field(
+        description="The registry host, e.g. ghcr.io."
+    )
+    repository: str = strawberry_django.field(
+        description="The repository path on the registry, e.g. org/app."
+    )
+    channels: list[str] = strawberry_django.field(
+        description="The channels followed besides the releases."
+    )
+    flavours: list["Flavour"] = strawberry_django.field(
+        description="The flavours read from this repository."
+    )
+    scanned_at: datetime.datetime | None = strawberry_django.field(
+        description="When the registry was last read."
+    )
+    updated_at: datetime.datetime = strawberry_django.field(
+        description="When this repository was last updated."
+    )
+    added_at: datetime.datetime = strawberry_django.field(
+        description="When this repository was imported."
+    )
+    creator: User | None = strawberry_django.field(
+        description="The member who imported this repository, if known."
+    )
+    organization: Organization = strawberry_django.field(
+        description="The organization that imported this repository."
+    )
 
-    @strawberry_django.field(description="The repository as an image reference starts: `registry/repository`.")
+    @strawberry_django.field(
+        description="The repository as an image reference starts: `registry/repository`."
+    )
     def reference(self) -> str:
         return self.reference
 
@@ -324,27 +455,59 @@ BLOK_FIELDS = ("id", "bloks", "blok_renders")
 ACTION_LOGO_FIELDS = (*BLOK_FIELDS, "action_logos", "created_at")
 
 
-@strawberry.type(description=("A blok a flavour's app brings: its logo, an action's logo (a LOGO blok whose root says `kind=\"action\"`), a panel (PANEL) or a scene (SCENE). Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here."))
+@strawberry.type(
+    description=(
+        "A blok a flavour's app brings: its logo, an action's logo (a LOGO blok whose root says `kind=\"action\"`), a panel (PANEL) or a scene (SCENE). Its source is parsed into `componentTree` when the flavour is imported; nothing of it runs here."
+    )
+)
 class FlavourBlok:
-    id: strawberry.ID = strawberry.field(description="`<flavour id>:<key>`: what `flavourBlok` finds it by.")
-    flavour_id: strawberry.ID = strawberry.field(description="The flavour whose app brings this blok.")
-    key: str = strawberry.field(description="The key the app declared this blok under, unique within it.")
-    context: rkenums.ComponentContext = strawberry.field(description="What draws it, as its `<Blok context=...>` says.")
-    kind: str | None = strawberry.field(description="The kind its `<Blok>` root says: `agent` for the app's own bloks and logo, `action` for an action's logo. Null when its source does not parse.")
-    default: bool = strawberry.field(description="Whether it is its app's default for its context (the app's logo is its default LOGO).")
-    description: Optional[str] = strawberry.field(description="What the app says the blok shows.")
-    hash: str = strawberry.field(description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. Two bloks with the same hash draw the same thing, so a client may keep what it drew under it.")
-    component_tree: Optional[JSON] = strawberry.field(description="The whole component tree as one JSON value (a list of roots) in the wire spelling (snake_case keys), as rekuest serves `Blok.componentTree`. Null when the source does not parse.")
-    vocab: Optional[int] = strawberry.field(description="The blok language version it speaks; null for a blok an app brought before blok language v2.")
-    demo: Optional[JSON] = strawberry.field(description="What a preview renders it with.")
-    for_model: Optional[str] = strawberry.field(description="The model ('sha256:...') this blok decorates, if any.")
-    for_node: Optional[str] = strawberry.field(description="The node of `forModel` it attaches to; the model's root when null.")
-    parse_error: Optional[str] = strawberry.field(description="Why the blok's source does not parse, or null.")
+    id: strawberry.ID = strawberry.field(
+        description="`<flavour id>:<key>`: what `flavourBlok` finds it by."
+    )
+    flavour_id: strawberry.ID = strawberry.field(
+        description="The flavour whose app brings this blok."
+    )
+    key: str = strawberry.field(
+        description="The key the app declared this blok under, unique within it."
+    )
+    context: rkenums.ComponentContext = strawberry.field(
+        description="What draws it, as its `<Blok context=...>` says."
+    )
+    kind: str | None = strawberry.field(
+        description="The kind its `<Blok>` root says: `agent` for the app's own bloks and logo, `action` for an action's logo. Null when its source does not parse."
+    )
+    default: bool = strawberry.field(
+        description="Whether it is its app's default for its context (the app's logo is its default LOGO)."
+    )
+    description: str | None = strawberry.field(
+        description="What the app says the blok shows."
+    )
+    hash: str = strawberry.field(
+        description="A SHA-256 of what the blok draws: its component tree, context and what it declares beside it. Two bloks with the same hash draw the same thing, so a client may keep what it drew under it."
+    )
+    component_tree: JSON | None = strawberry.field(
+        description="The whole component tree as one JSON value (a list of roots) in the wire spelling (snake_case keys), as rekuest serves `Blok.componentTree`. Null when the source does not parse."
+    )
+    vocab: int | None = strawberry.field(
+        description="The blok language version it speaks; null for a blok an app brought before blok language v2."
+    )
+    demo: JSON | None = strawberry.field(description="What a preview renders it with.")
+    for_model: str | None = strawberry.field(
+        description="The model ('sha256:...') this blok decorates, if any."
+    )
+    for_node: str | None = strawberry.field(
+        description="The node of `forModel` it attaches to; the model's root when null."
+    )
+    parse_error: str | None = strawberry.field(
+        description="Why the blok's source does not parse, or null."
+    )
 
 
 def flavour_blok(flavour: models.Flavour, blok: dict) -> FlavourBlok:
     """``blok`` of ``flavour.bloks`` as served; rendered here when the flavour has no render stored yet."""
-    render = (flavour.blok_renders or {}).get(blok["key"]) or repo_bloks.render_blok(blok)
+    render = (flavour.blok_renders or {}).get(blok["key"]) or repo_bloks.render_blok(
+        blok
+    )
     return FlavourBlok(
         id=strawberry.ID(f"{flavour.id}:{blok['key']}"),
         flavour_id=strawberry.ID(str(flavour.id)),
@@ -363,10 +526,16 @@ def flavour_blok(flavour: models.Flavour, blok: dict) -> FlavourBlok:
     )
 
 
-def flavour_bloks(flavour: models.Flavour, context: rkenums.ComponentContext | None = None) -> list[FlavourBlok]:
+def flavour_bloks(
+    flavour: models.Flavour, context: rkenums.ComponentContext | None = None
+) -> list[FlavourBlok]:
     """The bloks of ``flavour``, in the order its app declared them; of ``context`` only, when given."""
     wanted = context.value if context is not None else None
-    return [flavour_blok(flavour, blok) for blok in flavour.bloks or [] if blok.get("key") and (wanted is None or blok.get("context") == wanted)]
+    return [
+        flavour_blok(flavour, blok)
+        for blok in flavour.bloks or []
+        if blok.get("key") and (wanted is None or blok.get("context") == wanted)
+    ]
 
 
 def logo_of(flavour: models.Flavour) -> FlavourBlok | None:
@@ -377,7 +546,11 @@ def logo_of(flavour: models.Flavour) -> FlavourBlok | None:
         render = renders.get(blok["key"]) or repo_bloks.render_blok(blok)
         return repo_bloks.root_kind(render["component_tree"])
 
-    logos = [blok for blok in flavour.bloks or [] if blok.get("key") and blok.get("context") == "LOGO" and kind(blok) == "agent"]
+    logos = [
+        blok
+        for blok in flavour.bloks or []
+        if blok.get("key") and blok.get("context") == "LOGO" and kind(blok) == "agent"
+    ]
     logos.sort(key=lambda blok: not blok.get("default"))
     return flavour_blok(flavour, logos[0]) if logos else None
 
@@ -389,7 +562,11 @@ APP_DEPLOYMENTS = "releases__flavours__deployments"
 NO_GPU = "none"
 SEVERAL_GPUS = "multiple"
 #: The distinct ``@kabinet/gpu`` of an app's flavours, in one aggregate.
-APP_GPUS = ArrayAgg(KeyTextTransform("@kabinet/gpu", "releases__flavours__stored_descriptors"), distinct=True, default=[])
+APP_GPUS = ArrayAgg(
+    KeyTextTransform("@kabinet/gpu", "releases__flavours__stored_descriptors"),
+    distinct=True,
+    default=[],
+)
 
 
 newest_releases = filters.newest_releases
@@ -399,8 +576,14 @@ def app_gpus(app: models.App) -> set[str]:
     """The ``@kabinet/gpu`` values of an app's flavours: the annotation, or one query without it."""
     if hasattr(app, "_gpus"):
         return {gpu for gpu in app._gpus if gpu}
-    values = models.Flavour.objects.filter(release__app=app).values_list("stored_descriptors", flat=True)
-    gpus = (descriptors.get("@kabinet/gpu") for descriptors in values if isinstance(descriptors, dict))
+    values = models.Flavour.objects.filter(release__app=app).values_list(
+        "stored_descriptors", flat=True
+    )
+    gpus = (
+        descriptors.get("@kabinet/gpu")
+        for descriptors in values
+        if isinstance(descriptors, dict)
+    )
     return {gpu for gpu in gpus if isinstance(gpu, str) and gpu}
 
 
@@ -420,22 +603,38 @@ def prefetched(instance, attr: str, fallback):  # noqa: ANN001, ANN201
 )
 class App:
     id: auto
-    identifier: str = strawberry_django.field(description="The globally unique, reverse-domain identifier of the app.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION)
-    releases: List["Release"] = strawberry_django.field(
-        description=("The versions of this app. Filter, order and paginate them exactly like the root `releases` query -- an app page reads them from here instead of fetching every release and grouping client-side. There is no implicit ordering; ask for `releasedAt` to get them newest first.")
+    identifier: str = strawberry_django.field(
+        description="The globally unique, reverse-domain identifier of the app."
+    )
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION
+    )
+    releases: list["Release"] = strawberry_django.field(
+        description=(
+            "The versions of this app. Filter, order and paginate them exactly like the root `releases` query -- an app page reads them from here instead of fetching every release and grouping client-side. There is no implicit ordering; ask for `releasedAt` to get them newest first."
+        )
     )
 
-    @strawberry_django.field(description="This app's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
+    @strawberry_django.field(
+        description="This app's stored vector, as `<model id>:<floats>`. Null until it has been indexed."
+    )
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
 
     @strawberry_django.field(
         description="The app's newest release, by `releasedAt` (a channel build counts as a release). Null for an app without releases.",
-        prefetch_related=[lambda info: Prefetch("releases", queryset=optimize(newest_releases(), info), to_attr="newest_releases")],
+        prefetch_related=[
+            lambda info: Prefetch(
+                "releases",
+                queryset=optimize(newest_releases(), info),
+                to_attr="newest_releases",
+            )
+        ],
     )
     def latest_release(self) -> Optional["Release"]:
-        newest = prefetched(self, "newest_releases", lambda: newest_releases().filter(app=self))
+        newest = prefetched(
+            self, "newest_releases", lambda: newest_releases().filter(app=self)
+        )
         return newest[0] if newest else None
 
     @strawberry_django.field(
@@ -458,18 +657,28 @@ class App:
 
     @strawberry_django.field(
         description="How many of the app's deployments are RUNNING.",
-        annotate={"_running_count": Count(APP_DEPLOYMENTS, filter=Q(**{f"{APP_DEPLOYMENTS}__status": enums.PodStatus.RUNNING.value}), distinct=True)},
+        annotate={
+            "_running_count": Count(
+                APP_DEPLOYMENTS,
+                filter=Q(
+                    **{f"{APP_DEPLOYMENTS}__status": enums.PodStatus.RUNNING.value}
+                ),
+                distinct=True,
+            )
+        },
     )
     def running_count(self) -> int:
         if hasattr(self, "_running_count"):
             return self._running_count
-        return models.Deployment.objects.filter(flavour__release__app=self, status=enums.PodStatus.RUNNING.value).count()
+        return models.Deployment.objects.filter(
+            flavour__release__app=self, status=enums.PodStatus.RUNNING.value
+        ).count()
 
     @strawberry_django.field(
         description="What the app's flavours run on: GPU when one requires an accelerator, CPU when one runs without. Read from the flavours' required selectors (`@kabinet/gpu`); empty for an app without flavours.",
         annotate={"_gpus": APP_GPUS},
     )
-    def hardware(self) -> List[enums.AppHardware]:
+    def hardware(self) -> list[enums.AppHardware]:
         gpus = app_gpus(self)
         hardware = []
         if any(gpu != NO_GPU for gpu in gpus):
@@ -482,36 +691,78 @@ class App:
         description="The accelerators the app's flavours require, one entry per vendor (cuda, rocm, oneapi), as `@kabinet/gpu` names them. A flavour that requires several vendors at once is a GPU flavour but names none here.",
         annotate={"_gpus": APP_GPUS},
     )
-    def accelerators(self) -> List[str]:
-        return sorted(gpu for gpu in app_gpus(self) if gpu not in (NO_GPU, SEVERAL_GPUS))
+    def accelerators(self) -> list[str]:
+        return sorted(
+            gpu for gpu in app_gpus(self) if gpu not in (NO_GPU, SEVERAL_GPUS)
+        )
 
     @strawberry_django.field(
         description="The services any of the app's flavours require (e.g. `live.arkitekt.mikro`), sorted.",
         prefetch_related=[
             Prefetch(
                 "releases",
-                queryset=models.Release.objects.only("id", "app_id").prefetch_related(Prefetch("flavours", queryset=models.Flavour.objects.only("id", "release_id", "requirements"), to_attr="service_flavours")),
+                queryset=models.Release.objects.only("id", "app_id").prefetch_related(
+                    Prefetch(
+                        "flavours",
+                        queryset=models.Flavour.objects.only(
+                            "id", "release_id", "requirements"
+                        ),
+                        to_attr="service_flavours",
+                    )
+                ),
                 to_attr="service_releases",
             )
         ],
     )
-    def services(self) -> List[str]:
-        flavours = [flavour for release in prefetched(self, "service_releases", lambda: self.releases.only("id")) for flavour in prefetched(release, "service_flavours", lambda release=release: release.flavours.only("id", "requirements"))]
-        return sorted({requirement["service"] for flavour in flavours if isinstance(flavour.requirements, list) for requirement in flavour.requirements if requirement.get("service")})
+    def services(self) -> list[str]:
+        flavours = [
+            flavour
+            for release in prefetched(
+                self, "service_releases", lambda: self.releases.only("id")
+            )
+            for flavour in prefetched(
+                release,
+                "service_flavours",
+                lambda release=release: release.flavours.only("id", "requirements"),
+            )
+        ]
+        return sorted(
+            {
+                requirement["service"]
+                for flavour in flavours
+                if isinstance(flavour.requirements, list)
+                for requirement in flavour.requirements
+                if requirement.get("service")
+            }
+        )
 
     @strawberry_django.field(
         description="The app's logo: the LOGO blok of its newest release that brings one.",
         prefetch_related=[
             Prefetch(
                 "releases",
-                queryset=models.Release.objects.order_by("-released_at").prefetch_related(Prefetch("flavours", queryset=models.Flavour.objects.only(*BLOK_FIELDS, "release_id"), to_attr="logo_flavours")),
+                queryset=models.Release.objects.order_by(
+                    "-released_at"
+                ).prefetch_related(
+                    Prefetch(
+                        "flavours",
+                        queryset=models.Flavour.objects.only(
+                            *BLOK_FIELDS, "release_id"
+                        ),
+                        to_attr="logo_flavours",
+                    )
+                ),
                 to_attr="logo_releases",
             )
         ],
     )
     def logo_blok(self) -> FlavourBlok | None:
-        for release in prefetched(self, "logo_releases", lambda: self.releases.order_by("-released_at")):
-            for flavour in prefetched(release, "logo_flavours", lambda: release.flavours.only(*BLOK_FIELDS)):
+        for release in prefetched(
+            self, "logo_releases", lambda: self.releases.order_by("-released_at")
+        ):
+            for flavour in prefetched(
+                release, "logo_flavours", lambda: release.flavours.only(*BLOK_FIELDS)
+            ):
                 logo = logo_of(flavour)
                 if logo:
                     return logo
@@ -522,19 +773,33 @@ class App:
         return build_prescoped_queryset(info, queryset)
 
 
-@strawberry.type(description="A service apps require, and how many of the counted apps have a flavour that requires it.")
+@strawberry.type(
+    description="A service apps require, and how many of the counted apps have a flavour that requires it."
+)
 class ServiceCount:
-    service: str = strawberry.field(description="The service, e.g. `live.arkitekt.mikro`.")
+    service: str = strawberry.field(
+        description="The service, e.g. `live.arkitekt.mikro`."
+    )
     apps: int = strawberry.field(description="How many of the apps require it.")
 
 
-@strawberry.type(description="The store's totals over every app a filter keeps, not a page of them.")
+@strawberry.type(
+    description="The store's totals over every app a filter keeps, not a page of them."
+)
 class AppStoreTotals:
     apps: int = strawberry.field(description="How many apps.")
-    actions: int = strawberry.field(description="How many distinct actions their newest releases bring.")
-    flavours: int = strawberry.field(description="How many flavours their newest releases have.")
-    running: int = strawberry.field(description="How many of their deployments (of any release) are RUNNING.")
-    services: List[ServiceCount] = strawberry.field(description="The services any of their flavours require, most required first, then by name.")
+    actions: int = strawberry.field(
+        description="How many distinct actions their newest releases bring."
+    )
+    flavours: int = strawberry.field(
+        description="How many flavours their newest releases have."
+    )
+    running: int = strawberry.field(
+        description="How many of their deployments (of any release) are RUNNING."
+    )
+    services: list[ServiceCount] = strawberry.field(
+        description="The services any of their flavours require, most required first, then by name."
+    )
 
 
 @strawberry_django.type(
@@ -546,29 +811,51 @@ class AppStoreTotals:
 )
 class Release:
     id: auto
-    version: str = strawberry_django.field(description="The semantic version of this release.")
+    version: str = strawberry_django.field(
+        description="The semantic version of this release."
+    )
     app: App = strawberry_django.field(description="The app this release belongs to.")
-    scopes: List[str] = strawberry_django.field(description="The OAuth2 scopes this release requires.")
-    original_logo: Optional[str] = strawberry_django.field(description="The original (upstream) logo URL of this release.")
-    entrypoint: str = strawberry_django.field(description="The entrypoint used to start the app.")
-    channel: Optional[str] = strawberry_django.field(description="The channel this is the latest build of. Null for a release proper, which never changes.")
-    revision: Optional[str] = strawberry_django.field(description="The source revision this release was built from, when its publisher said.")
-    released_at: datetime.datetime = strawberry_django.field(description="When this release was made: what an app's newest release and `AppOrder.releasedAt` go by.")
-    flavours: List["Flavour"] = strawberry_django.field(description="The flavours (buildable variants) available for this release.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
+    scopes: list[str] = strawberry_django.field(
+        description="The OAuth2 scopes this release requires."
+    )
+    original_logo: str | None = strawberry_django.field(
+        description="The original (upstream) logo URL of this release."
+    )
+    entrypoint: str = strawberry_django.field(
+        description="The entrypoint used to start the app."
+    )
+    channel: str | None = strawberry_django.field(
+        description="The channel this is the latest build of. Null for a release proper, which never changes."
+    )
+    revision: str | None = strawberry_django.field(
+        description="The source revision this release was built from, when its publisher said."
+    )
+    released_at: datetime.datetime = strawberry_django.field(
+        description="When this release was made: what an app's newest release and `AppOrder.releasedAt` go by."
+    )
+    flavours: list["Flavour"] = strawberry_django.field(
+        description="The flavours (buildable variants) available for this release."
+    )
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors,
+        description=DESCRIPTORS_DESCRIPTION,
+        only=["stored_descriptors"],
+    )
 
     @strawberry_django.field(
         description="The stored logo of this release: the path of the ingested media, or null while none has been ingested.",
         select_related=["logo"],
     )
-    def logo(self) -> Optional[str]:
+    def logo(self) -> str | None:
         # `Release.logo` is a ForeignKey to `MediaStore`, but the field was declared as a
         # `String`. Nothing has ever populated it -- `parse_config` writes the manifest's
         # URL to `original_logo` -- so the mismatch never surfaced; the first release to
         # get a stored logo would have handed a `MediaStore` to a String field.
         return stored_logo(self.logo)
 
-    deployments: List["Deployment"] = strawberry_django.field(description="The deployments that run a flavour of this release.")
+    deployments: list["Deployment"] = strawberry_django.field(
+        description="The deployments that run a flavour of this release."
+    )
 
     # `installed`, `description` and `colour` used to sit here and were placeholders
     # shipped as API: `installed` returned `True` unconditionally, `description`
@@ -582,36 +869,54 @@ class Release:
     # -- a Deployment is scoped by `backend__organization`, independent of the Release's
     # `app__organization` -- and issued a fresh unoptimized query per Release row.
 
-    @strawberry_django.field(description="The display name of this release, in the form 'identifier:version'.")
+    @strawberry_django.field(
+        description="The display name of this release, in the form 'identifier:version'."
+    )
     def name(self, info: Info) -> str:
         return self.app.identifier + ":" + self.version
 
-    approvals: List["ReleaseApproval"] = strawberry_django.field(description="Standing approvals to run this release, newest first.")
+    approvals: list["ReleaseApproval"] = strawberry_django.field(
+        description="Standing approvals to run this release, newest first."
+    )
 
     @strawberry_django.field(
         description="The release's logo: the LOGO blok of the first of its flavours that brings one.",
-        prefetch_related=[Prefetch("flavours", queryset=models.Flavour.objects.only(*BLOK_FIELDS, "release_id"), to_attr="logo_flavours")],
+        prefetch_related=[
+            Prefetch(
+                "flavours",
+                queryset=models.Flavour.objects.only(*BLOK_FIELDS, "release_id"),
+                to_attr="logo_flavours",
+            )
+        ],
     )
     def logo_blok(self) -> FlavourBlok | None:
-        for flavour in prefetched(self, "logo_flavours", lambda: self.flavours.only(*BLOK_FIELDS)):
+        for flavour in prefetched(
+            self, "logo_flavours", lambda: self.flavours.only(*BLOK_FIELDS)
+        ):
             logo = logo_of(flavour)
             if logo:
                 return logo
         return None
 
-    @strawberry_django.field(description="The digest an approval of this release is pinned to (identity, scopes, requirements, images). Changes whenever the release is re-published differently.")
+    @strawberry_django.field(
+        description="The digest an approval of this release is pinned to (identity, scopes, requirements, images). Changes whenever the release is re-published differently."
+    )
     def approval_digest(self, info: Info) -> str:
         from bridge.approvals import release_digest
 
         return release_digest(self)
 
-    @strawberry_django.field(description="Whether every flavour image is addressed by content digest. If not, a rebuild pushed under the same tag is not detected by the approval digest.")
+    @strawberry_django.field(
+        description="Whether every flavour image is addressed by content digest. If not, a rebuild pushed under the same tag is not detected by the approval digest."
+    )
     def digest_pinned(self, info: Info) -> bool:
         from bridge.approvals import release_is_pinned
 
         return release_is_pinned(self)
 
-    @strawberry_django.field(description="The subject manifest to pre-authorize in lok (createMandate): identifier, version, scopes and the union of flavour requirements.")
+    @strawberry_django.field(
+        description="The subject manifest to pre-authorize in lok (createMandate): identifier, version, scopes and the union of flavour requirements."
+    )
     def mandate_manifest(self, info: Info) -> scalars.UntypedParams:
         from bridge.approvals import release_requirements
 
@@ -637,19 +942,35 @@ class Release:
 )
 class Deployment:
     id: auto
-    flavour: "Flavour" = strawberry_django.field(description="The flavour that is deployed.")
-    backend: "Backend" = strawberry_django.field(description="The backend this deployment runs on.")
-    local_id: strawberry.ID = strawberry_django.field(description="The identifier of this deployment as known to the backend.")
-    status: enums.PodStatus = strawberry_django.field(description="The current lifecycle status of this deployment.")
-    approval: Optional["ReleaseApproval"] = strawberry_django.field(description="The approval this deployment was made under.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
+    flavour: "Flavour" = strawberry_django.field(
+        description="The flavour that is deployed."
+    )
+    backend: "Backend" = strawberry_django.field(
+        description="The backend this deployment runs on."
+    )
+    local_id: strawberry.ID = strawberry_django.field(
+        description="The identifier of this deployment as known to the backend."
+    )
+    status: enums.PodStatus = strawberry_django.field(
+        description="The current lifecycle status of this deployment."
+    )
+    approval: Optional["ReleaseApproval"] = strawberry_django.field(
+        description="The approval this deployment was made under."
+    )
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors,
+        description=DESCRIPTORS_DESCRIPTION,
+        only=["stored_descriptors"],
+    )
 
     # `api_token` used to be declared here as a non-null `String!`. The Deployment model
     # has no such field, so selecting it raised `AttributeError` -- and had it resolved,
     # it would have handed the pod's authentication secret to every member of the
     # organization who can read a Deployment.
 
-    @strawberry_django.field(description="The display name of this deployment, combining backend and flavour names.")
+    @strawberry_django.field(
+        description="The display name of this deployment, combining backend and flavour names."
+    )
     def name(self) -> str:
         return self.backend.name + "-" + self.flavour.name
 
@@ -665,7 +986,9 @@ class Deployment:
         # (`create_deployment` resolves the backend from the request and the flavour
         # through `aget_for_org`), so the two paths agree in practice; the flavour is
         # named because that is what has been enforced.
-        return build_prescoped_queryset(info, queryset, field="flavour__release__app__organization")
+        return build_prescoped_queryset(
+            info, queryset, field="flavour__release__app__organization"
+        )
 
 
 @strawberry.experimental.pydantic.interface(
@@ -748,13 +1071,26 @@ class LabelSelector(Selector):
     value: str | None = None
 
 
-@strawberry.type(description="A service that a flavour requires in order to run (e.g. mikro, rekuest).")
+@strawberry.type(
+    description="A service that a flavour requires in order to run (e.g. mikro, rekuest)."
+)
 class Requirement:
-    key: str = strawberry.field(description="The key identifying this requirement within the flavour.")
+    key: str = strawberry.field(
+        description="The key identifying this requirement within the flavour."
+    )
     service: str = strawberry.field(description="The name of the required service.")
-    description: str | None = strawberry.field(default=None, description="An optional human-readable description of the requirement.")
-    optional: bool = strawberry.field(default=False, description="Whether the flavour can still run if this service is unavailable.")
-    version: str | None = strawberry.field(default=None, description="The versions of the service the app was written for, as a specifier ('>=12.1,<14'). Advisory: an instance outside it is still used.")
+    description: str | None = strawberry.field(
+        default=None,
+        description="An optional human-readable description of the requirement.",
+    )
+    optional: bool = strawberry.field(
+        default=False,
+        description="Whether the flavour can still run if this service is unavailable.",
+    )
+    version: str | None = strawberry.field(
+        default=None,
+        description="The versions of the service the app was written for, as a specifier ('>=12.1,<14'). Advisory: an instance outside it is still used.",
+    )
 
 
 @strawberry_django.type(
@@ -765,8 +1101,12 @@ class Requirement:
     description="A reference to a built Docker image.",
 )
 class DockerImage:
-    image_string: str = strawberry_django.field(description="The fully-qualified image reference (registry/name:tag).")
-    build_at: datetime.datetime = strawberry_django.field(description="When this image was built.")
+    image_string: str = strawberry_django.field(
+        description="The fully-qualified image reference (registry/name:tag)."
+    )
+    build_at: datetime.datetime = strawberry_django.field(
+        description="When this image was built."
+    )
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -782,15 +1122,32 @@ class DockerImage:
 )
 class Flavour:
     id: auto
-    name: str = strawberry_django.field(description="The name of this flavour (e.g. 'vanilla', 'cuda').")
-    image: DockerImage = strawberry_django.field(description="The Docker image this flavour deploys.")
-    release: Release = strawberry_django.field(description="The release this flavour belongs to.")
-    deployments: List[Deployment] = strawberry_django.field(description="The deployments that run this flavour.")
-    definitions: List["Definition"] = strawberry_django.field(description="The action definitions this flavour provides.")
-    manifest: scalars.UntypedParams = strawberry_django.field(description="The raw app manifest this flavour was built from.")
-    bloks: scalars.UntypedParams = strawberry_django.field(description="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput shape): the app's logo, its actions' logos, panels and scenes.")
+    name: str = strawberry_django.field(
+        description="The name of this flavour (e.g. 'vanilla', 'cuda')."
+    )
+    image: DockerImage = strawberry_django.field(
+        description="The Docker image this flavour deploys."
+    )
+    release: Release = strawberry_django.field(
+        description="The release this flavour belongs to."
+    )
+    deployments: list[Deployment] = strawberry_django.field(
+        description="The deployments that run this flavour."
+    )
+    definitions: list["Definition"] = strawberry_django.field(
+        description="The action definitions this flavour provides."
+    )
+    manifest: scalars.UntypedParams = strawberry_django.field(
+        description="The raw app manifest this flavour was built from."
+    )
+    bloks: scalars.UntypedParams = strawberry_django.field(
+        description="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput shape): the app's logo, its actions' logos, panels and scenes."
+    )
 
-    @strawberry_django.field(description="The files this flavour's app brings, as its inspection declared them (name, kind, ref, size, and the path in the image or an https source).", only=["inspection"])
+    @strawberry_django.field(
+        description="The files this flavour's app brings, as its inspection declared them (name, kind, ref, size, and the path in the image or an https source).",
+        only=["inspection"],
+    )
     def assets(self) -> scalars.UntypedParams:
         return (self.inspection or {}).get("assets", [])
 
@@ -798,16 +1155,27 @@ class Flavour:
         description="The bloks this flavour's app brings, parsed and ready to draw, in the order it declared them; of one context only when `context` is given.",
         only=["bloks", "blok_renders"],
     )
-    def blok_implementations(self, context: rkenums.ComponentContext | None = None) -> list[FlavourBlok]:
+    def blok_implementations(
+        self, context: rkenums.ComponentContext | None = None
+    ) -> list[FlavourBlok]:
         return flavour_bloks(self, context)
 
-    @strawberry_django.field(description="This flavour's app logo: its default LOGO blok, or its first.", only=["bloks", "blok_renders"])
+    @strawberry_django.field(
+        description="This flavour's app logo: its default LOGO blok, or its first.",
+        only=["bloks", "blok_renders"],
+    )
     def logo_blok(self) -> FlavourBlok | None:
         return logo_of(self)
 
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors,
+        description=DESCRIPTORS_DESCRIPTION,
+        only=["stored_descriptors"],
+    )
 
-    @strawberry_django.field(description="This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
+    @strawberry_django.field(
+        description="This flavour's stored vector, as `<model id>:<floats>`. Null until it has been indexed."
+    )
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
 
@@ -815,7 +1183,7 @@ class Flavour:
         description="The stored logo of this flavour, which is its release's.",
         select_related=["release__logo"],
     )
-    def logo(self) -> Optional[str]:
+    def logo(self) -> str | None:
         # Declared as a model field until now -- but `logo` has only ever existed on
         # `Release`, so *selecting* this raised `'Flavour' object has no attribute 'logo'`
         # for every client that asked. A flavour is one build of a release and shows the
@@ -827,10 +1195,12 @@ class Flavour:
         description="The original (upstream) logo URL of this flavour, which is its release's.",
         select_related=["release"],
     )
-    def original_logo(self) -> Optional[str]:
+    def original_logo(self) -> str | None:
         return self.release.original_logo
 
-    @strawberry_django.field(description="The GitHub repository this flavour was built from, if it came from one.")
+    @strawberry_django.field(
+        description="The GitHub repository this flavour was built from, if it came from one."
+    )
     def repo(self, info: Info) -> GithubRepo | None:
         # `self.repo` is the MTI parent. It is null for a flavour registered straight
         # from a built image via `createAppImage`, and the `githubrepo` child row is
@@ -841,19 +1211,25 @@ class Flavour:
             return None
         return getattr(repo, "githubrepo", None)
 
-    @strawberry_django.field(description="The imported OCI repository this flavour was read from, if it came from one.")
+    @strawberry_django.field(
+        description="The imported OCI repository this flavour was read from, if it came from one."
+    )
     def source(self, info: Info) -> OciRepo | None:
         repo = self.repo
         if repo is None:
             return None
         return getattr(repo, "ocirepo", None)
 
-    @strawberry_django.field(description="The hardware/capability selectors a backend must satisfy to run this flavour.")
-    def selectors(self, info: Info) -> List[types.Selector]:
+    @strawberry_django.field(
+        description="The hardware/capability selectors a backend must satisfy to run this flavour."
+    )
+    def selectors(self, info: Info) -> list[types.Selector]:
         return self.get_selectors()
 
-    @strawberry_django.field(description="The services this flavour requires in order to run.")
-    def requirements(self) -> List[Requirement]:
+    @strawberry_django.field(
+        description="The services this flavour requires in order to run."
+    )
+    def requirements(self) -> list[Requirement]:
         # The writer stores a list (`bridge/repo/db.py`), but the model default used to
         # be `dict`. Iterating a dict yields its keys, so `Requirement(**"some-key")`
         # raised `TypeError` on every row that kept the default. The default is a list
@@ -882,8 +1258,12 @@ class Flavour:
 class Collection:
     id: auto
     name: str = strawberry_django.field(description="The name of this collection.")
-    description: str = strawberry_django.field(description="A description of this collection.")
-    defined_at: datetime.datetime = strawberry_django.field(description="When this collection was defined.")
+    description: str = strawberry_django.field(
+        description="A description of this collection."
+    )
+    defined_at: datetime.datetime = strawberry_django.field(
+        description="When this collection was defined."
+    )
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -900,7 +1280,9 @@ class Collection:
 class Protocol:
     id: auto
     name: str = strawberry_django.field(description="The name of this protocol.")
-    description: str = strawberry_django.field(description="A description of this protocol.")
+    description: str = strawberry_django.field(
+        description="A description of this protocol."
+    )
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -916,28 +1298,58 @@ class Protocol:
 )
 class Definition:
     id: strawberry.ID
-    hash: rkscalars.ActionHash = strawberry_django.field(description="The unique hash identifying this action definition.")
-    name: str = strawberry_django.field(description="The cleartext name of this action.")
-    kind: rkenums.ActionKind = strawberry_django.field(description="The kind of action, e.g. a function or a generator.")
-    description: str | None = strawberry_django.field(description="A human-readable description of this action.")
-    collections: list["Collection"] = strawberry_django.field(description="The collections this action belongs to.")
-    flavours: list["Flavour"] = strawberry_django.field(description="The flavours that provide this action.")
-    scope: rkenums.ActionScope = strawberry_django.field(description="The data scope of this action (e.g. local, global or bridge).")
-    is_test_for: list["Definition"] = strawberry_django.field(description="The action definitions that this definition is a test for.")
-    tests: list["Definition"] = strawberry_django.field(description="The action definitions that act as tests for this definition.")
-    protocols: list["Protocol"] = strawberry_django.field(description="The protocols this action implements.")
-    defined_at: datetime.datetime = strawberry_django.field(description="When this action definition was first defined.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
+    hash: rkscalars.ActionHash = strawberry_django.field(
+        description="The unique hash identifying this action definition."
+    )
+    name: str = strawberry_django.field(
+        description="The cleartext name of this action."
+    )
+    kind: rkenums.ActionKind = strawberry_django.field(
+        description="The kind of action, e.g. a function or a generator."
+    )
+    description: str | None = strawberry_django.field(
+        description="A human-readable description of this action."
+    )
+    collections: list["Collection"] = strawberry_django.field(
+        description="The collections this action belongs to."
+    )
+    flavours: list["Flavour"] = strawberry_django.field(
+        description="The flavours that provide this action."
+    )
+    scope: rkenums.ActionScope = strawberry_django.field(
+        description="The data scope of this action (e.g. local, global or bridge)."
+    )
+    is_test_for: list["Definition"] = strawberry_django.field(
+        description="The action definitions that this definition is a test for."
+    )
+    tests: list["Definition"] = strawberry_django.field(
+        description="The action definitions that act as tests for this definition."
+    )
+    protocols: list["Protocol"] = strawberry_django.field(
+        description="The protocols this action implements."
+    )
+    defined_at: datetime.datetime = strawberry_django.field(
+        description="When this action definition was first defined."
+    )
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors,
+        description=DESCRIPTORS_DESCRIPTION,
+        only=["stored_descriptors"],
+    )
 
     @strawberry_django.field(description="The input ports (arguments) of this action.")
     def args(self) -> list[rtypes.ArgPort]:
         return [rmodels.ArgPortModel(**i) for i in self.args]
 
-    @strawberry_django.field(description="The output ports (return values) of this action.")
+    @strawberry_django.field(
+        description="The output ports (return values) of this action."
+    )
     def returns(self) -> list[rtypes.ReturnPort]:
         return [rmodels.ReturnPortModel(**i) for i in self.returns]
 
-    @strawberry_django.field(description="This definition's stored vector, as `<model id>:<floats>`. Null until it has been indexed.")
+    @strawberry_django.field(
+        description="This definition's stored vector, as `<model id>:<floats>`. Null until it has been indexed."
+    )
     def embedding(self) -> Embedding | None:
         return embedding_of(self)
 
@@ -946,27 +1358,58 @@ class Definition:
         prefetch_related=[
             Prefetch(
                 "flavours",
-                queryset=models.Flavour.objects.select_related("release__app").only("id", "release__id", "release__app__id", "release__app__identifier", "release__app__organization_id"),
+                queryset=models.Flavour.objects.select_related("release__app").only(
+                    "id",
+                    "release__id",
+                    "release__app__id",
+                    "release__app__identifier",
+                    "release__app__organization_id",
+                ),
                 to_attr="app_flavours",
             )
         ],
     )
     def apps(self) -> list["App"]:
-        flavours = prefetched(self, "app_flavours", lambda: self.flavours.select_related("release__app"))
+        flavours = prefetched(
+            self, "app_flavours", lambda: self.flavours.select_related("release__app")
+        )
         unique = {flavour.release.app.id: flavour.release.app for flavour in flavours}
         return sorted(unique.values(), key=lambda app: app.identifier)
 
     @strawberry_django.field(
-        description=("The action logo (a LOGO blok of kind `action`) that draws this action: the one `flavour`'s implementation names, or without `flavour` the one of the newest flavour providing it that names one. Null when none does."),
-        prefetch_related=[Prefetch("flavours", queryset=models.Flavour.objects.only(*ACTION_LOGO_FIELDS), to_attr="logo_flavours")],
+        description=(
+            "The action logo (a LOGO blok of kind `action`) that draws this action: the one `flavour`'s implementation names, or without `flavour` the one of the newest flavour providing it that names one. Null when none does."
+        ),
+        prefetch_related=[
+            Prefetch(
+                "flavours",
+                queryset=models.Flavour.objects.only(*ACTION_LOGO_FIELDS),
+                to_attr="logo_flavours",
+            )
+        ],
     )
     def logo(self, flavour: strawberry.ID | None = None) -> FlavourBlok | None:
-        candidates = prefetched(self, "logo_flavours", lambda: self.flavours.only(*ACTION_LOGO_FIELDS))
+        candidates = prefetched(
+            self, "logo_flavours", lambda: self.flavours.only(*ACTION_LOGO_FIELDS)
+        )
         if flavour is not None:
-            candidates = [candidate for candidate in candidates if str(candidate.id) == str(flavour)]
-        for candidate in sorted(candidates, key=lambda candidate: candidate.created_at, reverse=True):
+            candidates = [
+                candidate
+                for candidate in candidates
+                if str(candidate.id) == str(flavour)
+            ]
+        for candidate in sorted(
+            candidates, key=lambda candidate: candidate.created_at, reverse=True
+        ):
             key = (candidate.action_logos or {}).get(self.hash)
-            blok = next((blok for blok in candidate.bloks or [] if blok.get("key") == key), None) if key else None
+            blok = (
+                next(
+                    (blok for blok in candidate.bloks or [] if blok.get("key") == key),
+                    None,
+                )
+                if key
+                else None
+            )
             if blok:
                 return flavour_blok(candidate, blok)
         return None
@@ -996,7 +1439,15 @@ class Definition:
         # the same question about the same kind of row.
         queryset = build_prescoped_queryset(info, models.Definition.objects.all())
         queryset = apply_filters(filters, queryset, info)
-        return list(search.neighbours(queryset, self.embedding, exclude_pk=self.pk, limit=limit, threshold=max_distance))
+        return list(
+            search.neighbours(
+                queryset,
+                self.embedding,
+                exclude_pk=self.pk,
+                limit=limit,
+                threshold=max_distance,
+            )
+        )
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -1012,9 +1463,13 @@ class Definition:
 )
 class LogDump:
     id: auto
-    pod: "Pod" = strawberry_django.field(description="The pod these logs were captured from.")
+    pod: "Pod" = strawberry_django.field(
+        description="The pod these logs were captured from."
+    )
     logs: str = strawberry_django.field(description="The captured log output.")
-    created_at: datetime.datetime = strawberry_django.field(description="When these logs were captured.")
+    created_at: datetime.datetime = strawberry_django.field(
+        description="When these logs were captured."
+    )
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -1031,13 +1486,27 @@ class LogDump:
 )
 class Backend:
     id: auto
-    user: User = strawberry_django.field(description="The user that registered this backend.")
-    client: Client = strawberry_django.field(description="The OAuth2 client this backend authenticates as.")
-    organization: Organization = strawberry_django.field(description="The organization this backend belongs to.")
-    name: str = strawberry_django.field(description="The human-readable name of this backend.")
-    kind: str = strawberry_django.field(description="The kind of backend (its runtime type).")
-    pods: List["Pod"] = strawberry_django.field(description="The pods currently running on this backend.")
-    resources: List["Resource"] = strawberry_django.field(description="The resources declared on this backend.")
+    user: User = strawberry_django.field(
+        description="The user that registered this backend."
+    )
+    client: Client = strawberry_django.field(
+        description="The OAuth2 client this backend authenticates as."
+    )
+    organization: Organization = strawberry_django.field(
+        description="The organization this backend belongs to."
+    )
+    name: str = strawberry_django.field(
+        description="The human-readable name of this backend."
+    )
+    kind: str = strawberry_django.field(
+        description="The kind of backend (its runtime type)."
+    )
+    pods: list["Pod"] = strawberry_django.field(
+        description="The pods currently running on this backend."
+    )
+    resources: list["Resource"] = strawberry_django.field(
+        description="The resources declared on this backend."
+    )
 
     @strawberry_django.field(description="The OAuth2 client ID of this backend.")
     def client_id(self) -> str:
@@ -1057,11 +1526,21 @@ class Backend:
 )
 class Resource:
     id: auto
-    backend: Backend = strawberry_django.field(description="The backend this resource belongs to.")
-    resource_id: str = strawberry_django.field(description="The identifier of this resource as known to the backend.")
-    name: str = strawberry_django.field(description="The human-readable name of this resource.")
-    pods: List["Pod"] = strawberry_django.field(description="The pods scheduled onto this resource.")
-    qualifiers: scalars.UntypedParams | None = strawberry_django.field(description="Free-form key/value qualifiers describing this resource.")
+    backend: Backend = strawberry_django.field(
+        description="The backend this resource belongs to."
+    )
+    resource_id: str = strawberry_django.field(
+        description="The identifier of this resource as known to the backend."
+    )
+    name: str = strawberry_django.field(
+        description="The human-readable name of this resource."
+    )
+    pods: list["Pod"] = strawberry_django.field(
+        description="The pods scheduled onto this resource."
+    )
+    qualifiers: scalars.UntypedParams | None = strawberry_django.field(
+        description="Free-form key/value qualifiers describing this resource."
+    )
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -1078,18 +1557,44 @@ class Resource:
 )
 class Pod:
     id: auto
-    resource: Resource | None = strawberry_django.field(description="The resource this pod is scheduled onto, if any.")
-    backend: Backend = strawberry_django.field(description="The backend this pod runs on.")
-    deployment: Deployment = strawberry_django.field(description="The deployment this pod is an instance of.")
-    latest_log_dump: LogDump | None = strawberry_django.field(description="The most recent log dump captured from this pod.")
-    pod_id: str = strawberry_django.field(description="The identifier of this pod as known to the backend.")
-    client_id: str | None = strawberry_django.field(description="The OAuth2 client ID this pod authenticates as, if any.")
-    status: enums.PodStatus = strawberry_django.field(description="The current lifecycle status of this pod.")
-    descriptors: JSON = strawberry_django.field(resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION, only=["stored_descriptors"])
+    resource: Resource | None = strawberry_django.field(
+        description="The resource this pod is scheduled onto, if any."
+    )
+    backend: Backend = strawberry_django.field(
+        description="The backend this pod runs on."
+    )
+    deployment: Deployment = strawberry_django.field(
+        description="The deployment this pod is an instance of."
+    )
+    latest_log_dump: LogDump | None = strawberry_django.field(
+        description="The most recent log dump captured from this pod."
+    )
+    pod_id: str = strawberry_django.field(
+        description="The identifier of this pod as known to the backend."
+    )
+    client_id: str | None = strawberry_django.field(
+        description="The OAuth2 client ID this pod authenticates as, if any."
+    )
+    status: enums.PodStatus = strawberry_django.field(
+        description="The current lifecycle status of this pod."
+    )
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors,
+        description=DESCRIPTORS_DESCRIPTION,
+        only=["stored_descriptors"],
+    )
 
-    @strawberry_django.field(description="The display name of this pod, combining backend, flavour and app identifier.")
+    @strawberry_django.field(
+        description="The display name of this pod, combining backend, flavour and app identifier."
+    )
     def name(self) -> str:
-        return self.backend.name + "-" + self.deployment.flavour.name + "-" + self.deployment.flavour.release.app.identifier
+        return (
+            self.backend.name
+            + "-"
+            + self.deployment.flavour.name
+            + "-"
+            + self.deployment.flavour.release.app.identifier
+        )
 
     @classmethod
     def get_queryset(cls, queryset, info: Info):
@@ -1106,21 +1611,38 @@ class Pod:
 class ReleaseApproval:
     id: auto
     release: Release = strawberry_django.field(description="The approved release.")
-    approver: User = strawberry_django.field(description="The user the deployed release will act as.")
-    mandate_id: strawberry.ID = strawberry_django.field(description="The lok mandate backing this approval.")
-    agent: str = strawberry_django.field(description="The deployer app the mandate names.")
-    digest: str = strawberry_django.field(description="The release digest at approval time.")
-    backends: List[Backend] = strawberry_django.field(description="Backends allowed to deploy under this approval. Empty means any.")
+    approver: User = strawberry_django.field(
+        description="The user the deployed release will act as."
+    )
+    mandate_id: strawberry.ID = strawberry_django.field(
+        description="The lok mandate backing this approval."
+    )
+    agent: str = strawberry_django.field(
+        description="The deployer app the mandate names."
+    )
+    digest: str = strawberry_django.field(
+        description="The release digest at approval time."
+    )
+    backends: list[Backend] = strawberry_django.field(
+        description="Backends allowed to deploy under this approval. Empty means any."
+    )
     created_at: datetime.datetime
-    revoked_at: Optional[datetime.datetime] = strawberry_django.field(description="When the approval was withdrawn.")
+    revoked_at: datetime.datetime | None = strawberry_django.field(
+        description="When the approval was withdrawn."
+    )
 
-    @strawberry_django.field(description="The release changed since approval; nothing new may be deployed from this approval.")
+    @strawberry_django.field(
+        description="The release changed since approval; nothing new may be deployed from this approval."
+    )
     def is_stale(self, info: Info) -> bool:
         from bridge.approvals import is_stale
 
         return is_stale(self)
 
-    @strawberry_django.field(description="A display name: the approved release and who approved it.", select_related=["release__app", "approver"])
+    @strawberry_django.field(
+        description="A display name: the approved release and who approved it.",
+        select_related=["release__app", "approver"],
+    )
     def name(self, info: Info) -> str:
         return f"{self.release.app.identifier}:{self.release.version} (approved by {self.approver.username})"
 

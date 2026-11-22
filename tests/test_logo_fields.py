@@ -21,19 +21,37 @@ RELEASE_LOGOS = "query { releases { version logo originalLogo flavours { name lo
 def _release_with_logos(ctx: HttpContext, *, stored: bool) -> models.Release:
     """A release carrying an upstream logo URL, and optionally an ingested one."""
     organization = ctx.request.organization
-    app = models.App.objects.create(identifier="live.arkitekt.logos", organization=organization)
+    app = models.App.objects.create(
+        identifier="live.arkitekt.logos", organization=organization
+    )
     store = None
     if stored:
-        store = models.MediaStore.objects.create(path="s3://media/logo.png", key="logo.png", bucket="media", organization=organization)
-    release = models.Release.objects.create(app=app, version="0.1.0", original_logo="https://example.org/logo.png", logo=store)
-    image = models.DockerImage.objects.create(image_string="jhnnsrs/logos:0.1.0", organization=organization)
-    models.Flavour.objects.create(release=release, name="vanilla", image=image, builder="arkitekt")
+        store = models.MediaStore.objects.create(
+            path="s3://media/logo.png",
+            key="logo.png",
+            bucket="media",
+            organization=organization,
+        )
+    release = models.Release.objects.create(
+        app=app,
+        version="0.1.0",
+        original_logo="https://example.org/logo.png",
+        logo=store,
+    )
+    image = models.DockerImage.objects.create(
+        image_string="jhnnsrs/logos:0.1.0", organization=organization
+    )
+    models.Flavour.objects.create(
+        release=release, name="vanilla", image=image, builder="arkitekt"
+    )
     return release
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_a_flavour_reports_the_logos_of_its_release(authenticated_context: HttpContext) -> None:
+async def test_a_flavour_reports_the_logos_of_its_release(
+    authenticated_context: HttpContext,
+) -> None:
     """The regression: selecting these on a flavour used to raise, not return null."""
     await _release_with_logos(authenticated_context, stored=False)
 
@@ -49,7 +67,9 @@ async def test_a_flavour_reports_the_logos_of_its_release(authenticated_context:
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_an_ingested_logo_comes_back_as_its_path(authenticated_context: HttpContext) -> None:
+async def test_an_ingested_logo_comes_back_as_its_path(
+    authenticated_context: HttpContext,
+) -> None:
     """`Release.logo` is a `MediaStore` FK declared as a String: it must resolve to one.
 
     Every release in the wild has a null `logo`, which is why handing a `MediaStore` to a

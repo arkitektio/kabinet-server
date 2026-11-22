@@ -42,7 +42,11 @@ def release_digest(release: models.Release) -> str:
     """
     flavours = list(release.flavours.select_related("image").order_by("name"))
     requirements = sorted(
-        {(r.get("key"), r.get("service"), bool(r.get("optional"))) for f in flavours for r in (f.requirements or [])},
+        {
+            (r.get("key"), r.get("service"), bool(r.get("optional")))
+            for f in flavours
+            for r in (f.requirements or [])
+        },
         key=lambda r: (str(r[0]), str(r[1]), r[2]),
     )
     payload = {
@@ -52,12 +56,17 @@ def release_digest(release: models.Release) -> str:
         "requirements": requirements,
         "images": [[f.name, _image_ref(f.image)] for f in flavours],
     }
-    return DIGEST_PREFIX + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return (
+        DIGEST_PREFIX
+        + hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    )
 
 
 def release_is_pinned(release: models.Release) -> bool:
     """Whether every flavour image is digest-addressed (so the digest covers image content)."""
-    return all(image_is_pinned(f.image) for f in release.flavours.select_related("image"))
+    return all(
+        image_is_pinned(f.image) for f in release.flavours.select_related("image")
+    )
 
 
 def release_requirements(release: models.Release) -> list[dict]:
@@ -77,16 +86,25 @@ def is_active(approval: models.ReleaseApproval) -> bool:
     return approval.revoked_at is None and not is_stale(approval)
 
 
-def check_deployable(approval: models.ReleaseApproval, flavour: models.Flavour, backend: models.Backend) -> None:
+def check_deployable(
+    approval: models.ReleaseApproval, flavour: models.Flavour, backend: models.Backend
+) -> None:
     """Refuse a deployment the approval does not cover."""
     if approval.revoked_at is not None:
         raise ApprovalError("This approval has been revoked.")
     if flavour.release_id != approval.release_id:
         raise ApprovalError("The flavour does not belong to the approved release.")
-    if approval.backends.exists() and not approval.backends.filter(pk=backend.pk).exists():
-        raise ApprovalError("This backend is not allowed to deploy under this approval.")
+    if (
+        approval.backends.exists()
+        and not approval.backends.filter(pk=backend.pk).exists()
+    ):
+        raise ApprovalError(
+            "This backend is not allowed to deploy under this approval."
+        )
     if is_stale(approval):
-        raise ApprovalError("The release changed since it was approved (scopes, requirements or images); it needs to be approved again.")
+        raise ApprovalError(
+            "The release changed since it was approved (scopes, requirements or images); it needs to be approved again."
+        )
 
 
 acheck_deployable = sync_to_async(check_deployable)

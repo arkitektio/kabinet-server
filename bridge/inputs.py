@@ -1,14 +1,15 @@
 import datetime
+
+import strawberry
 from pydantic import BaseModel, Field
 from strawberry.experimental import pydantic
-from .enums import PodStatus
-import strawberry
-from rekuest_core.scalars import ActionHash
-from rekuest_core.inputs import types as rtypes
+
+from bridge import enums, scalars
 from rekuest_core.inputs import models as rmodels
-from typing import Dict, List, Optional
-from bridge import scalars
-from bridge import enums
+from rekuest_core.inputs import types as rtypes
+from rekuest_core.scalars import ActionHash
+
+from .enums import PodStatus
 
 
 class ScanRepoInputModel(BaseModel):
@@ -17,7 +18,10 @@ class ScanRepoInputModel(BaseModel):
     id: str = Field(description="The ID of the GitHub repository to scan.")
 
 
-@pydantic.input(ScanRepoInputModel, description="Input for scanning a tracked GitHub repository for app manifests.")
+@pydantic.input(
+    ScanRepoInputModel,
+    description="Input for scanning a tracked GitHub repository for app manifests.",
+)
 class ScanRepoInput:
     """Input for scanning a tracked GitHub repository."""
 
@@ -27,11 +31,19 @@ class ScanRepoInput:
 class ImportRepoInputModel(BaseModel):
     """Input for importing an OCI repository that carries an app's releases."""
 
-    reference: str = Field(description="The repository, e.g. 'ghcr.io/org/app'. No tag, no digest.")
-    channels: list[str] | None = Field(default=None, description="The channels to follow besides the releases, e.g. ['main']. Omit to keep what is followed.")
+    reference: str = Field(
+        description="The repository, e.g. 'ghcr.io/org/app'. No tag, no digest."
+    )
+    channels: list[str] | None = Field(
+        default=None,
+        description="The channels to follow besides the releases, e.g. ['main']. Omit to keep what is followed.",
+    )
 
 
-@pydantic.input(ImportRepoInputModel, description="Input for importing an OCI repository, or reading an imported one again.")
+@pydantic.input(
+    ImportRepoInputModel,
+    description="Input for importing an OCI repository, or reading an imported one again.",
+)
 class ImportRepoInput:
     """Input for importing an OCI repository that carries an app's releases."""
 
@@ -42,15 +54,31 @@ class ImportRepoInput:
 class CreateGithubRepoInputModel(BaseModel):
     """Input for tracking a new GitHub repository."""
 
-    name: str | None = Field(default=None, description="An optional human-readable name for the repository.")
-    user: str | None = Field(default=None, description="The GitHub owner (user or organization) of the repository.")
-    branch: str | None = Field(default=None, description="The branch to scan for app manifests.")
+    name: str | None = Field(
+        default=None, description="An optional human-readable name for the repository."
+    )
+    user: str | None = Field(
+        default=None,
+        description="The GitHub owner (user or organization) of the repository.",
+    )
+    branch: str | None = Field(
+        default=None, description="The branch to scan for app manifests."
+    )
     repo: str | None = Field(default=None, description="The repository name on GitHub.")
-    identifier: str | None = Field(default=None, description="An optional identifier (e.g. 'user/repo') used to derive the other fields.")
-    auto_scan: bool = Field(default=True, description="Whether to scan the repository immediately after adding it.")
+    identifier: str | None = Field(
+        default=None,
+        description="An optional identifier (e.g. 'user/repo') used to derive the other fields.",
+    )
+    auto_scan: bool = Field(
+        default=True,
+        description="Whether to scan the repository immediately after adding it.",
+    )
 
 
-@pydantic.input(CreateGithubRepoInputModel, description="Input for tracking a new GitHub repository.")
+@pydantic.input(
+    CreateGithubRepoInputModel,
+    description="Input for tracking a new GitHub repository.",
+)
 class CreateGithubRepoInput:
     """Input for tracking a new GitHub repository."""
 
@@ -68,7 +96,10 @@ class PullFlavourInputModel(BaseModel):
     id: str = Field(description="The ID of the flavour to pull.")
 
 
-@pydantic.input(PullFlavourInputModel, description="Input for pulling (downloading) a flavour's Docker image.")
+@pydantic.input(
+    PullFlavourInputModel,
+    description="Input for pulling (downloading) a flavour's Docker image.",
+)
 class PullFlavourInput:
     """Input for pulling a flavour's image."""
 
@@ -79,14 +110,29 @@ class CreateSetupInputModel(BaseModel):
     """Input for creating a deployment setup for a release."""
 
     release: str = Field(description="The ID of the release to set up.")
-    flavour: str | None = Field(default=None, description="An optional specific flavour to use; otherwise one is matched automatically.")
-    fakts_url: str | None = Field(default="lok:80", description="The Fakts endpoint the app should connect to for configuration.")
-    fakts_token: str | None = Field(default=None, description="The Fakts token the app should use to authenticate.")
-    command: str | None = Field(default="arkitekt prod run", description="The command used to start the app.")
-    auto_pull: bool = Field(default=True, description="Whether to pull the image as part of the setup.")
+    flavour: str | None = Field(
+        default=None,
+        description="An optional specific flavour to use; otherwise one is matched automatically.",
+    )
+    fakts_url: str | None = Field(
+        default="lok:80",
+        description="The Fakts endpoint the app should connect to for configuration.",
+    )
+    fakts_token: str | None = Field(
+        default=None, description="The Fakts token the app should use to authenticate."
+    )
+    command: str | None = Field(
+        default="arkitekt prod run", description="The command used to start the app."
+    )
+    auto_pull: bool = Field(
+        default=True, description="Whether to pull the image as part of the setup."
+    )
 
 
-@pydantic.input(CreateSetupInputModel, description="Input for creating a deployment setup for a release.")
+@pydantic.input(
+    CreateSetupInputModel,
+    description="Input for creating a deployment setup for a release.",
+)
 class CreateSetupInput:
     """Input for creating a deployment setup for a release."""
 
@@ -104,7 +150,9 @@ class DeploySetupInputModel(BaseModel):
     setup: str = Field(description="The ID of the setup to deploy.")
 
 
-@pydantic.input(DeploySetupInputModel, description="Input for deploying a previously created setup.")
+@pydantic.input(
+    DeploySetupInputModel, description="Input for deploying a previously created setup."
+)
 class DeploySetupInput:
     """Input for deploying a previously created setup."""
 
@@ -112,13 +160,25 @@ class DeploySetupInput:
 
 
 class CreatePodInputModel(BaseModel):
-    deployment: strawberry.ID = Field(description="The ID of the deployment this pod is an instance of.")
-    local_id: strawberry.ID = Field(description="The identifier of the pod as known to the backend.")
-    resource: strawberry.ID | None = Field(default=None, description="The resource this pod is scheduled onto, if any.")
-    client_id: str | None = Field(default=None, description="The OAuth2 client ID this pod authenticates as, if any.")
+    deployment: strawberry.ID = Field(
+        description="The ID of the deployment this pod is an instance of."
+    )
+    local_id: strawberry.ID = Field(
+        description="The identifier of the pod as known to the backend."
+    )
+    resource: strawberry.ID | None = Field(
+        default=None, description="The resource this pod is scheduled onto, if any."
+    )
+    client_id: str | None = Field(
+        default=None,
+        description="The OAuth2 client ID this pod authenticates as, if any.",
+    )
 
 
-@pydantic.input(CreatePodInputModel, description="Input for registering a running pod for a deployment.")
+@pydantic.input(
+    CreatePodInputModel,
+    description="Input for registering a running pod for a deployment.",
+)
 class CreatePodInput:
     """Input for registering a running pod for a deployment."""
 
@@ -131,8 +191,13 @@ class CreatePodInput:
 class UpdatePodInputModel(BaseModel):
     """Input for updating a pod's status."""
 
-    pod: strawberry.ID | None = Field(default=None, description="The ID of the pod to update; required unless 'local_id' is given.")
-    local_id: strawberry.ID | None = Field(default=None, description="The backend-local identifier of the pod to update.")
+    pod: strawberry.ID | None = Field(
+        default=None,
+        description="The ID of the pod to update; required unless 'local_id' is given.",
+    )
+    local_id: strawberry.ID | None = Field(
+        default=None, description="The backend-local identifier of the pod to update."
+    )
     status: str = Field(description="The new status of the pod.")
 
 
@@ -148,14 +213,26 @@ class UpdatePodInput:
 class CreateDeploymentInputModel(BaseModel):
     """Input for creating a deployment."""
 
-    local_id: str = Field(description="The identifier of the deployment as known to the backend.")
+    local_id: str = Field(
+        description="The identifier of the deployment as known to the backend."
+    )
     flavour: str = Field(description="The ID of the flavour to deploy.")
-    approval: str = Field(description="The release approval this deployment is made under.")
-    last_pulled: datetime.datetime | None = Field(default=None, description="When the flavour's image was last pulled, if known.")
-    secret_params: Dict[str, str] | None = Field(default=None, description="Secret parameters passed to the deployment (e.g. credentials).")
+    approval: str = Field(
+        description="The release approval this deployment is made under."
+    )
+    last_pulled: datetime.datetime | None = Field(
+        default=None, description="When the flavour's image was last pulled, if known."
+    )
+    secret_params: dict[str, str] | None = Field(
+        default=None,
+        description="Secret parameters passed to the deployment (e.g. credentials).",
+    )
 
 
-@pydantic.input(CreateDeploymentInputModel, description="Input for creating a deployment of a flavour on a backend.")
+@pydantic.input(
+    CreateDeploymentInputModel,
+    description="Input for creating a deployment of a flavour on a backend.",
+)
 class CreateDeploymentInput:
     """Input for creating a deployment."""
 
@@ -173,7 +250,9 @@ class UpdateDeploymentInputModel(BaseModel):
     status: str = Field(description="The new status of the deployment.")
 
 
-@pydantic.input(UpdateDeploymentInputModel, description="Input for updating a deployment's status.")
+@pydantic.input(
+    UpdateDeploymentInputModel, description="Input for updating a deployment's status."
+)
 class UpdateDeploymentInput:
     """Input for updating a deployment's status."""
 
@@ -188,7 +267,9 @@ class DumpLogsInputModel(BaseModel):
     logs: str = Field(description="The captured log output to store.")
 
 
-@pydantic.input(DumpLogsInputModel, description="Input for attaching a log dump to a pod.")
+@pydantic.input(
+    DumpLogsInputModel, description="Input for attaching a log dump to a pod."
+)
 class DumpLogsInput:
     """Input for attaching a log dump to a pod."""
 
@@ -203,7 +284,10 @@ class DeclareBackendInputModel(BaseModel):
     kind: str = Field(description="The kind of backend (its runtime type).")
 
 
-@pydantic.input(DeclareBackendInputModel, description="Input for declaring (registering or updating) a backend.")
+@pydantic.input(
+    DeclareBackendInputModel,
+    description="Input for declaring (registering or updating) a backend.",
+)
 class DeclareBackendInput:
     """Input for declaring (registering) a backend."""
 
@@ -221,10 +305,19 @@ class QualifierInputModel(BaseModel):
 class DeclareResourceInputModel(BaseModel):
     """Input for declaring a resource on a backend."""
 
-    backend: str = Field(description="The ID of the backend to declare the resource on.")
-    name: Optional[str] = Field(default=None, description="An optional human-readable name for the resource.")
-    local_id: str = Field(description="The identifier of the resource as known to the backend.")
-    qualifiers: Optional[List[QualifierInputModel]] = Field(default=None, description="Free-form key/value qualifiers describing the resource.")
+    backend: str = Field(
+        description="The ID of the backend to declare the resource on."
+    )
+    name: str | None = Field(
+        default=None, description="An optional human-readable name for the resource."
+    )
+    local_id: str = Field(
+        description="The identifier of the resource as known to the backend."
+    )
+    qualifiers: list[QualifierInputModel] | None = Field(
+        default=None,
+        description="Free-form key/value qualifiers describing the resource.",
+    )
 
 
 @pydantic.input(
@@ -238,7 +331,10 @@ class QualifierInput:
     value: str
 
 
-@pydantic.input(DeclareResourceInputModel, description="Input for declaring (registering or updating) a resource on a backend.")
+@pydantic.input(
+    DeclareResourceInputModel,
+    description="Input for declaring (registering or updating) a resource on a backend.",
+)
 class DeclareResourceInput:
     """Input for declaring a resource on a backend."""
 
@@ -248,18 +344,33 @@ class DeclareResourceInput:
     qualifiers: list[QualifierInput] | None = None
 
 
-
 class PortDemandInputModel(BaseModel):
     """A demand on the ports (args or returns) of an action."""
 
-    kind: enums.DemandKind = Field(description="The kind of the demand. You can ask for args or returns")
-    matches: Optional[list[rmodels.PortMatchInputModel]] = Field(default=None, description="The matches of the demand. ")
-    force_length: Optional[int] = Field(default=None, description="Require that the action has a specific number of ports. This is used to identify the demand in the system.")
-    force_non_nullable_length: Optional[int] = Field(default=None, description="Require that the action has a specific number of non-nullable ports. This is used to identify the demand in the system.")
-    force_structure_length: Optional[int] = Field(default=None, description="Require that the action has a specific number of structure ports. This is used to identify the demand in the system.")
+    kind: enums.DemandKind = Field(
+        description="The kind of the demand. You can ask for args or returns"
+    )
+    matches: list[rmodels.PortMatchInputModel] | None = Field(
+        default=None, description="The matches of the demand. "
+    )
+    force_length: int | None = Field(
+        default=None,
+        description="Require that the action has a specific number of ports. This is used to identify the demand in the system.",
+    )
+    force_non_nullable_length: int | None = Field(
+        default=None,
+        description="Require that the action has a specific number of non-nullable ports. This is used to identify the demand in the system.",
+    )
+    force_structure_length: int | None = Field(
+        default=None,
+        description="Require that the action has a specific number of structure ports. This is used to identify the demand in the system.",
+    )
 
 
-@pydantic.input(PortDemandInputModel, description="A demand on the ports (args or returns) of an action.")
+@pydantic.input(
+    PortDemandInputModel,
+    description="A demand on the ports (args or returns) of an action.",
+)
 class PortDemandInput:
     kind: enums.DemandKind
     matches: list[rtypes.PortMatchInput] | None = None
@@ -282,18 +393,47 @@ class DeletePodInput:
 class ActionDemandInputModel(BaseModel):
     """The input for creating an action demand."""
 
-    key: Optional[str] = Field(default=None, description="The key of the action. This is used to identify the action in the system.")
-    hash: Optional[str] = Field(default=None, description="The hash of the action. This is used to identify the action in the system.")
-    name: Optional[str] = Field(default=None, description="The name of the action. This is used to identify the action in the system.")
-    description: Optional[str] = Field(default=None, description="The description of the action. This can described the action and its purpose.")
-    arg_matches: Optional[list[rmodels.PortMatchInputModel]] = Field(default=None, description="The demands for the action args and returns. This is used to identify the demand in the system.")
-    return_matches: Optional[list[rmodels.PortMatchInputModel]] = Field(default=None, description="The demands for the action args and returns. This is used to identify the demand in the system.")
-    protocols: Optional[list[str]] = Field(default=None, description="The protocols that the action has to implement. This is used to identify the demand in the system.")
-    force_arg_length: Optional[int] = Field(default=None, description="Require that the action has a specific number of args. This is used to identify the demand in the system.")
-    force_return_length: Optional[int] = Field(default=None, description="Require that the action has a specific number of returns. This is used to identify the demand in the system.")
+    key: str | None = Field(
+        default=None,
+        description="The key of the action. This is used to identify the action in the system.",
+    )
+    hash: str | None = Field(
+        default=None,
+        description="The hash of the action. This is used to identify the action in the system.",
+    )
+    name: str | None = Field(
+        default=None,
+        description="The name of the action. This is used to identify the action in the system.",
+    )
+    description: str | None = Field(
+        default=None,
+        description="The description of the action. This can described the action and its purpose.",
+    )
+    arg_matches: list[rmodels.PortMatchInputModel] | None = Field(
+        default=None,
+        description="The demands for the action args and returns. This is used to identify the demand in the system.",
+    )
+    return_matches: list[rmodels.PortMatchInputModel] | None = Field(
+        default=None,
+        description="The demands for the action args and returns. This is used to identify the demand in the system.",
+    )
+    protocols: list[str] | None = Field(
+        default=None,
+        description="The protocols that the action has to implement. This is used to identify the demand in the system.",
+    )
+    force_arg_length: int | None = Field(
+        default=None,
+        description="Require that the action has a specific number of args. This is used to identify the demand in the system.",
+    )
+    force_return_length: int | None = Field(
+        default=None,
+        description="Require that the action has a specific number of returns. This is used to identify the demand in the system.",
+    )
 
 
-@pydantic.input(ActionDemandInputModel, description="The input for creating an action demand.")
+@pydantic.input(
+    ActionDemandInputModel, description="The input for creating an action demand."
+)
 class ActionDemandInput:
     key: str | None = None
     hash: ActionHash | None = None
@@ -309,30 +449,53 @@ class ActionDemandInput:
 class SchemaDemandInputModel(BaseModel):
     """The input for creating a schema (state) demand."""
 
-    key: Optional[str] = Field(default=None, description="The key of the state. This is used to identify the state in the system.")
-    hash: Optional[str] = Field(default=None, description="The hash of the state.")
-    matches: Optional[list[rmodels.PortMatchInputModel]] = Field(default=None, description="The demands for the action args and returns. This is used to identify the demand in the system.")
-    protocols: Optional[list[str]] = Field(default=None, description="The protocols that the action has to implement. This is used to identify the demand in the system.")
+    key: str | None = Field(
+        default=None,
+        description="The key of the state. This is used to identify the state in the system.",
+    )
+    hash: str | None = Field(default=None, description="The hash of the state.")
+    matches: list[rmodels.PortMatchInputModel] | None = Field(
+        default=None,
+        description="The demands for the action args and returns. This is used to identify the demand in the system.",
+    )
+    protocols: list[str] | None = Field(
+        default=None,
+        description="The protocols that the action has to implement. This is used to identify the demand in the system.",
+    )
 
 
-@pydantic.input(SchemaDemandInputModel, description="The input for creating a schema (state) demand.")
+@pydantic.input(
+    SchemaDemandInputModel,
+    description="The input for creating a schema (state) demand.",
+)
 class SchemaDemandInput:
     key: str | None = None
     hash: ActionHash | None = None
     matches: list[rtypes.PortMatchInput] | None = None
     protocols: list[strawberry.ID] | None = None
 
+
 class ApproveReleaseInputModel(BaseModel):
     """Input for recording a standing approval of a release."""
 
     release: str = Field(description="The release to approve.")
-    mandate: str = Field(description="The lok agent mandate (createMandate) that lets the deployer issue mandate keys that run this release as you.")
+    mandate: str = Field(
+        description="The lok agent mandate (createMandate) that lets the deployer issue mandate keys that run this release as you."
+    )
     agent: str = Field(description="Identifier of the deployer app the mandate names.")
-    digest: str = Field(description="The release's approvalDigest you reviewed; refused if the release changed since.")
-    backends: list[str] | None = Field(default=None, description="Backends allowed to deploy under this approval. Omit for any.")
+    digest: str = Field(
+        description="The release's approvalDigest you reviewed; refused if the release changed since."
+    )
+    backends: list[str] | None = Field(
+        default=None,
+        description="Backends allowed to deploy under this approval. Omit for any.",
+    )
 
 
-@pydantic.input(ApproveReleaseInputModel, description="Record that you pre-authorized a release (via a lok mandate) so deployers may install it.")
+@pydantic.input(
+    ApproveReleaseInputModel,
+    description="Record that you pre-authorized a release (via a lok mandate) so deployers may install it.",
+)
 class ApproveReleaseInput:
     release: strawberry.ID
     mandate: strawberry.ID
@@ -345,6 +508,9 @@ class RevokeApprovalInputModel(BaseModel):
     id: str
 
 
-@pydantic.input(RevokeApprovalInputModel, description="Withdraw a release approval. Revoke the lok mandate as well to stop running pods.")
+@pydantic.input(
+    RevokeApprovalInputModel,
+    description="Withdraw a release approval. Revoke the lok mandate as well to stop running pods.",
+)
 class RevokeApprovalInput:
     id: strawberry.ID

@@ -1,6 +1,7 @@
 from graphql import GraphQLError
 from kante.types import Info
-from bridge import approvals, types, inputs, models
+
+from bridge import approvals, inputs, models, types
 from bridge.scoping import aget_for_org
 from bridge.utils import aget_backend_for_info
 

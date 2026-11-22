@@ -1,21 +1,26 @@
 import datetime
-from typing import List, Optional
-from strawberry.experimental import pydantic
-from rekuest_core import enums as rekuest_enums
-from rekuest_core.inputs.types import BlokImplementationInput, ImplementationInput, StateImplementationInput, LockImplementationInput
+
 import strawberry
 from kante.unions import merged_input, union_member, union_member_types
+from strawberry.experimental import pydantic
+
+from rekuest_core import enums as rekuest_enums
+from rekuest_core.inputs.types import (
+    BlokImplementationInput,
+    ImplementationInput,
+    LockImplementationInput,
+    StateImplementationInput,
+)
 
 from . import selectors
 from .models import (
-    DockerImageModel,
     AppImageInputModel,
-    ManifestInputModel,
+    DockerImageModel,
     InspectedAssetModel,
     InspectionInputModel,
+    ManifestInputModel,
     RequirementInputModel,
 )
-
 
 # The members are the SAME pydantic models that are stored on the Flavour and
 # served back on Flavour.selectors (bridge/repo/selectors.py) — input, storage
@@ -113,58 +118,100 @@ class RequirementInput:
     key: str
     service: str
     optional: bool = False
-    description: Optional[str] = None
+    description: str | None = None
 
 
-@pydantic.input(InspectedAssetModel, description="A file the app brings, as its image holds it.")
+@pydantic.input(
+    InspectedAssetModel, description="A file the app brings, as its image holds it."
+)
 class InspectedAssetInput:
     name: str
     kind: rekuest_enums.AssetKind
     ref: str
-    size: Optional[int] = None
-    source: Optional[str] = None
-    path: Optional[str] = None
+    size: int | None = None
+    source: str | None = None
+    path: str | None = None
 
 
 @pydantic.input(InspectionInputModel)
 class InspectionInput:
-    spec_version: str = strawberry.field(description="The arkitekt-spec the image wrote this with. An inspection that names none is refused.")
-    locks: List[LockImplementationInput] = strawberry.field(description="The locks are a list of lock implementations that the app provides")
-    states: List[StateImplementationInput] = strawberry.field(description="The states are a list of state implementations that the app provides")
-    implementations: List[ImplementationInput] = strawberry.field(description="The implementations are a list of functionality the the app will provide")
-    requirements: List[RequirementInput] = strawberry.field(description="The requirements are a list of services that the app needs to connect to (think: mikro, rekuest, ettc..)")
-    bloks: list[BlokImplementationInput] = strawberry.field(description="The bloks are a list of Blok implementations that the app provides")
-    assets: list[InspectedAssetInput] = strawberry.field(default_factory=list, description="The files the app brings: models and images its bloks call by name")
-    size: Optional[int] = strawberry.field(default=None, description="The size of the app in MB")
+    spec_version: str = strawberry.field(
+        description="The arkitekt-spec the image wrote this with. An inspection that names none is refused."
+    )
+    locks: list[LockImplementationInput] = strawberry.field(
+        description="The locks are a list of lock implementations that the app provides"
+    )
+    states: list[StateImplementationInput] = strawberry.field(
+        description="The states are a list of state implementations that the app provides"
+    )
+    implementations: list[ImplementationInput] = strawberry.field(
+        description="The implementations are a list of functionality the the app will provide"
+    )
+    requirements: list[RequirementInput] = strawberry.field(
+        description="The requirements are a list of services that the app needs to connect to (think: mikro, rekuest, ettc..)"
+    )
+    bloks: list[BlokImplementationInput] = strawberry.field(
+        description="The bloks are a list of Blok implementations that the app provides"
+    )
+    assets: list[InspectedAssetInput] = strawberry.field(
+        default_factory=list,
+        description="The files the app brings: models and images its bloks call by name",
+    )
+    size: int | None = strawberry.field(
+        default=None, description="The size of the app in MB"
+    )
 
 
 @pydantic.input(ManifestInputModel)
 class ManifestInput:
     """The manifest of the app that was deployed"""
 
-    identifier: str = strawberry.field(description="The identifier of the app (should be world unique and reverse domain notation) e.g. live.arkitekt.app_name)")
+    identifier: str = strawberry.field(
+        description="The identifier of the app (should be world unique and reverse domain notation) e.g. live.arkitekt.app_name)"
+    )
     version: str = strawberry.field(description="The semver version of the app")
     author: str = strawberry.field(description="The author of the app")
     logo: str | None = strawberry.field(description="The logo of the app")
-    scopes: list[str] = strawberry.field(description="A list of required scopes for the app")
+    scopes: list[str] = strawberry.field(
+        description="A list of required scopes for the app"
+    )
     # Optional in the schema, so it needs a default here too: without one the
     # generated __init__ required it and every manifest omitting it raised.
-    entrypoint: str | None = strawberry.field(default=None, description="The entrypoint of the app, defaults to 'app'")
+    entrypoint: str | None = strawberry.field(
+        default=None, description="The entrypoint of the app, defaults to 'app'"
+    )
 
 
 @pydantic.input(DockerImageModel)
 class DockerImageInput:
-    image_string: str = strawberry.field(description="The identifier of the docker image")
-    build_at: datetime.datetime = strawberry.field(description="The timestamp of the build")
+    image_string: str = strawberry.field(
+        description="The identifier of the docker image"
+    )
+    build_at: datetime.datetime = strawberry.field(
+        description="The timestamp of the build"
+    )
 
 
-@pydantic.input(AppImageInputModel, description="Input describing a built app image to register (its manifest, image, selectors and inspection).")
+@pydantic.input(
+    AppImageInputModel,
+    description="Input describing a built app image to register (its manifest, image, selectors and inspection).",
+)
 class AppImageInput:
     """Input describing a built app image to register."""
 
-    flavour_name: str | None = strawberry.field(default=None, description="The flavour name associated with this deployment")
+    flavour_name: str | None = strawberry.field(
+        default=None, description="The flavour name associated with this deployment"
+    )
     manifest: ManifestInput
-    selectors: list[SelectorInput] = strawberry.field(description="The selectors are used to place this image on the actions")
-    app_image_id: str = strawberry.field(description="The unique identifier for the app_image")
-    inspection: InspectionInput = strawberry.field(description="The inspection of the app that was deployed")
-    image: DockerImageInput = strawberry.field(description="The docker image of the app that was deployed")
+    selectors: list[SelectorInput] = strawberry.field(
+        description="The selectors are used to place this image on the actions"
+    )
+    app_image_id: str = strawberry.field(
+        description="The unique identifier for the app_image"
+    )
+    inspection: InspectionInput = strawberry.field(
+        description="The inspection of the app that was deployed"
+    )
+    image: DockerImageInput = strawberry.field(
+        description="The docker image of the app that was deployed"
+    )

@@ -51,21 +51,33 @@ def stub_manifest(monkeypatch):
 @pytest.mark.asyncio
 async def test_create_github_repo(authenticated_context: HttpContext, stub_manifest):
     """Tracking a repo by identifier creates it and populates its flavours."""
-    assert authenticated_context.request.organization is not None, "Organization should be set"
+    assert authenticated_context.request.organization is not None, (
+        "Organization should be set"
+    )
 
     repo = (
-        await execute(CREATE_GITHUB_REPO, authenticated_context, {"input": {"identifier": "arkitektio-apps/ome"}})
+        await execute(
+            CREATE_GITHUB_REPO,
+            authenticated_context,
+            {"input": {"identifier": "arkitektio-apps/ome"}},
+        )
     )["createGithubRepo"]
 
     assert repo["id"] is not None
-    assert (repo["user"], repo["repo"], repo["branch"]) == ("arkitektio-apps", "ome", "main")
+    assert (repo["user"], repo["repo"], repo["branch"]) == (
+        "arkitektio-apps",
+        "ome",
+        "main",
+    )
     assert repo["url"] == "https://github.com/arkitektio-apps/ome"
     assert repo["flavours"], "scanning the manifest should have produced flavours"
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_create_github_repo_accepts_a_url_with_a_branch(authenticated_context: HttpContext, stub_manifest):
+async def test_create_github_repo_accepts_a_url_with_a_branch(
+    authenticated_context: HttpContext, stub_manifest
+):
     """A full GitHub URL with a /tree/<branch> suffix resolves to that branch.
 
     ``infer_repo_info`` used to validate this input with ``assert`` -- stripped under
@@ -76,19 +88,33 @@ async def test_create_github_repo_accepts_a_url_with_a_branch(authenticated_cont
         await execute(
             CREATE_GITHUB_REPO,
             authenticated_context,
-            {"input": {"identifier": "https://github.com/arkitektio-apps/ome/tree/dev"}},
+            {
+                "input": {
+                    "identifier": "https://github.com/arkitektio-apps/ome/tree/dev"
+                }
+            },
         )
     )["createGithubRepo"]
 
-    assert (repo["user"], repo["repo"], repo["branch"]) == ("arkitektio-apps", "ome", "dev")
+    assert (repo["user"], repo["repo"], repo["branch"]) == (
+        "arkitektio-apps",
+        "ome",
+        "dev",
+    )
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_create_github_repo_rejects_a_bare_word(authenticated_context: HttpContext, stub_manifest):
+async def test_create_github_repo_rejects_a_bare_word(
+    authenticated_context: HttpContext, stub_manifest
+):
     """An identifier that names no repository is refused, not guessed at."""
     from tests.utils import execute_raw
 
-    result = await execute_raw(CREATE_GITHUB_REPO, authenticated_context, {"input": {"identifier": "not-an-identifier"}})
+    result = await execute_raw(
+        CREATE_GITHUB_REPO,
+        authenticated_context,
+        {"input": {"identifier": "not-an-identifier"}},
+    )
 
     assert result.errors, "a malformed identifier should be an error"

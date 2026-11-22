@@ -10,14 +10,16 @@ when an action runs (a schedule, a trigger, by hand) is the organization's own a
 Nothing here loops or waits: each run is one pass rekuest started.
 """
 
+from arkitekt_service.hook import HookAgent
 from asgiref.sync import async_to_sync
 
 from bridge import models
 from bridge.repo import oci
 from embeddings.healer import reembed_all
-from arkitekt_service.hook import HookAgent
 
-agent = HookAgent("kabinet", description="kabinet's housekeeping: work on its own data.")
+agent = HookAgent(
+    "kabinet", description="kabinet's housekeeping: work on its own data."
+)
 
 # The models whose name + description are embedded (see ``embeddings.healer``).
 # `Repo` and not `GithubRepo`: the vector column lives on the base table, and
@@ -32,7 +34,11 @@ _EMBEDDED_MODELS = (models.Definition, models.App, models.Flavour, models.Repo)
 )
 def reembed_stale(organization: str) -> dict:
     """One pass over the organization's embedded rows, in row-locked batches (N replicas may run it at once)."""
-    return {"reembedded": reembed_all(_EMBEDDED_MODELS, max_batches=50, organization=organization)}
+    return {
+        "reembedded": reembed_all(
+            _EMBEDDED_MODELS, max_batches=50, organization=organization
+        )
+    }
 
 
 @agent.action(

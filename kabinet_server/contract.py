@@ -7,25 +7,65 @@ the same commit, and no installer has to learn of it.
 
 from __future__ import annotations
 
-from arkitekt_service.contract import JSON, Contract, Description, Descriptor, Facts, Hosts, Job, Needs, Offers, Role, Scope, Signal, Start, Structure, blocks
+from arkitekt_service.contract import (
+    JSON,
+    Contract,
+    Description,
+    Descriptor,
+    Facts,
+    Hosts,
+    Job,
+    Needs,
+    Offers,
+    Role,
+    Scope,
+    Signal,
+    Start,
+    Structure,
+    blocks,
+)
 
 from kabinet_server.configuration import Settings
 
 #: What an app may do here on a user's behalf: defined at the coordination server when the hub
 #: enrols. Every root field of the schema asks for one of them (`AuthExtension(scopes=...)`).
 SCOPES = [
-    Scope(key="kabinet_read", description="See repositories, app images, deployments, pods, backends and release approvals."),
-    Scope(key="kabinet_repos", description="Add and rescan repositories and register app images."),
-    Scope(key="kabinet_deploy", description="Deploy apps: create and change deployments, pods, backends and resources, and read their logs."),
-    Scope(key="kabinet_approve", description="Approve or revoke releases, which decides what may run under the organization's mandate."),
-    Scope(key="kabinet_all", description="Do everything in Kabinet on your behalf.", is_all_scope=True),
+    Scope(
+        key="kabinet_read",
+        description="See repositories, app images, deployments, pods, backends and release approvals.",
+    ),
+    Scope(
+        key="kabinet_repos",
+        description="Add and rescan repositories and register app images.",
+    ),
+    Scope(
+        key="kabinet_deploy",
+        description="Deploy apps: create and change deployments, pods, backends and resources, and read their logs.",
+    ),
+    Scope(
+        key="kabinet_approve",
+        description="Approve or revoke releases, which decides what may run under the organization's mandate.",
+    ),
+    Scope(
+        key="kabinet_all",
+        description="Do everything in Kabinet on your behalf.",
+        is_all_scope=True,
+    ),
 ]
 
 #: What a member of an organization may do here. Kabinet has no editor: deploying is what a member
 #: does here, so the deployer is every member's role, and approving is held back for the approver.
 ROLES = [
-    Role(key="kabinet_admin", description="Full control of Kabinet in this organization.", is_admin_role=True),
-    Role(key="kabinet_deployer", description="Add repositories and deploy apps.", is_default_role=True),
+    Role(
+        key="kabinet_admin",
+        description="Full control of Kabinet in this organization.",
+        is_admin_role=True,
+    ),
+    Role(
+        key="kabinet_deployer",
+        description="Add repositories and deploy apps.",
+        is_default_role=True,
+    ),
     Role(key="kabinet_approver", description="Approve and revoke releases."),
 ]
 
@@ -35,32 +75,82 @@ APPROVER = "kabinet_approver"
 ADMIN = "kabinet_admin"
 
 #: What a deployment and a pod are placed by: one pair of keys for both, so one `requires` asks both.
-_STATUS = Descriptor(key="@kabinet/status", type="STRING", description="Its lifecycle status as its backend last reported it, e.g. PENDING, RUNNING, STOPPED or FAILED")
-_BACKEND_KIND = Descriptor(key="@kabinet/backend_kind", type="STRING", description="The kind of deployer backend it runs on, as the backend declared it (e.g. docker); unknown until it does")
+_STATUS = Descriptor(
+    key="@kabinet/status",
+    type="STRING",
+    description="Its lifecycle status as its backend last reported it, e.g. PENDING, RUNNING, STOPPED or FAILED",
+)
+_BACKEND_KIND = Descriptor(
+    key="@kabinet/backend_kind",
+    type="STRING",
+    description="The kind of deployer backend it runs on, as the backend declared it (e.g. docker); unknown until it does",
+)
 
 RELEASE_DESCRIPTORS = [
     Descriptor(key="@kabinet/version", type="STRING", description="Its version"),
-    Descriptor(key="@kabinet/channel", type="STRING", description="The channel it is the latest build of (e.g. main): empty for a release proper, which never changes"),
+    Descriptor(
+        key="@kabinet/channel",
+        type="STRING",
+        description="The channel it is the latest build of (e.g. main): empty for a release proper, which never changes",
+    ),
 ]
 #: Read off the selectors a backend must satisfy (``required``); a preference is no minimum.
 FLAVOUR_DESCRIPTORS = [
-    Descriptor(key="@kabinet/flavour_name", type="STRING", description="Which variant of its release it is, e.g. vanilla or cuda"),
-    Descriptor(key="@kabinet/selector_kinds", type="LIST", description="The kinds of hardware selector it states, required or preferred: cpu, ram, cuda, rocm, oneapi, label"),
+    Descriptor(
+        key="@kabinet/flavour_name",
+        type="STRING",
+        description="Which variant of its release it is, e.g. vanilla or cuda",
+    ),
+    Descriptor(
+        key="@kabinet/selector_kinds",
+        type="LIST",
+        description="The kinds of hardware selector it states, required or preferred: cpu, ram, cuda, rocm, oneapi, label",
+    ),
     Descriptor(
         key="@kabinet/gpu",
         type="STRING",
         description="The GPU accelerator a backend must have to run it: cuda, rocm or oneapi; none when it requires none, multiple when it requires more than one vendor's",
     ),
-    Descriptor(key="@kabinet/arch", type="LIST", description="The CPU architectures it requires (e.g. amd64, arm64): empty when any will do"),
-    Descriptor(key="@kabinet/min_ram_mb", type="INT", description="The system memory it requires, in MB: 0 when it states none"),
-    Descriptor(key="@kabinet/min_vram_mb", type="INT", description="The GPU memory it requires of a CUDA device, in MB: 0 when it states none"),
+    Descriptor(
+        key="@kabinet/arch",
+        type="LIST",
+        description="The CPU architectures it requires (e.g. amd64, arm64): empty when any will do",
+    ),
+    Descriptor(
+        key="@kabinet/min_ram_mb",
+        type="INT",
+        description="The system memory it requires, in MB: 0 when it states none",
+    ),
+    Descriptor(
+        key="@kabinet/min_vram_mb",
+        type="INT",
+        description="The GPU memory it requires of a CUDA device, in MB: 0 when it states none",
+    ),
 ]
 DEFINITION_DESCRIPTORS = [
-    Descriptor(key="@kabinet/kind", type="STRING", description="Whether the action is a function or a generator"),
-    Descriptor(key="@kabinet/pure", type="BOOL", description="Whether it is pure, so its result may be cached"),
-    Descriptor(key="@kabinet/idempotent", type="BOOL", description="Whether running it twice is the same as running it once"),
-    Descriptor(key="@kabinet/n_args", type="INT", description="How many arguments it takes: 0 for an action a schedule can start"),
-    Descriptor(key="@kabinet/n_returns", type="INT", description="How many values it returns"),
+    Descriptor(
+        key="@kabinet/kind",
+        type="STRING",
+        description="Whether the action is a function or a generator",
+    ),
+    Descriptor(
+        key="@kabinet/pure",
+        type="BOOL",
+        description="Whether it is pure, so its result may be cached",
+    ),
+    Descriptor(
+        key="@kabinet/idempotent",
+        type="BOOL",
+        description="Whether running it twice is the same as running it once",
+    ),
+    Descriptor(
+        key="@kabinet/n_args",
+        type="INT",
+        description="How many arguments it takes: 0 for an action a schedule can start",
+    ),
+    Descriptor(
+        key="@kabinet/n_returns", type="INT", description="How many values it returns"
+    ),
 ]
 PLACEMENT_DESCRIPTORS = [_STATUS, _BACKEND_KIND]
 
@@ -174,8 +264,19 @@ contract = Contract(
         name="kabinet",
         identifier="live.arkitekt.kabinet",
         summary="The apps a hub can install and run.",
-        needs=Needs(scopes=SCOPES, roles=ROLES, storage=["media"], instance_key=True, peers=["rekuest"]),
-        offers=Offers(endpoints={"rekuest_service": "_rekuest/service", "rekuest_hook": "_rekuest/hook"}),
+        needs=Needs(
+            scopes=SCOPES,
+            roles=ROLES,
+            storage=["media"],
+            instance_key=True,
+            peers=["rekuest"],
+        ),
+        offers=Offers(
+            endpoints={
+                "rekuest_service": "_rekuest/service",
+                "rekuest_hook": "_rekuest/hook",
+            }
+        ),
         requires={"rekuest": ">=6"},
         hosts=HOSTS,
         # The migration history restarted at `0001` in 9.0.0 (blok language v2): an older hub's
@@ -186,13 +287,34 @@ contract = Contract(
     render=render,
     # How this service is started: there is no script beside it. `arkitekt-service serve`
     # (and `debug`) become these, so they get the container's signals themselves.
-    serve=Start(("daphne", "-b", "0.0.0.0", "-p", "80", "--websocket_timeout", "-1", "kabinet_server.asgi:application")),
+    serve=Start(
+        (
+            "daphne",
+            "-b",
+            "0.0.0.0",
+            "-p",
+            "80",
+            "--websocket_timeout",
+            "-1",
+            "kabinet_server.asgi:application",
+        )
+    ),
     debug=Start(("python", "manage.py", "runserver", "0.0.0.0:80")),
     jobs={
-        "ensureadmin": Job(("ensureadmin",), "Create the operator account the config names"),
-        "ensurerepos": Job(("ensurerepos",), "Register the repositories the config names"),
-        "restore_descriptors": Job(("restore_descriptors",), "Store the descriptors of every flavour, release, definition, deployment and pod that misses one (--all: of every row)"),
-        "restore_bloks": Job(("restore_bloks",), "Store what the bloks of every flavour draw where it has none stored (--all: of every flavour)"),
+        "ensureadmin": Job(
+            ("ensureadmin",), "Create the operator account the config names"
+        ),
+        "ensurerepos": Job(
+            ("ensurerepos",), "Register the repositories the config names"
+        ),
+        "restore_descriptors": Job(
+            ("restore_descriptors",),
+            "Store the descriptors of every flavour, release, definition, deployment and pod that misses one (--all: of every row)",
+        ),
+        "restore_bloks": Job(
+            ("restore_bloks",),
+            "Store what the bloks of every flavour draw where it has none stored (--all: of every flavour)",
+        ),
     },
     setup=("ensureadmin", "ensurerepos", "restore_descriptors", "restore_bloks"),
 )

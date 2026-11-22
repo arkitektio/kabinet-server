@@ -71,28 +71,57 @@ VANILLA = {
     "@kabinet/min_vram_mb": 0,
 }
 #: The one action of ``deployments.yaml``: Convert Omero, a function of a file and a stage.
-CONVERT = {"@kabinet/kind": "FUNCTION", "@kabinet/pure": False, "@kabinet/idempotent": False, "@kabinet/n_args": 2, "@kabinet/n_returns": 1}
+CONVERT = {
+    "@kabinet/kind": "FUNCTION",
+    "@kabinet/pure": False,
+    "@kabinet/idempotent": False,
+    "@kabinet/n_args": 2,
+    "@kabinet/n_returns": 1,
+}
 
 
 def _app_image(name: str, selectors: list[dict], digest: str) -> AppImageInputModel:
     """The app image of ``deployments.yaml``, built as the flavour ``name`` with these selectors."""
     with open(build_relative_dir("deployments/deployments.yaml")) as f:
         app_image = yaml.safe_load(f)["app_images"][0]
-    return AppImageInputModel(**{**app_image, "flavourName": name, "selectors": selectors, "appImageId": digest})
+    return AppImageInputModel(
+        **{
+            **app_image,
+            "flavourName": name,
+            "selectors": selectors,
+            "appImageId": digest,
+        }
+    )
 
 
 def _catalogue(organization: Organization) -> dict[str, models.Flavour]:
     """A cuda and a vanilla flavour of one release of ``organization``, as a scan of their repository writes them."""
-    repo = models.GithubRepo.objects.create(name="arkitektio-apps/ome:main", user="arkitektio-apps", repo="ome", branch="main", organization=organization)
+    repo = models.GithubRepo.objects.create(
+        name="arkitektio-apps/ome:main",
+        user="arkitektio-apps",
+        repo="ome",
+        branch="main",
+        organization=organization,
+    )
     return {
-        "cuda": upsert_app_image(_app_image("cuda", CUDA_SELECTORS, "c" * 64), organization, repo=repo),
-        "vanilla": upsert_app_image(_app_image("vanilla", [], "v" * 64), organization, repo=repo),
+        "cuda": upsert_app_image(
+            _app_image("cuda", CUDA_SELECTORS, "c" * 64), organization, repo=repo
+        ),
+        "vanilla": upsert_app_image(
+            _app_image("vanilla", [], "v" * 64), organization, repo=repo
+        ),
     }
 
 
 def _published(organization: Organization) -> dict[str, models.Release]:
     """A release proper and a channel's build of the app in ``release.json``, as an import of its OCI repository writes them."""
-    repo = models.OciRepo.objects.create(name="ghcr.io/jhnnsrs/starmist", registry="ghcr.io", repository="jhnnsrs/starmist", channels=["main"], organization=organization)
+    repo = models.OciRepo.objects.create(
+        name="ghcr.io/jhnnsrs/starmist",
+        registry="ghcr.io",
+        repository="jhnnsrs/starmist",
+        channels=["main"],
+        organization=organization,
+    )
     with open(build_relative_dir("deployments/release.json")) as f:
         descriptor = json.load(f)
 
@@ -101,14 +130,24 @@ def _published(organization: Organization) -> dict[str, models.Release]:
         said["manifest"]["version"], said["channel"] = version, channel
         return apply_release(ReleaseDescriptorModel(**said), repo, organization)
 
-    return {"proper": release("0.1.0", None), "main": release("0.2.0-dev.abc1234", "main")}
+    return {
+        "proper": release("0.1.0", None),
+        "main": release("0.2.0-dev.abc1234", "main"),
+    }
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_an_object_answers_the_descriptors_its_structure_declares(authenticated_context: HttpContext, built_chain: dict) -> None:
+async def test_an_object_answers_the_descriptors_its_structure_declares(
+    authenticated_context: HttpContext, built_chain: dict
+) -> None:
     created = await setup_pod(authenticated_context, built_chain["flavour_id"])
-    variables = {"flavour": built_chain["flavour_id"], "repo": built_chain["repo_id"], "deployment": created["deployment"]["id"], "pod": created["pod"]["id"]}
+    variables = {
+        "flavour": built_chain["flavour_id"],
+        "repo": built_chain["repo_id"],
+        "deployment": created["deployment"]["id"],
+        "pod": created["pod"]["id"],
+    }
 
     data = await execute(DESCRIBED, authenticated_context, variables)
 
@@ -116,18 +155,34 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(authenti
     assert described["descriptors"] == VANILLA
     # The variant is the flavour's name: `Flavour.flavour` is its image's digest.
     flavour = await models.Flavour.objects.aget(pk=built_chain["flavour_id"])
-    assert flavour.flavour == "da60d36f7c1d48e69136699f4fcc901e" != described["descriptors"]["@kabinet/flavour_name"]
+    assert (
+        flavour.flavour
+        == "da60d36f7c1d48e69136699f4fcc901e"
+        != described["descriptors"]["@kabinet/flavour_name"]
+    )
     assert {"id": str(flavour.pk), "descriptors": VANILLA} in data["flavours"]
-    assert described["release"]["descriptors"] == {"@kabinet/version": "0.1.9", "@kabinet/channel": ""}
+    assert described["release"]["descriptors"] == {
+        "@kabinet/version": "0.1.9",
+        "@kabinet/channel": "",
+    }
     assert described["definitions"] == [{"descriptors": CONVERT}]
     # The backend declared itself docker before anything was placed on it.
-    assert data["deployment"]["descriptors"] == {"@kabinet/status": "PENDING", "@kabinet/backend_kind": "docker"}
-    assert data["pod"]["descriptors"] == {"@kabinet/status": "PENDING", "@kabinet/backend_kind": "docker"}
+    assert data["deployment"]["descriptors"] == {
+        "@kabinet/status": "PENDING",
+        "@kabinet/backend_kind": "docker",
+    }
+    assert data["pod"]["descriptors"] == {
+        "@kabinet/status": "PENDING",
+        "@kabinet/backend_kind": "docker",
+    }
     # A structure that declares no descriptors has none.
     assert described["release"]["app"]["descriptors"] == {}
     assert data["githubRepo"]["descriptors"] == {}
 
-    declared = {s["identifier"]: {d["key"] for d in s["descriptors"]} for s in service.manifest()["structures"]}
+    declared = {
+        s["identifier"]: {d["key"] for d in s["descriptors"]}
+        for s in service.manifest()["structures"]
+    }
     answered = {
         "@kabinet/flavour": described["descriptors"],
         "@kabinet/release": described["release"]["descriptors"],
@@ -137,19 +192,34 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(authenti
         "@kabinet/pod": data["pod"]["descriptors"],
         "@kabinet/githubrepo": data["githubRepo"]["descriptors"],
     }
-    assert {identifier: set(values) for identifier, values in answered.items()} == declared
+    assert {
+        identifier: set(values) for identifier, values in answered.items()
+    } == declared
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_the_field_answers_what_the_signal_carried(intake, authenticated_context: HttpContext) -> None:  # noqa: F811
-    flavours = await sync_to_async(_catalogue)(authenticated_context.request.organization)
+async def test_the_field_answers_what_the_signal_carried(
+    intake,  # noqa: F811
+    authenticated_context: HttpContext,
+) -> None:
+    flavours = await sync_to_async(_catalogue)(
+        authenticated_context.request.organization
+    )
     cuda = str(flavours["cuda"].pk)
 
     # Waits out a third signal that should not come: a new flavour is announced once, already described.
-    received = [r["json"] for r in await sync_to_async(intake.of)("@kabinet/flavour", count=3, timeout=2) if r["json"]["object"] == cuda]
+    received = [
+        r["json"]
+        for r in await sync_to_async(intake.of)("@kabinet/flavour", count=3, timeout=2)
+        if r["json"]["object"] == cuda
+    ]
     assert [signal["kind"] for signal in received] == ["CREATED"]
-    data = await execute("query Flavour($id: ID!) { flavour(id: $id) { descriptors } }", authenticated_context, {"id": cuda})
+    data = await execute(
+        "query Flavour($id: ID!) { flavour(id: $id) { descriptors } }",
+        authenticated_context,
+        {"id": cuda},
+    )
     assert data["flavour"]["descriptors"] == received[0]["descriptors"] == CUDA
 
 
@@ -173,8 +243,21 @@ def _equals(key: str, value: object) -> list[dict]:
     return [{"key": key, "operator": "EQUALS", "value": value}]
 
 
-async def _required(context: HttpContext, flavours: list | None = None, releases: list | None = None, definitions: list | None = None) -> dict[str, set[str]]:
-    data = await execute(REQUIRED, context, {"flavours": flavours or [], "releases": releases or [], "definitions": definitions or []})
+async def _required(
+    context: HttpContext,
+    flavours: list | None = None,
+    releases: list | None = None,
+    definitions: list | None = None,
+) -> dict[str, set[str]]:
+    data = await execute(
+        REQUIRED,
+        context,
+        {
+            "flavours": flavours or [],
+            "releases": releases or [],
+            "definitions": definitions or [],
+        },
+    )
     return {field: {row["id"] for row in rows} for field, rows in data.items()}
 
 
@@ -185,14 +268,23 @@ async def _placed(context: HttpContext, requires: list) -> dict[str, set[str]]:
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_a_port_requires_is_answered_from_the_stored_descriptors(authenticated_context: HttpContext) -> None:
+async def test_a_port_requires_is_answered_from_the_stored_descriptors(
+    authenticated_context: HttpContext,
+) -> None:
     """A `requires` on a list filter returns exactly the rows whose stored descriptors satisfy it, and refuses a key nobody declares."""
     organization = authenticated_context.request.organization
     flavours = await sync_to_async(_catalogue)(organization)
     releases = await sync_to_async(_published)(organization)
     cuda, vanilla = str(flavours["cuda"].pk), str(flavours["vanilla"].pk)
     # ``release.json``'s one flavour requires a CUDA device (compute capability 7.0, no memory stated).
-    starmist = {str(pk) for pk in await sync_to_async(list)(models.Flavour.objects.filter(release__in=releases.values()).values_list("pk", flat=True))}
+    starmist = {
+        str(pk)
+        for pk in await sync_to_async(list)(
+            models.Flavour.objects.filter(release__in=releases.values()).values_list(
+                "pk", flat=True
+            )
+        )
+    }
     assert len(starmist) == 2
 
     async def flavours_with(requires: list) -> set[str]:
@@ -200,64 +292,142 @@ async def test_a_port_requires_is_answered_from_the_stored_descriptors(authentic
 
     assert await flavours_with(_equals("@kabinet/gpu", "none")) == {vanilla}
     assert await flavours_with(_equals("@kabinet/gpu", "cuda")) == {cuda, *starmist}
-    assert await flavours_with([{"key": "@kabinet/arch", "operator": "CONTAINS", "value": "arm64"}]) == {cuda}
-    assert await flavours_with([{"key": "@kabinet/min_vram_mb", "operator": "GTE", "value": 4000}]) == {cuda}
-    assert await flavours_with([{"key": "@kabinet/min_ram_mb", "operator": "LTE", "value": 8000}]) == {vanilla, *starmist}
+    assert await flavours_with(
+        [{"key": "@kabinet/arch", "operator": "CONTAINS", "value": "arm64"}]
+    ) == {cuda}
+    assert await flavours_with(
+        [{"key": "@kabinet/min_vram_mb", "operator": "GTE", "value": 4000}]
+    ) == {cuda}
+    assert await flavours_with(
+        [{"key": "@kabinet/min_ram_mb", "operator": "LTE", "value": 8000}]
+    ) == {vanilla, *starmist}
     # A preferred label is a kind of selector the flavour states, and no requirement.
-    assert await flavours_with([{"key": "@kabinet/selector_kinds", "operator": "CONTAINS", "value": "label"}]) == {cuda}
-    assert await flavours_with(_equals("@kabinet/flavour_name", "vanilla")) == {vanilla, *starmist}
+    assert await flavours_with(
+        [{"key": "@kabinet/selector_kinds", "operator": "CONTAINS", "value": "label"}]
+    ) == {cuda}
+    assert await flavours_with(_equals("@kabinet/flavour_name", "vanilla")) == {
+        vanilla,
+        *starmist,
+    }
 
     # A rescan writes the flavour again (``update_or_create``, a save): what it now states is stored.
-    rebuilt = await sync_to_async(upsert_app_image)(_app_image("cuda", [{"kind": "rocm"}, {"kind": "cuda", "required": False}], "d" * 64), organization)
+    rebuilt = await sync_to_async(upsert_app_image)(
+        _app_image(
+            "cuda", [{"kind": "rocm"}, {"kind": "cuda", "required": False}], "d" * 64
+        ),
+        organization,
+    )
     assert str(rebuilt.pk) == cuda
     assert await flavours_with(_equals("@kabinet/gpu", "rocm")) == {cuda}
-    assert await flavours_with([{"key": "@kabinet/arch", "operator": "CONTAINS", "value": "arm64"}]) == set()
+    assert (
+        await flavours_with(
+            [{"key": "@kabinet/arch", "operator": "CONTAINS", "value": "arm64"}]
+        )
+        == set()
+    )
     # Two vendors required at once: no one vendor's backend runs it.
-    await sync_to_async(upsert_app_image)(_app_image("cuda", [{"kind": "rocm"}, {"kind": "cuda"}], "e" * 64), organization)
+    await sync_to_async(upsert_app_image)(
+        _app_image("cuda", [{"kind": "rocm"}, {"kind": "cuda"}], "e" * 64), organization
+    )
     assert await flavours_with(_equals("@kabinet/gpu", "multiple")) == {cuda}
 
-    proper = {str(r.pk) for r in await sync_to_async(list)(models.Release.objects.filter(channel__isnull=True))}
-    assert str(releases["proper"].pk) in proper and str(releases["main"].pk) not in proper
-    assert (await _required(authenticated_context, releases=_equals("@kabinet/channel", "")))["releases"] == proper
-    assert (await _required(authenticated_context, releases=_equals("@kabinet/channel", "main")))["releases"] == {str(releases["main"].pk)}
+    proper = {
+        str(r.pk)
+        for r in await sync_to_async(list)(
+            models.Release.objects.filter(channel__isnull=True)
+        )
+    }
+    assert (
+        str(releases["proper"].pk) in proper and str(releases["main"].pk) not in proper
+    )
+    assert (
+        await _required(authenticated_context, releases=_equals("@kabinet/channel", ""))
+    )["releases"] == proper
+    assert (
+        await _required(
+            authenticated_context, releases=_equals("@kabinet/channel", "main")
+        )
+    )["releases"] == {str(releases["main"].pk)}
 
-    convert = await models.Definition.objects.aget(organization=organization, name="Convert Omero")
-    assert str(convert.pk) in (await _required(authenticated_context, definitions=_equals("@kabinet/n_args", 2)))["definitions"]
-    assert str(convert.pk) not in (await _required(authenticated_context, definitions=_equals("@kabinet/n_args", 0)))["definitions"]
+    convert = await models.Definition.objects.aget(
+        organization=organization, name="Convert Omero"
+    )
+    assert (
+        str(convert.pk)
+        in (
+            await _required(
+                authenticated_context, definitions=_equals("@kabinet/n_args", 2)
+            )
+        )["definitions"]
+    )
+    assert (
+        str(convert.pk)
+        not in (
+            await _required(
+                authenticated_context, definitions=_equals("@kabinet/n_args", 0)
+            )
+        )["definitions"]
+    )
 
     # A key kabinet does not declare, or no longer does, is refused, not ignored.
     for key in ("@kabinet/builder", "@kabinet/scope", "@kabinet/flavour"):
-        result = await execute_raw(REQUIRED, authenticated_context, {"flavours": _equals(key, "x"), "releases": [], "definitions": []})
-        assert result.errors and "not a descriptor here" in result.errors[0].message, key
+        result = await execute_raw(
+            REQUIRED,
+            authenticated_context,
+            {"flavours": _equals(key, "x"), "releases": [], "definitions": []},
+        )
+        assert result.errors and "not a descriptor here" in result.errors[0].message, (
+            key
+        )
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_what_a_deployer_reports_is_stored(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_what_a_deployer_reports_is_stored(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """A status reported through the mutations, and a backend's new kind, are what a `requires` reads next."""
     created = await setup_pod(authenticated_context, flavour_id)
     deployment, pod = created["deployment"]["id"], created["pod"]["id"]
 
-    await execute(UPDATE_POD, authenticated_context, {"input": {"pod": pod, "status": "RUNNING"}})
+    await execute(
+        UPDATE_POD, authenticated_context, {"input": {"pod": pod, "status": "RUNNING"}}
+    )
     await execute(
         "mutation ($input: UpdateDeploymentInput!) { updateDeployment(input: $input) { id } }",
         authenticated_context,
         {"input": {"deployment": deployment, "status": "RUNNING"}},
     )
-    assert await _placed(authenticated_context, _equals("@kabinet/status", "RUNNING")) == {"deployments": {deployment}, "pods": {pod}}
-    assert await _placed(authenticated_context, _equals("@kabinet/status", "PENDING")) == {"deployments": set(), "pods": set()}
+    assert await _placed(
+        authenticated_context, _equals("@kabinet/status", "RUNNING")
+    ) == {"deployments": {deployment}, "pods": {pod}}
+    assert await _placed(
+        authenticated_context, _equals("@kabinet/status", "PENDING")
+    ) == {"deployments": set(), "pods": set()}
 
     # The backend declares another kind: what runs on it says so, though none of it was saved.
-    await execute(DECLARE_BACKEND, authenticated_context, {"input": {"name": "my-backend", "kind": "kubernetes"}})
-    assert await _placed(authenticated_context, _equals("@kabinet/backend_kind", "kubernetes")) == {"deployments": {deployment}, "pods": {pod}}
-    assert await _placed(authenticated_context, _equals("@kabinet/backend_kind", "docker")) == {"deployments": set(), "pods": set()}
+    await execute(
+        DECLARE_BACKEND,
+        authenticated_context,
+        {"input": {"name": "my-backend", "kind": "kubernetes"}},
+    )
+    assert await _placed(
+        authenticated_context, _equals("@kabinet/backend_kind", "kubernetes")
+    ) == {"deployments": {deployment}, "pods": {pod}}
+    assert await _placed(
+        authenticated_context, _equals("@kabinet/backend_kind", "docker")
+    ) == {"deployments": set(), "pods": set()}
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_the_setup_job_repairs_what_is_owed(authenticated_context: HttpContext) -> None:
+async def test_the_setup_job_repairs_what_is_owed(
+    authenticated_context: HttpContext,
+) -> None:
     """``restore_descriptors`` stores what a row that misses its descriptors owes."""
-    flavours = await sync_to_async(_catalogue)(authenticated_context.request.organization)
+    flavours = await sync_to_async(_catalogue)(
+        authenticated_context.request.organization
+    )
     cuda = flavours["cuda"].pk
 
     # A row from before its descriptors were stored owes them; the setup job states them.
@@ -268,7 +438,9 @@ async def test_the_setup_job_repairs_what_is_owed(authenticated_context: HttpCon
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_a_sweep_for_one_organization_claims_only_its_rows(authenticated_context: HttpContext) -> None:
+async def test_a_sweep_for_one_organization_claims_only_its_rows(
+    authenticated_context: HttpContext,
+) -> None:
     """Every organization has the agent and its own schedule: a run must not do another's work.
 
     Covers every embedded model, because only two of the four keep their organization in a column
@@ -280,7 +452,12 @@ async def test_a_sweep_for_one_organization_claims_only_its_rows(authenticated_c
     def rows(organization: Organization) -> dict[type, int]:
         flavour = _catalogue(organization)["cuda"]
         definition = models.Definition.objects.get(flavours=flavour)
-        return {models.App: flavour.release.app_id, models.Flavour: flavour.pk, models.Definition: definition.pk, models.Repo: flavour.repo_id}
+        return {
+            models.App: flavour.release.app_id,
+            models.Flavour: flavour.pk,
+            models.Definition: definition.pk,
+            models.Repo: flavour.repo_id,
+        }
 
     mine = await sync_to_async(rows)(organization)
     theirs = await sync_to_async(rows)(elsewhere)
@@ -290,18 +467,30 @@ async def test_a_sweep_for_one_organization_claims_only_its_rows(authenticated_c
 
     def sweep() -> dict:
         for model in EMBEDDED:
-            model.objects.filter(pk__in=[mine[model], theirs[model]]).update(embedding_model="another-model")
+            model.objects.filter(pk__in=[mine[model], theirs[model]]).update(
+                embedding_model="another-model"
+            )
         for model in EMBEDDED:
-            assert stale(model, "static_issuer#elsewhere") == {theirs[model]}, model.__name__
-            assert stale(model, organization.identifier) == {mine[model]}, model.__name__
+            assert stale(model, "static_issuer#elsewhere") == {theirs[model]}, (
+                model.__name__
+            )
+            assert stale(model, organization.identifier) == {mine[model]}, (
+                model.__name__
+            )
             assert stale(model, None) == {mine[model], theirs[model]}, model.__name__
-        return agent.actions["reembed_stale"].function(organization=organization.identifier)
+        return agent.actions["reembed_stale"].function(
+            organization=organization.identifier
+        )
 
     assert await sync_to_async(sweep)() == {"reembedded": len(EMBEDDED)}
 
     def after() -> None:
         for model in EMBEDDED:
-            assert model.objects.get(pk=mine[model]).embedding_model == engine.model_id(), model.__name__
-            assert model.objects.get(pk=theirs[model]).embedding_model == "another-model", model.__name__
+            assert (
+                model.objects.get(pk=mine[model]).embedding_model == engine.model_id()
+            ), model.__name__
+            assert (
+                model.objects.get(pk=theirs[model]).embedding_model == "another-model"
+            ), model.__name__
 
     await sync_to_async(after)()

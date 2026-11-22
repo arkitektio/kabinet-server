@@ -63,7 +63,9 @@ class Command(BaseCommand):
         if options.get("check"):
             current = SCHEMA_PATH.read_text() if SCHEMA_PATH.exists() else ""
             if current == sdl:
-                self.stdout.write(self.style.SUCCESS(f"{SCHEMA_PATH.name} is up to date."))
+                self.stdout.write(
+                    self.style.SUCCESS(f"{SCHEMA_PATH.name} is up to date.")
+                )
                 return
             diff = "".join(
                 difflib.unified_diff(
@@ -73,7 +75,9 @@ class Command(BaseCommand):
                     tofile=f"{SCHEMA_PATH.name} (rendered)",
                 )
             )
-            raise CommandError(f"{SCHEMA_PATH.name} is out of date. Run `python manage.py printschema`.\n\n{diff}")
+            raise CommandError(
+                f"{SCHEMA_PATH.name} is out of date. Run `python manage.py printschema`.\n\n{diff}"
+            )
 
         SCHEMA_PATH.write_text(sdl)
         self.stdout.write(self.style.SUCCESS(f"Wrote {SCHEMA_PATH}"))

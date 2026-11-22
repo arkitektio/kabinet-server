@@ -62,7 +62,9 @@ def parse_reference(reference: str) -> tuple[str, str]:
     """Split a repository reference into registry host and repository path, as docker does."""
     reference = reference.strip().removeprefix("oci://").removeprefix("https://")
     if not reference or "@" in reference or ":" in reference.rsplit("/", 1)[-1]:
-        raise ValueError(f"'{reference}' is not a repository: name the repository alone, without a tag or a digest.")
+        raise ValueError(
+            f"'{reference}' is not a repository: name the repository alone, without a tag or a digest."
+        )
     head, _, rest = reference.partition("/")
     if rest and ("." in head or ":" in head or head == "localhost"):
         registry, repository = head, rest
@@ -71,7 +73,9 @@ def parse_reference(reference: str) -> tuple[str, str]:
         if "/" not in repository:
             repository = f"library/{repository}"
     if repository != repository.lower() or " " in repository:
-        raise ValueError(f"'{repository}' is not a valid repository path (lowercase, no spaces).")
+        raise ValueError(
+            f"'{repository}' is not a valid repository path (lowercase, no spaces)."
+        )
     return registry, repository
 
 
@@ -110,26 +114,38 @@ class Registry:
             if self._authorization:
                 headers["Authorization"] = self._authorization
             try:
-                async with self.session.get(url, headers=headers, timeout=_TIMEOUT) as response:
-                    if response.status == 401 and await self._authorize(response.headers.get("WWW-Authenticate", "")):
+                async with self.session.get(
+                    url, headers=headers, timeout=_TIMEOUT
+                ) as response:
+                    if response.status == 401 and await self._authorize(
+                        response.headers.get("WWW-Authenticate", "")
+                    ):
                         continue
                     return response.status, response.headers, await _body(response)
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            except (TimeoutError, aiohttp.ClientError) as e:
                 raise RegistryError(f"Could not reach {self.registry}: {e}") from e
         raise RegistryError(f"{self.registry} did not accept the token it issued.")
 
     async def _authorize(self, challenge: str) -> bool:
         scheme, _, rest = challenge.partition(" ")
         parameters = dict(re.findall(r'(\w+)="([^"]*)"', rest))
-        if scheme.lower() != "bearer" or "realm" not in parameters or self._authorization:
+        if (
+            scheme.lower() != "bearer"
+            or "realm" not in parameters
+            or self._authorization
+        ):
             return False
-        query = {key: parameters[key] for key in ("service", "scope") if key in parameters}
+        query = {
+            key: parameters[key] for key in ("service", "scope") if key in parameters
+        }
         try:
-            async with self.session.get(parameters["realm"], params=query, timeout=_TIMEOUT) as response:
+            async with self.session.get(
+                parameters["realm"], params=query, timeout=_TIMEOUT
+            ) as response:
                 if response.status != 200:
                     return False
                 granted = await response.json(content_type=None)
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
+        except (TimeoutError, aiohttp.ClientError, ValueError):
             return False
         token = granted.get("token") or granted.get("access_token")
         if not token:
@@ -152,7 +168,9 @@ class Registry:
             if status in (401, 403, 404):
                 raise self._missing()
             if status != 200:
-                raise RegistryError(f"{self.registry} answered {status} when listing the tags of {self.repository}.")
+                raise RegistryError(
+                    f"{self.registry} answered {status} when listing the tags of {self.repository}."
+                )
             tags.extend(json.loads(body).get("tags") or [])
             following = re.search(r'<([^>]+)>;\s*rel="next"', headers.get("Link", ""))
             url = str(URL(url).join(URL(following.group(1)))) if following else None
@@ -160,31 +178,53 @@ class Registry:
 
     async def manifest(self, reference: str) -> tuple[str, dict[str, Any]] | None:
         """The digest and content of the manifest a tag names, or None if there is none."""
-        status, headers, body = await self._get(self._url(f"manifests/{reference}"), accept=_ACCEPT)
+        status, headers, body = await self._get(
+            self._url(f"manifests/{reference}"), accept=_ACCEPT
+        )
         if status == 404:
             return None
         if status != 200:
-            raise RegistryError(f"{self.registry} answered {status} for {self.repository}:{reference}.")
-        digest = headers.get("Docker-Content-Digest") or "sha256:" + hashlib.sha256(body).hexdigest()
+            raise RegistryError(
+                f"{self.registry} answered {status} for {self.repository}:{reference}."
+            )
+        digest = (
+            headers.get("Docker-Content-Digest")
+            or "sha256:" + hashlib.sha256(body).hexdigest()
+        )
         try:
             content = json.loads(body)
         except ValueError:
             content = {}
         return digest, content if isinstance(content, dict) else {}
 
-    async def descriptor(self, manifest: dict[str, Any]) -> ReleaseDescriptorModel | None:
+    async def descriptor(
+        self, manifest: dict[str, Any]
+    ) -> ReleaseDescriptorModel | None:
         """The release a manifest carries, or None when the manifest is an image."""
         config = manifest.get("config")
-        if not isinstance(config, dict) or config.get("mediaType") != RELEASE_MEDIA_TYPE:
+        if (
+            not isinstance(config, dict)
+            or config.get("mediaType") != RELEASE_MEDIA_TYPE
+        ):
             return None
         digest, size = config.get("digest"), config.get("size")
-        if not isinstance(digest, str) or not isinstance(size, int) or size > MAX_DESCRIPTOR_BYTES:
-            raise RegistryError(f"A release in {self.repository} names a descriptor of {size} bytes, which is not read.")
+        if (
+            not isinstance(digest, str)
+            or not isinstance(size, int)
+            or size > MAX_DESCRIPTOR_BYTES
+        ):
+            raise RegistryError(
+                f"A release in {self.repository} names a descriptor of {size} bytes, which is not read."
+            )
         status, _, body = await self._get(self._url(f"blobs/{digest}"))
         if status != 200:
-            raise RegistryError(f"{self.registry} answered {status} for the descriptor {digest}.")
+            raise RegistryError(
+                f"{self.registry} answered {status} for the descriptor {digest}."
+            )
         if "sha256:" + hashlib.sha256(body).hexdigest() != digest:
-            raise RegistryError(f"{self.registry} returned other bytes than {digest} names.")
+            raise RegistryError(
+                f"{self.registry} returned other bytes than {digest} names."
+            )
         return parse_release(body)
 
 
@@ -196,7 +236,9 @@ class ScanReport:
     problems: dict[str, str] = field(default_factory=dict)
 
 
-def _belongs(descriptor: ReleaseDescriptorModel, tag: str, repo: models.OciRepo) -> str | None:
+def _belongs(
+    descriptor: ReleaseDescriptorModel, tag: str, repo: models.OciRepo
+) -> str | None:
     """Why a descriptor found under a tag is not taken, or None when it is."""
     if descriptor.channel is None and tag != descriptor.manifest.version:
         return f"it describes version {descriptor.manifest.version}, which is not the tag it sits under"
@@ -208,7 +250,9 @@ def _belongs(descriptor: ReleaseDescriptorModel, tag: str, repo: models.OciRepo)
     return None
 
 
-async def scan(repo: models.OciRepo, session: aiohttp.ClientSession | None = None) -> ScanReport:
+async def scan(
+    repo: models.OciRepo, session: aiohttp.ClientSession | None = None
+) -> ScanReport:
     """Read every tag of a repository that was not read yet, and write the releases found.
 
     One bad tag does not hide the others: what could not be taken is reported per tag, and
@@ -246,7 +290,9 @@ async def scan(repo: models.OciRepo, session: aiohttp.ClientSession | None = Non
                 report.problems[tag] = str(e)
 
     tags = await registry.tags()
-    await asyncio.gather(*(read(tag) for tag in tags if tag in repo.channels or tag not in seen))
+    await asyncio.gather(
+        *(read(tag) for tag in tags if tag in repo.channels or tag not in seen)
+    )
 
     # Written one after the other: two releases of one app must not race for its row.
     for tag in sorted(found):
@@ -259,7 +305,9 @@ async def scan(repo: models.OciRepo, session: aiohttp.ClientSession | None = Non
             report.problems[tag] = refusal
             continue
         try:
-            report.releases.append(await sync_to_async(apply_release)(descriptor, repo, organization))
+            report.releases.append(
+                await sync_to_async(apply_release)(descriptor, repo, organization)
+            )
         except DBError as e:
             report.problems[tag] = str(e)
 

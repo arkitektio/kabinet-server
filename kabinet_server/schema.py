@@ -1,25 +1,22 @@
 import strawberry
-from kabinet_server.logs import QuietErrorsSchema
-from strawberry_django.optimizer import DjangoOptimizerExtension
-from kante.unions import unionElementOf
-from bridge import types
-from bridge import mutations
-from bridge import subscriptions
-from bridge import queries
 import strawberry_django
-from koherent.strawberry.extension import KoherentExtension
-from authentikate.strawberry.extension import AuthentikateExtension
-from authentikate.strawberry import AuthExtension, AuthSubscribeExtension
 from arkitekt_service.graphql import TelemetryExtension, annotate_schema
-from typing import List
-from rekuest_core.constants import interface_types, input_union_types
-from rekuest_core.scalars import scalar_map as rscalar_map
+from authentikate.strawberry import AuthExtension, AuthSubscribeExtension
+from authentikate.strawberry.extension import AuthentikateExtension
+from kante.unions import unionElementOf
+from koherent.strawberry.extension import KoherentExtension
+from strawberry.schema.config import StrawberryConfig
+from strawberry_django.optimizer import DjangoOptimizerExtension
+
+from bridge import mutations, queries, subscriptions, types
+from bridge.repo.types import selector_types
 from bridge.scalars import scalar_map as bscalar_map
 from embeddings.strawberry import scalar_map as escalar_map
-from bridge.repo.types import selector_types
-from strawberry.schema.config import StrawberryConfig
 from kabinet_server.contract import APPROVER, DEPLOYER
+from kabinet_server.logs import QuietErrorsSchema
 from kabinet_server.service import service as kabinet_service
+from rekuest_core.constants import input_union_types, interface_types
+from rekuest_core.scalars import scalar_map as rscalar_map
 
 
 def field(scope: str = "kabinet_read", **kwargs):
@@ -30,49 +27,123 @@ def field(scope: str = "kabinet_read", **kwargs):
 def mutation(scope: str = "kabinet_deploy", roles: list[str] | None = None, **kwargs):
     """A write: an app needs ``scope`` for it, a member one of ``roles`` (``kabinet_deployer`` unless it
     says otherwise; ``kabinet_admin`` holds every role)."""
-    return strawberry_django.mutation(extensions=[AuthExtension(scopes=[scope], any_role_of=roles or [DEPLOYER])], **kwargs)
+    return strawberry_django.mutation(
+        extensions=[AuthExtension(scopes=[scope], any_role_of=roles or [DEPLOYER])],
+        **kwargs,
+    )
 
 
 def subscription(**kwargs):
     """A subscription: what it streams is read, so an app needs ``kabinet_read`` for it."""
-    return strawberry.subscription(extensions=[AuthSubscribeExtension(scopes=["kabinet_read"])], **kwargs)
+    return strawberry.subscription(
+        extensions=[AuthSubscribeExtension(scopes=["kabinet_read"])], **kwargs
+    )
 
 
 @strawberry.type
 class Query:
     """The root query type"""
 
-    app: types.App = field(resolver=queries.app, description="Return a single app by its ID.")
-    github_repo: types.GithubRepo = field(resolver=queries.github_repo, description="Return a single tracked GitHub repository by its ID.")
-    oci_repo: types.OciRepo = field(resolver=queries.oci_repo, description="Return a single imported OCI repository by its ID.")
-    definition: types.Definition = field(resolver=queries.definition, description="Return a single action definition by its ID.")
-    release: types.Release = field(resolver=queries.release, description="Return a single app release by its ID.")
-    resource: types.Resource = field(resolver=queries.resource, description="Return a single backend resource by its ID.")
-    flavour: types.Flavour = field(resolver=queries.flavour, description="Return a single flavour (a buildable variant of a release) by its ID.")
-    flavour_blok: types.FlavourBlok | None = field(resolver=queries.flavour_blok, description="Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none.")
-    repo_blok: types.RepoBlok = field(resolver=queries.repo_blok, description="Return a single blok a repository publishes by its ID.")
-    deployment: types.Deployment = field(resolver=queries.deployment, description="Return a single deployment by its ID.")
-    backend: types.Backend = field(resolver=queries.backend, description="Return a single backend by its ID.")
-    pod: types.Pod = field(resolver=queries.pod, description="Return a single pod by its ID.")
-    pod_for_agent = field(resolver=queries.pod_for_agent, description="Return the pod that a given agent (client) is running for a deployment.")
-    me: types.User = field(resolver=queries.me, description="Return the currently authenticated user.")
-    flavours: List[types.Flavour] = field(description="List all flavours visible to the current organization.")
-    apps: List[types.App] = field(description="List all apps visible to the current organization.")
-    app_store_totals: types.AppStoreTotals = field(resolver=queries.app_store_totals, description="The store's totals over every app `filters` keeps (as `apps` takes them): apps, actions, flavours, running deployments, and how many apps require each service.")
-    releases: List[types.Release] = field(description="List all app releases visible to the current organization.")
-    resources: List[types.Resource] = field(description="List all backend resources visible to the current organization.")
-    deployments: List[types.Deployment] = field(description="List all deployments visible to the current organization.")
-    github_repos: List[types.GithubRepo] = field(description="List all tracked GitHub repositories visible to the current organization.")
-    oci_repos: List[types.OciRepo] = field(description="List all imported OCI repositories visible to the current organization.")
-    repo_bloks: List[types.RepoBlok] = field(description="List the bloks the tracked GitHub repositories publish on their own, visible to the current organization.")
-    definitions: List[types.Definition] = field(description="List all action definitions visible to the current organization.")
-    pods: List[types.Pod] = field(description="List all pods visible to the current organization.")
+    app: types.App = field(
+        resolver=queries.app, description="Return a single app by its ID."
+    )
+    github_repo: types.GithubRepo = field(
+        resolver=queries.github_repo,
+        description="Return a single tracked GitHub repository by its ID.",
+    )
+    oci_repo: types.OciRepo = field(
+        resolver=queries.oci_repo,
+        description="Return a single imported OCI repository by its ID.",
+    )
+    definition: types.Definition = field(
+        resolver=queries.definition,
+        description="Return a single action definition by its ID.",
+    )
+    release: types.Release = field(
+        resolver=queries.release, description="Return a single app release by its ID."
+    )
+    resource: types.Resource = field(
+        resolver=queries.resource,
+        description="Return a single backend resource by its ID.",
+    )
+    flavour: types.Flavour = field(
+        resolver=queries.flavour,
+        description="Return a single flavour (a buildable variant of a release) by its ID.",
+    )
+    flavour_blok: types.FlavourBlok | None = field(
+        resolver=queries.flavour_blok,
+        description="Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none.",
+    )
+    repo_blok: types.RepoBlok = field(
+        resolver=queries.repo_blok,
+        description="Return a single blok a repository publishes by its ID.",
+    )
+    deployment: types.Deployment = field(
+        resolver=queries.deployment, description="Return a single deployment by its ID."
+    )
+    backend: types.Backend = field(
+        resolver=queries.backend, description="Return a single backend by its ID."
+    )
+    pod: types.Pod = field(
+        resolver=queries.pod, description="Return a single pod by its ID."
+    )
+    pod_for_agent = field(
+        resolver=queries.pod_for_agent,
+        description="Return the pod that a given agent (client) is running for a deployment.",
+    )
+    me: types.User = field(
+        resolver=queries.me, description="Return the currently authenticated user."
+    )
+    flavours: list[types.Flavour] = field(
+        description="List all flavours visible to the current organization."
+    )
+    apps: list[types.App] = field(
+        description="List all apps visible to the current organization."
+    )
+    app_store_totals: types.AppStoreTotals = field(
+        resolver=queries.app_store_totals,
+        description="The store's totals over every app `filters` keeps (as `apps` takes them): apps, actions, flavours, running deployments, and how many apps require each service.",
+    )
+    releases: list[types.Release] = field(
+        description="List all app releases visible to the current organization."
+    )
+    resources: list[types.Resource] = field(
+        description="List all backend resources visible to the current organization."
+    )
+    deployments: list[types.Deployment] = field(
+        description="List all deployments visible to the current organization."
+    )
+    github_repos: list[types.GithubRepo] = field(
+        description="List all tracked GitHub repositories visible to the current organization."
+    )
+    oci_repos: list[types.OciRepo] = field(
+        description="List all imported OCI repositories visible to the current organization."
+    )
+    repo_bloks: list[types.RepoBlok] = field(
+        description="List the bloks the tracked GitHub repositories publish on their own, visible to the current organization."
+    )
+    definitions: list[types.Definition] = field(
+        description="List all action definitions visible to the current organization."
+    )
+    pods: list[types.Pod] = field(
+        description="List all pods visible to the current organization."
+    )
 
-    backends: List[types.Backend] = field(description="List all backends visible to the current organization.")
-    release_approvals: List[types.ReleaseApproval] = field(description="List all release approvals of the current organization.")
-    release_approval: types.ReleaseApproval = field(resolver=queries.release_approval, description="Return a single release approval by its ID.")
+    backends: list[types.Backend] = field(
+        description="List all backends visible to the current organization."
+    )
+    release_approvals: list[types.ReleaseApproval] = field(
+        description="List all release approvals of the current organization."
+    )
+    release_approval: types.ReleaseApproval = field(
+        resolver=queries.release_approval,
+        description="Return a single release approval by its ID.",
+    )
 
-    my_pod_at = field(resolver=queries.my_pod_at, description="Let a backend discover one of its own pods by local identifier.")
+    my_pod_at = field(
+        resolver=queries.my_pod_at,
+        description="Let a backend discover one of its own pods by local identifier.",
+    )
 
     # Stats
     github_repo_stats: types.GithubRepoStats = field(
@@ -90,7 +161,7 @@ class Mutation:
         resolver=mutations.scan_repo,
         description="Scan a tracked GitHub repository for app manifests and update its flavours.",
     )
-    rescan_repos: List[types.GithubRepo] = mutation(
+    rescan_repos: list[types.GithubRepo] = mutation(
         scope="kabinet_repos",
         resolver=mutations.rescan_repos,
         description="Rescan every tracked repository for new or updated releases: the GitHub repositories (their app manifests and bloks) and the imported OCI repositories.",
@@ -192,7 +263,12 @@ schema = Schema(
     mutation=Mutation,
     subscription=Subscription,
     schema_directives=[unionElementOf],
-    extensions=[TelemetryExtension, DjangoOptimizerExtension, AuthentikateExtension, KoherentExtension],
+    extensions=[
+        TelemetryExtension,
+        DjangoOptimizerExtension,
+        AuthentikateExtension,
+        KoherentExtension,
+    ],
     types=[
         types.Selector,
         types.CudaSelector,

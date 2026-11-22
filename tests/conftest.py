@@ -1,4 +1,3 @@
-from asgiref.sync import sync_to_async
 import os
 import time
 
@@ -6,18 +5,20 @@ import psycopg
 import pytest
 import pytest_asyncio
 import yaml
-
-from authentikate.models import Client, Organization, User, Membership
+from asgiref.sync import sync_to_async
+from authentikate.models import Client, Membership, Organization, User
 from django.contrib.contenttypes.management import create_contenttypes
 from django.db.models.signals import post_migrate
+from dokker import PortNotFoundError, testing
 from kante.context import HttpContext, UniversalRequest
 from strawberry.http.temporal_response import TemporalResponse
-from dokker import PortNotFoundError, testing
 
 from tests.utils import build_relative_dir
 
 
-def _wait_for_port(e, service: str, container_port: int, deadline_seconds: float = 30.0) -> int:
+def _wait_for_port(
+    e, service: str, container_port: int, deadline_seconds: float = 30.0
+) -> int:
     """The host port docker published for ``service:container_port``, once the container is up."""
     deadline = time.monotonic() + deadline_seconds
     while True:
@@ -31,7 +32,9 @@ def _wait_for_port(e, service: str, container_port: int, deadline_seconds: float
 
 @pytest.fixture(scope="session")
 def backend_stack():
-    docker_compose_path = os.path.join(os.path.dirname(__file__), "integration", "docker-compose.yaml")
+    docker_compose_path = os.path.join(
+        os.path.dirname(__file__), "integration", "docker-compose.yaml"
+    )
 
     # No `down()` before `up()`: `testing()` mints a fresh `dokker-test-<uuid>` project
     # every call, so downing it would only tear down the empty project this run just
@@ -132,7 +135,9 @@ def django_db_setup(django_db_setup, django_db_blocker):
         contenttypes = list(ContentType.objects.all())
         permissions = list(Permission.objects.all())
 
-    post_migrate.disconnect(dispatch_uid="django.contrib.auth.management.create_permissions")
+    post_migrate.disconnect(
+        dispatch_uid="django.contrib.auth.management.create_permissions"
+    )
     post_migrate.disconnect(create_contenttypes)
 
     def restore_contenttypes_and_permissions(sender, **kwargs):
@@ -189,7 +194,12 @@ def authenticated_context(db, backend_stack):
     )
     request.set_membership(membership)  # type: ignore
 
-    return HttpContext(request=request, response=TemporalResponse(), headers={"Authorization": "Bearer test"}, type="http")
+    return HttpContext(
+        request=request,
+        response=TemporalResponse(),
+        headers={"Authorization": "Bearer test"},
+        type="http",
+    )
 
 
 @pytest.fixture(scope="function")
@@ -213,7 +223,12 @@ def other_org_context(db, backend_stack) -> HttpContext:
     )
     request.set_membership(membership)  # type: ignore
 
-    return HttpContext(request=request, response=TemporalResponse(), headers={"Authorization": "Bearer othertest"}, type="http")
+    return HttpContext(
+        request=request,
+        response=TemporalResponse(),
+        headers={"Authorization": "Bearer othertest"},
+        type="http",
+    )
 
 
 @pytest.fixture(scope="function")
@@ -236,7 +251,12 @@ def simple_api_context(db, backend_stack) -> HttpContext:
     )
     request.set_membership(membership)  # type: ignore
 
-    return HttpContext(request=request, response=TemporalResponse(), headers={"Authorization": "Bearer test"}, type="http")
+    return HttpContext(
+        request=request,
+        response=TemporalResponse(),
+        headers={"Authorization": "Bearer test"},
+        type="http",
+    )
 
 
 @pytest_asyncio.fixture
@@ -246,8 +266,8 @@ async def built_chain(authenticated_context: HttpContext) -> dict:
     network-free for a logo-less manifest). Returns the created ids for query tests.
     """
     from bridge.models import GithubRepo
-    from bridge.repo.models import KabinetConfigFile
     from bridge.repo.db import parse_config
+    from bridge.repo.models import KabinetConfigFile
 
     org = authenticated_context.request.organization
     user = authenticated_context.request.user
@@ -261,7 +281,7 @@ async def built_chain(authenticated_context: HttpContext) -> dict:
         branch="main",
     )
 
-    with open(build_relative_dir("deployments/deployments.yaml"), "r") as f:
+    with open(build_relative_dir("deployments/deployments.yaml")) as f:
         config = KabinetConfigFile(**yaml.safe_load(f))
 
     # `parse_config` is synchronous (it runs inside `transaction.atomic`), so it has

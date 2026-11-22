@@ -44,7 +44,9 @@ class _Info:
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_pod_signal_broadcasts_to_pod_and_org_groups(authenticated_context: HttpContext, flavour_id: str):
+async def test_pod_signal_broadcasts_to_pod_and_org_groups(
+    authenticated_context: HttpContext, flavour_id: str
+):
     """Saving a pod publishes to both its own group and its organization's group.
 
     The publisher and the subscribers agree on the group names because both derive them
@@ -99,7 +101,9 @@ async def test_pod_subscription_refuses_another_organization(
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_pod_event_resolves_each_kind(authenticated_context: HttpContext, flavour_id: str):
+async def test_pod_event_resolves_each_kind(
+    authenticated_context: HttpContext, flavour_id: str
+):
     """A signal becomes the matching PodEvent; a vanished pod is skipped, not fatal."""
     from bridge.channel_signals import PodSignal
     from bridge.subscriptions.pod import _resolve
@@ -107,25 +111,40 @@ async def test_pod_event_resolves_each_kind(authenticated_context: HttpContext, 
     ids = await setup_pod(authenticated_context, flavour_id)
     pod_id = int(ids["pod"]["id"])
 
-    created = await _resolve(_Info(context=authenticated_context), PodSignal(create=pod_id))
-    assert created.create is not None and created.update is None and created.delete is None
+    created = await _resolve(
+        _Info(context=authenticated_context), PodSignal(create=pod_id)
+    )
+    assert (
+        created.create is not None and created.update is None and created.delete is None
+    )
 
-    updated = await _resolve(_Info(context=authenticated_context), PodSignal(update=pod_id))
+    updated = await _resolve(
+        _Info(context=authenticated_context), PodSignal(update=pod_id)
+    )
     assert updated.update is not None and updated.create is None
 
     # A delete carries only the ID: the row is gone, so there is nothing to resolve.
-    deleted = await _resolve(_Info(context=authenticated_context), PodSignal(delete=pod_id))
+    deleted = await _resolve(
+        _Info(context=authenticated_context), PodSignal(delete=pod_id)
+    )
     assert deleted.delete == str(pod_id)
     assert deleted.create is None and deleted.update is None
 
     # A pod that disappeared between broadcast and lookup is skipped rather than
     # tearing down the subscriber's stream.
-    assert await _resolve(_Info(context=authenticated_context), PodSignal(update=987654321)) is None
+    assert (
+        await _resolve(
+            _Info(context=authenticated_context), PodSignal(update=987654321)
+        )
+        is None
+    )
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_broadcast_waits_for_commit(authenticated_context: HttpContext, flavour_id: str):
+async def test_broadcast_waits_for_commit(
+    authenticated_context: HttpContext, flavour_id: str
+):
     """Nothing is published until the surrounding transaction commits.
 
     ``post_save`` fires before commit, and no write path here was atomic, so a subscriber

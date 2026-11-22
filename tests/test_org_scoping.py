@@ -10,10 +10,10 @@ back through ``other_org_context`` (``other_org``), which must see nothing.
 """
 
 import pytest
-
 from kante.context import HttpContext
-from tests.utils import execute, execute_raw
+
 from tests.test_pods import setup_pod
+from tests.utils import execute, execute_raw
 
 # `_execute_raw` used to be declared here. It now lives in `tests/utils.py` next to
 # `execute`, so a negative-path test does not have to bring its own.
@@ -65,8 +65,12 @@ async def test_single_object_queries_are_isolated(
     setup = await setup_pod(authenticated_context, flavour_id)
 
     repo_id = built_chain["repo_id"]
-    release_id = (await execute("query{ releases{ id } }", authenticated_context))["releases"][0]["id"]
-    definition_id = (await execute("query{ definitions{ id } }", authenticated_context))["definitions"][0]["id"]
+    release_id = (await execute("query{ releases{ id } }", authenticated_context))[
+        "releases"
+    ][0]["id"]
+    definition_id = (
+        await execute("query{ definitions{ id } }", authenticated_context)
+    )["definitions"][0]["id"]
 
     cases = [
         ("githubRepo", repo_id),

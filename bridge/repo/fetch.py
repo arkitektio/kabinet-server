@@ -24,7 +24,15 @@ import yaml
 from pydantic import ValidationError
 
 from .errors import RepoError
-from .layout import BLOKS_PATH, CONFIG_DIR, DEPLOYMENTS_PATH, LEGACY_CONFIG_DIRS, MANIFEST_PATH, ROOT_MARKER_PATHS, raw_url
+from .layout import (
+    BLOKS_PATH,
+    CONFIG_DIR,
+    DEPLOYMENTS_PATH,
+    LEGACY_CONFIG_DIRS,
+    MANIFEST_PATH,
+    ROOT_MARKER_PATHS,
+    raw_url,
+)
 from .models import BlokFileModel, KabinetConfigFile, RepoBlokModel
 
 logger = logging.getLogger(__name__)
@@ -81,9 +89,13 @@ async def _aprobe(session: aiohttp.ClientSession, url: str) -> bool:
 async def _adiagnose_missing(coordinates: RepoCoordinates) -> str:
     """Explain a 404 on ``deployments.yaml`` by looking at what *is* published."""
     timeout = aiohttp.ClientTimeout(total=DIAGNOSIS_TIMEOUT_SECONDS)
-    async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}, timeout=timeout) as session:
+    async with aiohttp.ClientSession(
+        headers={"Cache-Control": "no-cache"}, timeout=timeout
+    ) as session:
         for legacy in LEGACY_CONFIG_DIRS:
-            if await _aprobe(session, coordinates.url_for(f"{legacy}/deployments.yaml")):
+            if await _aprobe(
+                session, coordinates.url_for(f"{legacy}/deployments.yaml")
+            ):
                 return (
                     f"{coordinates} still publishes its deployments as `{legacy}/deployments.yaml`. "
                     f"Kabinet reads `{DEPLOYMENTS_PATH}` now -- rename the folder to `{CONFIG_DIR}/` and push."
@@ -111,7 +123,9 @@ async def _adiagnose_missing(coordinates: RepoCoordinates) -> str:
         )
 
 
-async def _adescribe_failed_fetch(coordinates: RepoCoordinates, url: str, status: int) -> str:
+async def _adescribe_failed_fetch(
+    coordinates: RepoCoordinates, url: str, status: int
+) -> str:
     """Turn a non-200 on the deployments fetch into something actionable."""
     if status == 404:
         try:
@@ -119,7 +133,11 @@ async def _adescribe_failed_fetch(coordinates: RepoCoordinates, url: str, status
         except Exception:
             # The diagnosis is a nicety. Losing it must not cost the caller the error the
             # fetch actually produced.
-            logger.warning("Could not diagnose the missing config of %s", coordinates, exc_info=True)
+            logger.warning(
+                "Could not diagnose the missing config of %s",
+                coordinates,
+                exc_info=True,
+            )
             return f"{url} does not exist (HTTP 404)."
 
     if status in (401, 403):
@@ -138,10 +156,15 @@ def _describe_validation_error(error: ValidationError, url: str) -> str:
     for detail in error.errors():
         location = ".".join(str(part) for part in detail["loc"]) or "<root>"
         problems.append(f"  - {location}: {detail['msg']}")
-    return f"{url} is not a valid kabinet deployments file. {error.error_count()} problem(s):\n" + "\n".join(problems)
+    return (
+        f"{url} is not a valid kabinet deployments file. {error.error_count()} problem(s):\n"
+        + "\n".join(problems)
+    )
 
 
-async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates, optional: bool = False) -> KabinetConfigFile | None:
+async def aget_kabinet_config(
+    kabinet_url: str, coordinates: RepoCoordinates, optional: bool = False
+) -> KabinetConfigFile | None:
     """Fetch and parse a repository's published ``deployments.yaml``.
 
     The status check was an ``assert``, which ``python -O`` strips -- leaving a 404 body
@@ -153,14 +176,18 @@ async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates, op
     """
     timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT_SECONDS)
     try:
-        async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}, timeout=timeout) as session:
+        async with aiohttp.ClientSession(
+            headers={"Cache-Control": "no-cache"}, timeout=timeout
+        ) as session:
             async with session.get(kabinet_url) as response:
                 status = response.status
                 body = await response.text() if status == 200 else ""
     except TimeoutError as e:
         # aiohttp raises the builtin TimeoutError, not a ClientError, when the total
         # budget runs out.
-        raise InspectionError(f"Fetching {kabinet_url} took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on.") from e
+        raise InspectionError(
+            f"Fetching {kabinet_url} took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on."
+        ) from e
     except aiohttp.ClientError as e:
         raise InspectionError(f"Could not reach {kabinet_url}: {e}") from e
 
@@ -171,10 +198,14 @@ async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates, op
         # Diagnosed out here rather than inside the `session.get` context: the probes are
         # up to five more round-trips, and there is no reason to hold the failed
         # response's connection (and its session) open across all of them.
-        raise InspectionError(await _adescribe_failed_fetch(coordinates, kabinet_url, status))
+        raise InspectionError(
+            await _adescribe_failed_fetch(coordinates, kabinet_url, status)
+        )
 
     if not body.strip():
-        raise InspectionError(f"{kabinet_url} exists but is empty, so it describes no app images.")
+        raise InspectionError(
+            f"{kabinet_url} exists but is empty, so it describes no app images."
+        )
 
     try:
         parsed = yaml.safe_load(body)
@@ -183,10 +214,14 @@ async def aget_kabinet_config(kabinet_url: str, coordinates: RepoCoordinates, op
         mark = getattr(e, "problem_mark", None)
         if mark is not None:
             where = f" at line {mark.line + 1}, column {mark.column + 1}"
-        raise InspectionError(f"{kabinet_url} is not valid YAML{where}: {getattr(e, 'problem', None) or e}") from e
+        raise InspectionError(
+            f"{kabinet_url} is not valid YAML{where}: {getattr(e, 'problem', None) or e}"
+        ) from e
 
     if not isinstance(parsed, dict):
-        raise InspectionError(f"{kabinet_url} contains a {type(parsed).__name__}, not a mapping of keys, so it is not a deployments file.")
+        raise InspectionError(
+            f"{kabinet_url} contains a {type(parsed).__name__}, not a mapping of keys, so it is not a deployments file."
+        )
 
     try:
         config = KabinetConfigFile(**parsed)
@@ -217,36 +252,58 @@ def _parse_bloks_file(url: str, body: str) -> BlokFileModel:
         mark = getattr(e, "problem_mark", None)
         if mark is not None:
             where = f" at line {mark.line + 1}, column {mark.column + 1}"
-        raise InspectionError(f"{url} is not valid YAML{where}: {getattr(e, 'problem', None) or e}") from e
+        raise InspectionError(
+            f"{url} is not valid YAML{where}: {getattr(e, 'problem', None) or e}"
+        ) from e
     if not isinstance(parsed, dict):
-        raise InspectionError(f"{url} contains a {type(parsed).__name__}, not a mapping of keys, so it is not a bloks file.")
+        raise InspectionError(
+            f"{url} contains a {type(parsed).__name__}, not a mapping of keys, so it is not a bloks file."
+        )
     try:
         return BlokFileModel(**parsed)
     except ValidationError as e:
-        problems = [f"  - {'.'.join(str(part) for part in detail['loc']) or '<root>'}: {detail['msg']}" for detail in e.errors()]
-        raise InspectionError(f"{url} is not a valid bloks file. {e.error_count()} problem(s):\n" + "\n".join(problems)) from e
+        problems = [
+            f"  - {'.'.join(str(part) for part in detail['loc']) or '<root>'}: {detail['msg']}"
+            for detail in e.errors()
+        ]
+        raise InspectionError(
+            f"{url} is not a valid bloks file. {e.error_count()} problem(s):\n"
+            + "\n".join(problems)
+        ) from e
 
 
-async def _aread_source(session: aiohttp.ClientSession, coordinates: RepoCoordinates, key: str, path: str) -> str:
+async def _aread_source(
+    session: aiohttp.ClientSession, coordinates: RepoCoordinates, key: str, path: str
+) -> str:
     """The BSX at ``path`` in the repository, which the blok ``key`` names."""
     url = coordinates.url_for(path)
     try:
         async with session.get(url) as response:
             if response.status == 404:
-                raise InspectionError(f"The blok '{key}' names `{path}` as its source, but {coordinates} has no such file.")
+                raise InspectionError(
+                    f"The blok '{key}' names `{path}` as its source, but {coordinates} has no such file."
+                )
             if response.status != 200:
-                raise InspectionError(f"Fetching the source of the blok '{key}' ({url}) returned HTTP {response.status}.")
+                raise InspectionError(
+                    f"Fetching the source of the blok '{key}' ({url}) returned HTTP {response.status}."
+                )
             body = await response.content.read(MAX_BLOK_SOURCE_BYTES + 1)
     except TimeoutError as e:
-        raise InspectionError(f"Fetching the source of the blok '{key}' ({url}) took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on.") from e
+        raise InspectionError(
+            f"Fetching the source of the blok '{key}' ({url}) took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on."
+        ) from e
     except aiohttp.ClientError as e:
         raise InspectionError(f"Could not reach {url}: {e}") from e
     if len(body) > MAX_BLOK_SOURCE_BYTES:
-        raise InspectionError(f"The source of the blok '{key}' (`{path}`) is larger than {MAX_BLOK_SOURCE_BYTES // 1024} KiB, which no blok is.")
+        raise InspectionError(
+            f"The source of the blok '{key}' (`{path}`) is larger than {MAX_BLOK_SOURCE_BYTES // 1024} KiB, which no blok is."
+        )
     try:
         return body.decode("utf-8")
     except UnicodeDecodeError as e:
-        raise InspectionError(f"The source of the blok '{key}' (`{path}`) is not UTF-8 text.") from e
+        raise InspectionError(
+            f"The source of the blok '{key}' (`{path}`) is not UTF-8 text."
+        ) from e
 
 
 async def aget_bloks(coordinates: RepoCoordinates) -> list[RepoBlokModel] | None:
@@ -258,28 +315,45 @@ async def aget_bloks(coordinates: RepoCoordinates) -> list[RepoBlokModel] | None
     url = coordinates.url_for(BLOKS_PATH)
     timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT_SECONDS)
     try:
-        async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}, timeout=timeout) as session:
+        async with aiohttp.ClientSession(
+            headers={"Cache-Control": "no-cache"}, timeout=timeout
+        ) as session:
             async with session.get(url) as response:
                 status = response.status
                 body = await response.text() if status == 200 else ""
             if status == 404:
                 return None
             if status != 200:
-                raise InspectionError(await _adescribe_failed_fetch(coordinates, url, status))
+                raise InspectionError(
+                    await _adescribe_failed_fetch(coordinates, url, status)
+                )
             if not body.strip():
-                raise InspectionError(f"{url} exists but is empty, so it describes no bloks.")
+                raise InspectionError(
+                    f"{url} exists but is empty, so it describes no bloks."
+                )
 
             declared = _parse_bloks_file(url, body).bloks
             sources = await asyncio.gather(
-                *(_aread_source(session, coordinates, blok.key, blok.source) for blok in declared if blok.source is not None)
+                *(
+                    _aread_source(session, coordinates, blok.key, blok.source)
+                    for blok in declared
+                    if blok.source is not None
+                )
             )
     except TimeoutError as e:
-        raise InspectionError(f"Fetching {url} took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on.") from e
+        raise InspectionError(
+            f"Fetching {url} took longer than {FETCH_TIMEOUT_SECONDS}s and was given up on."
+        ) from e
     except aiohttp.ClientError as e:
         raise InspectionError(f"Could not reach {url}: {e}") from e
 
     read = iter(sources)
-    return [RepoBlokModel(declaration=blok, source=blok.bsx if blok.bsx is not None else next(read)) for blok in declared]
+    return [
+        RepoBlokModel(
+            declaration=blok, source=blok.bsx if blok.bsx is not None else next(read)
+        )
+        for blok in declared
+    ]
 
 
 class RepoContents(NamedTuple):
@@ -296,5 +370,7 @@ async def aget_repo_contents(coordinates: RepoCoordinates) -> RepoContents:
     required exactly as before, with the same diagnosis when it is missing.
     """
     bloks = await aget_bloks(coordinates)
-    config = await aget_kabinet_config(coordinates.url_for(DEPLOYMENTS_PATH), coordinates, optional=bloks is not None)
+    config = await aget_kabinet_config(
+        coordinates.url_for(DEPLOYMENTS_PATH), coordinates, optional=bloks is not None
+    )
     return RepoContents(config, bloks)

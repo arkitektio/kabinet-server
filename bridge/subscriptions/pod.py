@@ -1,4 +1,5 @@
-from typing import Annotated, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Annotated
 
 import strawberry
 from kante.types import Info
@@ -8,7 +9,9 @@ from bridge.channels import org_group, pod_group
 from bridge.scoping import aget_for_org
 
 
-@strawberry.type(description="Something that happened to a pod: it was created, updated or deleted.")
+@strawberry.type(
+    description="Something that happened to a pod: it was created, updated or deleted."
+)
 class PodEvent:
     """A pod lifecycle event.
 
@@ -17,9 +20,18 @@ class PodEvent:
     gone and there is nothing left to resolve.
     """
 
-    create: types.Pod | None = strawberry.field(default=None, description="The pod that was just created, if this event is a creation.")
-    update: types.Pod | None = strawberry.field(default=None, description="The pod that just changed, if this event is an update.")
-    delete: strawberry.ID | None = strawberry.field(default=None, description="The ID of the pod that was deleted, if this event is a deletion.")
+    create: types.Pod | None = strawberry.field(
+        default=None,
+        description="The pod that was just created, if this event is a creation.",
+    )
+    update: types.Pod | None = strawberry.field(
+        default=None,
+        description="The pod that just changed, if this event is an update.",
+    )
+    delete: strawberry.ID | None = strawberry.field(
+        default=None,
+        description="The ID of the pod that was deleted, if this event is a deletion.",
+    )
 
 
 async def _resolve(info: Info, message: channels.PodSignal) -> PodEvent | None:
@@ -54,13 +66,17 @@ async def pod(info: Info, pod_id: strawberry.ID) -> AsyncGenerator[PodEvent, Non
     """
     await aget_for_org(models.Pod, info, id=pod_id)
 
-    async for message in channels.pod_channel.listen(info.context, groups=[pod_group(pod_id)]):
+    async for message in channels.pod_channel.listen(
+        info.context, groups=[pod_group(pod_id)]
+    ):
         event = await _resolve(info, message)
         if event is not None:
             yield event
 
 
-def keeps(event: PodEvent, resource: strawberry.ID | None, backend: strawberry.ID | None) -> bool:
+def keeps(
+    event: PodEvent, resource: strawberry.ID | None, backend: strawberry.ID | None
+) -> bool:
     """Whether a subscriber narrowed to ``resource`` / ``backend`` gets ``event``.
 
     A deletion names only an id, so it always passes: the subscriber knows whether it held the pod.
@@ -77,8 +93,18 @@ def keeps(event: PodEvent, resource: strawberry.ID | None, backend: strawberry.I
 
 async def pods(
     info: Info,
-    resource: Annotated[strawberry.ID | None, strawberry.argument(description="Only the pods on this resource (and every deletion: it names only an id).")] = None,
-    backend: Annotated[strawberry.ID | None, strawberry.argument(description="Only the pods of this backend (and every deletion).")] = None,
+    resource: Annotated[
+        strawberry.ID | None,
+        strawberry.argument(
+            description="Only the pods on this resource (and every deletion: it names only an id)."
+        ),
+    ] = None,
+    backend: Annotated[
+        strawberry.ID | None,
+        strawberry.argument(
+            description="Only the pods of this backend (and every deletion)."
+        ),
+    ] = None,
 ) -> AsyncGenerator[PodEvent, None]:
     """Stream lifecycle events for every pod in the caller's organization, or of one resource or backend.
 
@@ -89,7 +115,9 @@ async def pods(
     """
     organization = info.context.request.organization
 
-    async for message in channels.pod_channel.listen(info.context, groups=[org_group(organization.id)]):
+    async for message in channels.pod_channel.listen(
+        info.context, groups=[org_group(organization.id)]
+    ):
         event = await _resolve(info, message)
         if event is not None and keeps(event, resource, backend):
             yield event

@@ -11,7 +11,7 @@ import pytest
 import yaml
 from kante.context import HttpContext
 
-from tests.utils import build_relative_dir, execute, execute_raw
+from tests.utils import build_relative_dir, execute
 
 CREATE_APP_IMAGE = """
     mutation CreateAppImage($input: AppImageInput!) {
@@ -56,11 +56,15 @@ def _app_image_input() -> dict:
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_create_app_image_builds_the_catalogue(authenticated_context: HttpContext):
+async def test_create_app_image_builds_the_catalogue(
+    authenticated_context: HttpContext,
+):
     """A pushed app image creates its app, release and flavour, and returns the release."""
     payload = _app_image_input()
 
-    release = (await execute(CREATE_APP_IMAGE, authenticated_context, {"input": payload}))["createAppImage"]
+    release = (
+        await execute(CREATE_APP_IMAGE, authenticated_context, {"input": payload})
+    )["createAppImage"]
 
     assert release["app"]["identifier"] == payload["manifest"]["identifier"]
     assert release["version"] == payload["manifest"]["version"]
@@ -85,12 +89,15 @@ async def test_create_app_image_is_idempotent(authenticated_context: HttpContext
     """Pushing the same image twice updates rather than duplicating."""
     payload = _app_image_input()
 
-    first = (await execute(CREATE_APP_IMAGE, authenticated_context, {"input": payload}))["createAppImage"]
-    second = (await execute(CREATE_APP_IMAGE, authenticated_context, {"input": payload}))["createAppImage"]
+    first = (
+        await execute(CREATE_APP_IMAGE, authenticated_context, {"input": payload})
+    )["createAppImage"]
+    second = (
+        await execute(CREATE_APP_IMAGE, authenticated_context, {"input": payload})
+    )["createAppImage"]
 
     assert first["id"] == second["id"]
     assert len(second["flavours"]) == 1
-
 
 
 ENTRYPOINT = """
@@ -102,12 +109,16 @@ ENTRYPOINT = """
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_a_manifest_without_an_entrypoint_defaults_to_app(authenticated_context: HttpContext):
+async def test_a_manifest_without_an_entrypoint_defaults_to_app(
+    authenticated_context: HttpContext,
+):
     """``entrypoint`` is optional in the schema; omitting it used to raise in the input's __init__."""
     payload = _app_image_input()
     payload["manifest"].pop("entrypoint", None)
 
-    release = (await execute(ENTRYPOINT, authenticated_context, {"input": payload}))["createAppImage"]
+    release = (await execute(ENTRYPOINT, authenticated_context, {"input": payload}))[
+        "createAppImage"
+    ]
 
     assert release["entrypoint"] == "app"
 
@@ -119,9 +130,12 @@ async def test_a_given_entrypoint_is_kept(authenticated_context: HttpContext):
     payload = _app_image_input()
     payload["manifest"]["entrypoint"] = "my_app.main"
 
-    release = (await execute(ENTRYPOINT, authenticated_context, {"input": payload}))["createAppImage"]
+    release = (await execute(ENTRYPOINT, authenticated_context, {"input": payload}))[
+        "createAppImage"
+    ]
 
     assert release["entrypoint"] == "my_app.main"
+
 
 FLAVOUR_BLOKS = """
     mutation CreateAppImage($input: AppImageInput!) {
@@ -134,12 +148,32 @@ FLAVOUR_BLOKS = """
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_create_app_image_persists_bloks(authenticated_context: HttpContext) -> None:
+async def test_create_app_image_persists_bloks(
+    authenticated_context: HttpContext,
+) -> None:
     """Blok manifests in the inspection are stored on the flavour instead of being validated and dropped."""
     payload = _app_image_input()
-    payload["inspection"]["bloks"] = [{"key": "demo", "vocab": 2, "components": [{"id": "Blok[0]", "component": "Blok", "props": [{"key": "kind", "staticValue": "agent"}, {"key": "context", "staticValue": "panel"}], "children": [{"id": "Blok[0]/Text[0]", "component": "Text"}]}]}]
+    payload["inspection"]["bloks"] = [
+        {
+            "key": "demo",
+            "vocab": 2,
+            "components": [
+                {
+                    "id": "Blok[0]",
+                    "component": "Blok",
+                    "props": [
+                        {"key": "kind", "staticValue": "agent"},
+                        {"key": "context", "staticValue": "panel"},
+                    ],
+                    "children": [{"id": "Blok[0]/Text[0]", "component": "Text"}],
+                }
+            ],
+        }
+    ]
 
-    release = (await execute(FLAVOUR_BLOKS, authenticated_context, {"input": payload}))["createAppImage"]
+    release = (await execute(FLAVOUR_BLOKS, authenticated_context, {"input": payload}))[
+        "createAppImage"
+    ]
 
     bloks = release["flavours"][0]["bloks"]
     assert len(bloks) == 1
@@ -150,7 +184,9 @@ async def test_create_app_image_persists_bloks(authenticated_context: HttpContex
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_create_app_image_persists_definition_kind_and_port_groups(authenticated_context: HttpContext) -> None:
+async def test_create_app_image_persists_definition_kind_and_port_groups(
+    authenticated_context: HttpContext,
+) -> None:
     """Definitions used to be stored with an empty kind (unservable as the ActionKind enum) and no port groups."""
     from bridge.models import Definition
 

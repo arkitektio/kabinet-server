@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from arkitekt_spec.blok.bsx import parse_bsx
 from pydantic import ValidationError
@@ -69,7 +70,9 @@ def root_kind(component_tree: Any) -> str | None:
 def blok_hash(component_tree: Any, context: Any, declared: dict[str, Any]) -> str:
     """``sha256:`` of what a blok draws: the same tree, context and declarations hash alike."""
     parts = {"component_tree": component_tree, "context": context}
-    parts.update({key: value for key, value in declared.items() if value not in (None, [], {})})
+    parts.update(
+        {key: value for key, value in declared.items() if value not in (None, [], {})}
+    )
     canonical = json.dumps(parts, sort_keys=True, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
@@ -91,7 +94,9 @@ def render_blok(blok: dict[str, Any]) -> dict[str, Any]:
             error = str(e)
     return {
         "component_tree": tree,
-        "hash": blok_hash(tree, blok.get("context"), {key: blok.get(key) for key in DECLARED}),
+        "hash": blok_hash(
+            tree, blok.get("context"), {key: blok.get(key) for key in DECLARED}
+        ),
         "parse_error": error,
     }
 

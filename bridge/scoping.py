@@ -72,11 +72,15 @@ def for_org(model: type[django_models.Model], info: Info) -> django_models.Query
     return model.objects.filter(**{path: info.context.request.organization})
 
 
-def get_for_org(model: type[django_models.Model], info: Info, **kwargs) -> django_models.Model:
+def get_for_org(
+    model: type[django_models.Model], info: Info, **kwargs
+) -> django_models.Model:
     """``Model.objects.get`` limited to the request's organization."""
     return for_org(model, info).get(**kwargs)
 
 
-async def aget_for_org(model: type[django_models.Model], info: Info, **kwargs) -> django_models.Model:
+async def aget_for_org(
+    model: type[django_models.Model], info: Info, **kwargs
+) -> django_models.Model:
     """Async ``Model.objects.aget`` limited to the request's organization."""
     return await for_org(model, info).aget(**kwargs)

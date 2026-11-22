@@ -19,7 +19,9 @@ async def create_app_image(info: Info, input: AppImageInput) -> types.Release:
     """
     parsed = input.to_pydantic()
 
-    flavour = await sync_to_async(upsert_app_image)(parsed, info.context.request.organization)
+    flavour = await sync_to_async(upsert_app_image)(
+        parsed, info.context.request.organization
+    )
 
     # Fetched by id rather than through `flavour.release`: the FK descriptor would be a
     # lazy load, and `SynchronousOnlyOperation` is the reward for touching one of those

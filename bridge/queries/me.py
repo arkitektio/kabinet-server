@@ -1,6 +1,8 @@
-from bridge import types
-from kante.types import Info
 from typing import cast
+
+from kante.types import Info
+
+from bridge import types
 
 
 def me(info: Info) -> types.User:

@@ -32,14 +32,20 @@ async def scan_repo(info: Info, input: inputs.ScanRepoInput) -> types.GithubRepo
     parsed = input.to_pydantic()
     repo = await aget_for_org(models.GithubRepo, info, id=parsed.id)
 
-    contents = await aget_repo_contents(RepoCoordinates(repo.user, repo.repo, repo.branch))
+    contents = await aget_repo_contents(
+        RepoCoordinates(repo.user, repo.repo, repo.branch)
+    )
 
-    await sync_to_async(apply_contents)(contents, repo, info.context.request.organization)
+    await sync_to_async(apply_contents)(
+        contents, repo, info.context.request.organization
+    )
 
     return repo
 
 
-def infer_repo_info(input: inputs.CreateGithubRepoInputModel) -> tuple[str, str, str, str]:
+def infer_repo_info(
+    input: inputs.CreateGithubRepoInputModel,
+) -> tuple[str, str, str, str]:
     """Resolve (user, repo, branch, name) from either an identifier or explicit fields.
 
     Two things used to be wrong here beyond the `assert`s. The identifier branch computed
@@ -53,7 +59,10 @@ def infer_repo_info(input: inputs.CreateGithubRepoInputModel) -> tuple[str, str,
     """
     if input.identifier:
         # A full GitHub URL, with or without a /tree/<branch> suffix.
-        match = re.match(r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+))?", input.identifier)
+        match = re.match(
+            r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+))?",
+            input.identifier,
+        )
         if match:
             user, repo, branch = match.groups()
             branch = branch or "main"
@@ -65,10 +74,14 @@ def infer_repo_info(input: inputs.CreateGithubRepoInputModel) -> tuple[str, str,
             else:
                 repo, branch = repo_with_branch, "main"
         else:
-            raise ValueError(f"'{input.identifier}' is not a GitHub identifier. Expected a github.com URL, 'user/repo', or 'user/repo:branch'.")
+            raise ValueError(
+                f"'{input.identifier}' is not a GitHub identifier. Expected a github.com URL, 'user/repo', or 'user/repo:branch'."
+            )
     else:
         if not (input.user and input.repo):
-            raise ValueError("Either identifier, or both user and repo, must be provided.")
+            raise ValueError(
+                "Either identifier, or both user and repo, must be provided."
+            )
         user, repo, branch = input.user, input.repo, input.branch or "main"
 
     return user, repo, branch, f"{user}/{repo}:{branch}"
@@ -99,15 +112,21 @@ async def _create_github_repo(
     return repo
 
 
-async def create_github_repo(info: Info, input: inputs.CreateGithubRepoInput) -> types.GithubRepo:
+async def create_github_repo(
+    info: Info, input: inputs.CreateGithubRepoInput
+) -> types.GithubRepo:
     parsed = input.to_pydantic()
-    return await _create_github_repo(parsed, info.context.request.organization, info.context.request.user)
+    return await _create_github_repo(
+        parsed, info.context.request.organization, info.context.request.user
+    )
 
 
 async def _rescan_one(repo: models.GithubRepo, organization: Organization) -> None:
     """Rescan a single repo, logging rather than raising when it cannot be scanned."""
     try:
-        contents = await aget_repo_contents(RepoCoordinates(repo.user, repo.repo, repo.branch))
+        contents = await aget_repo_contents(
+            RepoCoordinates(repo.user, repo.repo, repo.branch)
+        )
         await sync_to_async(apply_contents)(contents, repo, organization)
     except Exception as e:
         # One unreachable or malformed repo must not take the other N down with it. This

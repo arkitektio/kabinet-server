@@ -28,20 +28,45 @@ def flavour_descriptors(flavour: models.Flavour) -> Descriptors:
     """A flavour's descriptors: its variant name and the hardware its selectors ask a backend for."""
     stated = flavour.get_selectors()
     required = [selector for selector in stated if selector.required]
-    gpus = sorted({selector.kind for selector in required if selector.kind in GPU_KINDS})
+    gpus = sorted(
+        {selector.kind for selector in required if selector.kind in GPU_KINDS}
+    )
     return {
         "@kabinet/flavour_name": flavour.name,
         "@kabinet/selector_kinds": sorted({selector.kind for selector in stated}),
         "@kabinet/gpu": gpus[0] if len(gpus) == 1 else SEVERAL_GPUS if gpus else NO_GPU,
-        "@kabinet/arch": sorted({selector.arch for selector in required if isinstance(selector, selectors.CpuSelector) and selector.arch}),
-        "@kabinet/min_ram_mb": max((selector.min for selector in required if isinstance(selector, selectors.RamSelector) and selector.min), default=0),
-        "@kabinet/min_vram_mb": max((selector.memory for selector in required if isinstance(selector, selectors.CudaSelector) and selector.memory), default=0),
+        "@kabinet/arch": sorted(
+            {
+                selector.arch
+                for selector in required
+                if isinstance(selector, selectors.CpuSelector) and selector.arch
+            }
+        ),
+        "@kabinet/min_ram_mb": max(
+            (
+                selector.min
+                for selector in required
+                if isinstance(selector, selectors.RamSelector) and selector.min
+            ),
+            default=0,
+        ),
+        "@kabinet/min_vram_mb": max(
+            (
+                selector.memory
+                for selector in required
+                if isinstance(selector, selectors.CudaSelector) and selector.memory
+            ),
+            default=0,
+        ),
     }
 
 
 def release_descriptors(release: models.Release) -> Descriptors:
     """A release's descriptors: its version, and the channel it is the latest build of ("" for a release proper)."""
-    return {"@kabinet/version": release.version, "@kabinet/channel": release.channel or ""}
+    return {
+        "@kabinet/version": release.version,
+        "@kabinet/channel": release.channel or "",
+    }
 
 
 def definition_descriptors(definition: models.Definition) -> Descriptors:
@@ -57,4 +82,7 @@ def definition_descriptors(definition: models.Definition) -> Descriptors:
 
 def placement_descriptors(placed: models.Deployment | models.Pod) -> Descriptors:
     """A deployment's or a pod's descriptors: where it stands, and the kind of backend it runs on."""
-    return {"@kabinet/status": str(placed.status), "@kabinet/backend_kind": placed.backend.kind}
+    return {
+        "@kabinet/status": str(placed.status),
+        "@kabinet/backend_kind": placed.backend.kind,
+    }

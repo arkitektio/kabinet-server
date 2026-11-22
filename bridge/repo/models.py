@@ -1,8 +1,10 @@
+import datetime
 import json
 import re
-from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
-from typing import List, Literal, Optional
-import datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
 from rekuest_core import enums as rkenums
 from rekuest_core.inputs.models import (
     AgentDependencyInputModel,
@@ -26,9 +28,9 @@ class RequirementInputModel(BaseModel):
     the reverse domain naming scheme"""
     optional: bool = False
     """ The optional flag indicates if the requirement is optional or not. Users should be able to use the client even if the requirement is not met. """
-    description: Optional[str] = None
+    description: str | None = None
     """ The description is a human readable description of the requirement. Will be show to the user when asking for the requirement."""
-    version: Optional[str] = None
+    version: str | None = None
     """ The versions of the service the app was written for, as a specifier ('>=12.1,<14'). Advisory. """
 
 
@@ -42,10 +44,10 @@ class ManifestInputModel(BaseModel):
     identifier: str
     version: str
     author: str = "unknown"
-    logo: Optional[str] = None
-    scopes: List[str] = Field(default_factory=list)
+    logo: str | None = None
+    scopes: list[str] = Field(default_factory=list)
     """ The requirements are a list of requirements that the client needs to run on (e.g. needs GPU)"""
-    entrypoint: Optional[str] = None
+    entrypoint: str | None = None
     """The entrypoint the image starts the app with; None means the default, 'app'."""
 
     def to_console_string(self) -> str:
@@ -67,12 +69,17 @@ class InspectionInputModel(BaseModel):
     spec_version: str
     """The arkitekt-spec the image wrote this with, which may be older than the release's."""
     size: int | None = None
-    locks: List[LockImplementationInputModel] = Field(alias="locks")
-    implementations: List[ImplementationInputModel] = Field(alias="implementations")
-    states: List[StateImplementationInputModel] = Field(alias="states")
-    bloks: list[BlokImplementationInputModel] = Field(default_factory=list, alias="bloks")
-    assets: list[InspectedAssetModel] = Field(default_factory=list, description="The files the app brings: models and images its bloks call by name.")
-    requirements: List[RequirementInputModel]
+    locks: list[LockImplementationInputModel] = Field(alias="locks")
+    implementations: list[ImplementationInputModel] = Field(alias="implementations")
+    states: list[StateImplementationInputModel] = Field(alias="states")
+    bloks: list[BlokImplementationInputModel] = Field(
+        default_factory=list, alias="bloks"
+    )
+    assets: list[InspectedAssetModel] = Field(
+        default_factory=list,
+        description="The files the app brings: models and images its bloks call by name.",
+    )
+    requirements: list[RequirementInputModel]
 
 
 class DockerImageModel(BaseModel):
@@ -83,10 +90,12 @@ class DockerImageModel(BaseModel):
 
     @field_validator("build_at")
     @classmethod
-    def _ensure_timezone_aware(cls, value: datetime.datetime | None) -> datetime.datetime | None:
+    def _ensure_timezone_aware(
+        cls, value: datetime.datetime | None
+    ) -> datetime.datetime | None:
         """Treat tz-naive build timestamps as UTC so Django (USE_TZ=True) accepts them."""
         if value is not None and value.tzinfo is None:
-            return value.replace(tzinfo=datetime.timezone.utc)
+            return value.replace(tzinfo=datetime.UTC)
         return value
 
 
@@ -96,7 +105,12 @@ _CAMEL = re.compile(r"(?<!^)(?=[A-Z])")
 def _snake_case_keys(value: object) -> object:
     """Recursively rename camelCase dict keys to snake_case (values untouched)."""
     if isinstance(value, dict):
-        return {_CAMEL.sub("_", key).lower() if isinstance(key, str) else key: _snake_case_keys(item) for key, item in value.items()}
+        return {
+            _CAMEL.sub("_", key).lower()
+            if isinstance(key, str)
+            else key: _snake_case_keys(item)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [_snake_case_keys(item) for item in value]
     return value
@@ -162,8 +176,8 @@ class KabinetConfigFile(BaseModel):
     """
 
     spec_version: str
-    app_images: List[AppImageInputModel] = []
-    latest_app_image: Optional[str] = None
+    app_images: list[AppImageInputModel] = []
+    latest_app_image: str | None = None
 
 
 class ReleaseFlavourModel(BaseModel):
@@ -181,7 +195,9 @@ class ReleaseFlavourModel(BaseModel):
     @classmethod
     def _pinned(cls, value: str) -> str:
         if "@sha256:" not in value:
-            raise ValueError(f"A flavour's image is named by digest, and '{value}' is not.")
+            raise ValueError(
+                f"A flavour's image is named by digest, and '{value}' is not."
+            )
         return value
 
     @field_validator("inspection", mode="before")
@@ -221,7 +237,9 @@ class ReleaseDescriptorModel(BaseModel):
 #: What reads a release: the lowest major of arkitekt-spec a model reads, lowest first. A format
 #: this model cannot read gets its own entry. A newer major than any here is read by the last one:
 #: most of the spec's majors change its Python API and not this format.
-RELEASE_PARSERS: list[tuple[int, type[ReleaseDescriptorModel]]] = [(0, ReleaseDescriptorModel)]
+RELEASE_PARSERS: list[tuple[int, type[ReleaseDescriptorModel]]] = [
+    (0, ReleaseDescriptorModel)
+]
 
 
 class UnversionedRelease(ValueError):
@@ -231,10 +249,14 @@ class UnversionedRelease(ValueError):
 def _spec_major(version: object) -> int:
     """The major of the spec that wrote a release."""
     if version is None or version == 1:
-        raise UnversionedRelease("A release that names no spec version is refused: release it again on a current arkitekt.")
+        raise UnversionedRelease(
+            "A release that names no spec version is refused: release it again on a current arkitekt."
+        )
     match = re.match(r"(\d+)(?:[.+]|$)", version) if isinstance(version, str) else None
     if match is None:
-        raise ValueError(f"A release names {version!r} as its spec version, which is not a version.")
+        raise ValueError(
+            f"A release names {version!r} as its spec version, which is not a version."
+        )
     return int(match.group(1))
 
 
@@ -242,7 +264,9 @@ def parse_release(body: bytes) -> ReleaseDescriptorModel:
     """Read a release descriptor with the model for the spec that wrote it."""
     data = json.loads(body)
     if not isinstance(data, dict):
-        raise ValueError(f"A release descriptor is a mapping of keys, not a {type(data).__name__}.")
+        raise ValueError(
+            f"A release descriptor is a mapping of keys, not a {type(data).__name__}."
+        )
     major = _spec_major(data.get("spec_version"))
     for flavour in data.get("flavours", []):
         # The image wrote this one, so it can be older than the release naming it.
@@ -264,16 +288,40 @@ class RepoBlokDeclarationModel(BaseModel):
     scenes are published this way: a logo belongs to an app.
     """
 
-    key: str = Field(description="Unique in the repository; the blok's identity across scans.")
-    name: str = Field(min_length=1, max_length=1000, description="The name it is installed under in rekuest.")
+    key: str = Field(
+        description="Unique in the repository; the blok's identity across scans."
+    )
+    name: str = Field(
+        min_length=1,
+        max_length=1000,
+        description="The name it is installed under in rekuest.",
+    )
     description: str | None = None
-    context: rkenums.ComponentContext = Field(default=rkenums.ComponentContext.PANEL, description="What draws it, as its `<Blok context=...>` says: PANEL or SCENE.")
-    source: str | None = Field(default=None, description="A path in the repository to the blok's BSX.")
-    bsx: str | None = Field(default=None, description="The blok's BSX (blok language v2), inline.")
-    vocab: Literal[2] = Field(description="The blok language version the blok speaks; 2 is the only one.")
-    catalogs: list[str] = Field(default_factory=list, description="The catalogs it needs, as name@version ('ui@1').")
-    module: str | None = Field(default=None, max_length=1000, description="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when absent.")
-    demo: BlokDemoInputModel | None = Field(default=None, description="What a preview renders it with.")
+    context: rkenums.ComponentContext = Field(
+        default=rkenums.ComponentContext.PANEL,
+        description="What draws it, as its `<Blok context=...>` says: PANEL or SCENE.",
+    )
+    source: str | None = Field(
+        default=None, description="A path in the repository to the blok's BSX."
+    )
+    bsx: str | None = Field(
+        default=None, description="The blok's BSX (blok language v2), inline."
+    )
+    vocab: Literal[2] = Field(
+        description="The blok language version the blok speaks; 2 is the only one."
+    )
+    catalogs: list[str] = Field(
+        default_factory=list,
+        description="The catalogs it needs, as name@version ('ui@1').",
+    )
+    module: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when absent.",
+    )
+    demo: BlokDemoInputModel | None = Field(
+        default=None, description="What a preview renders it with."
+    )
     dependencies: list[AgentDependencyInputModel] = Field(default_factory=list)
     for_model: str | None = None
     for_node: str | None = None
@@ -284,7 +332,9 @@ class RepoBlokDeclarationModel(BaseModel):
     @classmethod
     def _key(cls, value: str) -> str:
         if not BLOK_KEY.fullmatch(value):
-            raise ValueError(f"'{value}' is not a blok key: lowercase letters, digits, '.', '_' and '-', starting with a letter or digit.")
+            raise ValueError(
+                f"'{value}' is not a blok key: lowercase letters, digits, '.', '_' and '-', starting with a letter or digit."
+            )
         return value
 
     @field_validator("source")
@@ -301,9 +351,16 @@ class RepoBlokDeclarationModel(BaseModel):
     @model_validator(mode="after")
     def _one_source(self) -> "RepoBlokDeclarationModel":
         if (self.source is None) == (self.bsx is None):
-            raise ValueError("A blok names exactly one of `source` (a file) and `bsx` (inline).")
-        if self.context not in (rkenums.ComponentContext.PANEL, rkenums.ComponentContext.SCENE):
-            raise ValueError(f"A repository publishes panels (PANEL) and scenes (SCENE), not {self.context.value} bloks.")
+            raise ValueError(
+                "A blok names exactly one of `source` (a file) and `bsx` (inline)."
+            )
+        if self.context not in (
+            rkenums.ComponentContext.PANEL,
+            rkenums.ComponentContext.SCENE,
+        ):
+            raise ValueError(
+                f"A repository publishes panels (PANEL) and scenes (SCENE), not {self.context.value} bloks."
+            )
         check_blok_target(self.context, self.for_model, self.for_node)
         check_blok_declarations(
             catalogs=self.catalogs,
@@ -318,7 +375,9 @@ class RepoBlokDeclarationModel(BaseModel):
             "vocab": self.vocab,
             "catalogs": self.catalogs,
             "module": self.module,
-            "demo": self.demo.model_dump(mode="json", exclude_none=True) if self.demo is not None else {},
+            "demo": self.demo.model_dump(mode="json", exclude_none=True)
+            if self.demo is not None
+            else {},
         }
 
 

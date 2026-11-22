@@ -1,22 +1,27 @@
 import datetime
-
-import strawberry
-from bridge import managers
-from bridge import inputs
-from bridge import models
-from bridge import scoping
-from bridge import enums
-import strawberry_django
-from kante.types import Info
 import re
 
-from django.db.models import BooleanField, Count, Exists, F, Func, Max, OuterRef, Q, QuerySet, Value
-from rekuest_core import enums as rkenums
-from rekuest_core.inputs.types import RequiresInput
+import strawberry
+import strawberry_django
+from django.db.models import (
+    BooleanField,
+    Count,
+    Exists,
+    F,
+    Func,
+    Max,
+    OuterRef,
+    Q,
+    QuerySet,
+    Value,
+)
+from kante.types import Info
 
+from bridge import enums, inputs, managers, models, scoping
 from embeddings import search
 from embeddings.search import hybrid_search
-
+from rekuest_core import enums as rkenums
+from rekuest_core.inputs.types import RequiresInput
 
 # --- descriptors: a port's requires ------------------------------------------
 
@@ -26,7 +31,9 @@ REQUIRES_DESCRIPTION = "Filter to the objects satisfying every one of these desc
 
 def requires(model: type, value: list[RequiresInput], prefix: str) -> Q:
     """A port's ``requires`` on the stored descriptors of ``model``'s rows."""
-    from kabinet_server.service import service  # it imports the models this module filters
+    from kabinet_server.service import (
+        service,  # it imports the models this module filters
+    )
 
     return service.requires(model, value, prefix)
 
@@ -44,13 +51,18 @@ def app_flavours(prefix: str) -> QuerySet:
 
 def newest_releases() -> QuerySet:
     """Each app's newest release: none of its app's releases is newer (the id breaks a tie)."""
-    newer = models.Release.objects.filter(app=OuterRef("app")).filter(Q(released_at__gt=OuterRef("released_at")) | Q(released_at=OuterRef("released_at"), id__gt=OuterRef("id")))
+    newer = models.Release.objects.filter(app=OuterRef("app")).filter(
+        Q(released_at__gt=OuterRef("released_at"))
+        | Q(released_at=OuterRef("released_at"), id__gt=OuterRef("id"))
+    )
     return models.Release.objects.filter(~Exists(newer))
 
 
 def newest_flavours(prefix: str) -> QuerySet:
     """The flavours of the newest release of the app the filter is at: what the store shows of it."""
-    return models.Flavour.objects.filter(release__app=OuterRef(f"{prefix}pk"), release__in=newest_releases())
+    return models.Flavour.objects.filter(
+        release__app=OuterRef(f"{prefix}pk"), release__in=newest_releases()
+    )
 
 
 def _jsonpath_string(text: str) -> str:
@@ -65,13 +77,17 @@ OFFERED_BLOK = '(@.context == "PANEL" || @.context == "SCENE")'
 def bloks_match(path_filter: str) -> Func:
     """Whether any of a flavour's declared bloks (``Flavour.bloks``) passes ``path_filter``, a SQL/JSON path filter on ``@``."""
     path = Func(Value(f"$[*] ? ({path_filter})"), template="%(expressions)s::jsonpath")
-    return Func(F("bloks"), path, function="jsonb_path_exists", output_field=BooleanField())
+    return Func(
+        F("bloks"), path, function="jsonb_path_exists", output_field=BooleanField()
+    )
 
 
 def offered_bloks_named(value: str) -> Func:
     """A flavour offering a panel or scene whose key or description contains ``value`` (case-insensitive)."""
     pattern = _jsonpath_string(re.escape(value))
-    return bloks_match(f'{OFFERED_BLOK} && (@.key like_regex {pattern} flag "i" || @.description like_regex {pattern} flag "i")')
+    return bloks_match(
+        f'{OFFERED_BLOK} && (@.key like_regex {pattern} flag "i" || @.description like_regex {pattern} flag "i")'
+    )
 
 
 def flavour_hardware_q(hardware: "enums.AppHardware") -> Q:
@@ -82,7 +98,9 @@ def flavour_hardware_q(hardware: "enums.AppHardware") -> Q:
     return Q(stored_descriptors__has_key="@kabinet/gpu") & ~runs_on_cpu
 
 
-@strawberry_django.order_type(models.Definition, description="Order for action definitions.")
+@strawberry_django.order_type(
+    models.Definition, description="Order for action definitions."
+)
 class DefinitionOrder:
     """Order for action definitions."""
 
@@ -91,61 +109,97 @@ class DefinitionOrder:
     kind: strawberry.auto
 
 
-@strawberry_django.filter_type(models.GithubRepo, description="Filter for tracked GitHub repositories.")
+@strawberry_django.filter_type(
+    models.GithubRepo, description="Filter for tracked GitHub repositories."
+)
 class GithubRepoFilter:
     """Filter for tracked GitHub repositories."""
 
-    @strawberry_django.filter_field(description="Keep only repositories whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only repositories whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Search by name: a case-insensitive substring, or semantic similarity of the query to the repository's name. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
-    def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
-        return hybrid_search(queryset, prefix, value, Q(**{f"{prefix}name__icontains": value}))
+    @strawberry_django.filter_field(
+        description="Search by name: a case-insensitive substring, or semantic similarity of the query to the repository's name. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking."
+    )
+    def search(
+        self, info: Info, queryset: QuerySet, value: str, prefix: str
+    ) -> tuple[QuerySet, Q]:
+        return hybrid_search(
+            queryset, prefix, value, Q(**{f"{prefix}name__icontains": value})
+        )
 
-    @strawberry_django.filter_field(description="Case-insensitive match on the GitHub repository name.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive match on the GitHub repository name."
+    )
     def repo(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}repo__icontains": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive match on the GitHub owner.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive match on the GitHub owner."
+    )
     def user(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}user__icontains": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive match on the branch name.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive match on the branch name."
+    )
     def branch(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}branch__icontains": value})
 
-    @strawberry_django.filter_field(description="Keep only repositories this user added, given by their sub (their id in lok). `user` is the GitHub owner, not a member.")
+    @strawberry_django.filter_field(
+        description="Keep only repositories this user added, given by their sub (their id in lok). `user` is the GitHub owner, not a member."
+    )
     def creator(self, value: strawberry.ID, prefix: str) -> Q:
         return Q(**{f"{prefix}creator__sub": value})
 
 
-@strawberry_django.filter_type(models.OciRepo, description="Filter for imported OCI repositories.")
+@strawberry_django.filter_type(
+    models.OciRepo, description="Filter for imported OCI repositories."
+)
 class OciRepoFilter:
     """Filter for imported OCI repositories."""
 
-    @strawberry_django.filter_field(description="Keep only repositories whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only repositories whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive substring of the name, the registry or the repository path.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive substring of the name, the registry or the repository path."
+    )
     def search(self, value: str, prefix: str) -> Q:
-        return Q(**{f"{prefix}name__icontains": value}) | Q(**{f"{prefix}registry__icontains": value}) | Q(**{f"{prefix}repository__icontains": value})
+        return (
+            Q(**{f"{prefix}name__icontains": value})
+            | Q(**{f"{prefix}registry__icontains": value})
+            | Q(**{f"{prefix}repository__icontains": value})
+        )
 
-    @strawberry_django.filter_field(description="Keep only repositories this user imported, given by their sub (their id in lok).")
+    @strawberry_django.filter_field(
+        description="Keep only repositories this user imported, given by their sub (their id in lok)."
+    )
     def creator(self, value: strawberry.ID, prefix: str) -> Q:
         return Q(**{f"{prefix}creator__sub": value})
 
 
-@strawberry_django.filter_type(models.RepoBlok, description="Filter for the bloks repositories publish.")
+@strawberry_django.filter_type(
+    models.RepoBlok, description="Filter for the bloks repositories publish."
+)
 class RepoBlokFilter:
     """Filter for the bloks repositories publish."""
 
-    @strawberry_django.filter_field(description="Keep only bloks whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only bloks whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive substring of the blok's name, key or description, or of its repository's name.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive substring of the blok's name, key or description, or of its repository's name."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return (
             Q(**{f"{prefix}name__icontains": value})
@@ -154,25 +208,37 @@ class RepoBlokFilter:
             | Q(**{f"{prefix}repo__name__icontains": value})
         )
 
-    @strawberry_django.filter_field(description="Keep only bloks of this context (PANEL or SCENE).")
+    @strawberry_django.filter_field(
+        description="Keep only bloks of this context (PANEL or SCENE)."
+    )
     def context(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}context": value})
 
-    @strawberry_django.filter_field(description="Keep only bloks of these repositories.")
+    @strawberry_django.filter_field(
+        description="Keep only bloks of these repositories."
+    )
     def repos(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}repo_id__in": value})
 
 
-@strawberry_django.filter_type(models.Definition, description="Filter for action definitions.")
+@strawberry_django.filter_type(
+    models.Definition, description="Filter for action definitions."
+)
 class DefinitionFilter:
     """Filter for action definitions."""
 
-    @strawberry_django.filter_field(description="Keep only definitions whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only definitions whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Search by text: a case-insensitive substring of the name or the description, or semantic similarity of the query to both. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
-    def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
+    @strawberry_django.filter_field(
+        description="Search by text: a case-insensitive substring of the name or the description, or semantic similarity of the query to both. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking."
+    )
+    def search(
+        self, info: Info, queryset: QuerySet, value: str, prefix: str
+    ) -> tuple[QuerySet, Q]:
         """Annotate the distance and OR the semantic predicate onto the substring one.
 
         The substring leg covers the description as well as the name. A definition is found
@@ -180,7 +246,9 @@ class DefinitionFilter:
         leg -- which embeds both fields -- already behaved that way, so a query whose exact
         words appeared in a description used to be answered *only* by the fuzzy half.
         """
-        lexical = Q(**{f"{prefix}name__icontains": value}) | Q(**{f"{prefix}description__icontains": value})
+        lexical = Q(**{f"{prefix}name__icontains": value}) | Q(
+            **{f"{prefix}description__icontains": value}
+        )
         return hybrid_search(queryset, prefix, value, lexical)
 
     @strawberry_django.filter_field(
@@ -195,7 +263,9 @@ class DefinitionFilter:
             "the two rankings do not stack."
         )
     )
-    def similar_to(self, info: Info, queryset: QuerySet, value: strawberry.ID, prefix: str) -> tuple[QuerySet, Q]:
+    def similar_to(
+        self, info: Info, queryset: QuerySet, value: strawberry.ID, prefix: str
+    ) -> tuple[QuerySet, Q]:
         """Restrict to the neighbourhood of one definition, found through the same helper the field uses."""
         if prefix:
             # Nested through another type, the annotation and the slice cannot be expressed
@@ -206,54 +276,87 @@ class DefinitionFilter:
         # Through `for_org`, not `Definition.objects`: reading the anchor's vector out of
         # another organization's row would make this filter an oracle for what that row
         # means, even though the rows it returns stay correctly scoped.
-        anchor = scoping.for_org(models.Definition, info).filter(pk=value).values_list("embedding", flat=True).first()
+        anchor = (
+            scoping.for_org(models.Definition, info)
+            .filter(pk=value)
+            .values_list("embedding", flat=True)
+            .first()
+        )
         return search.neighbourhood(queryset, anchor, exclude_pk=value)
 
-    @strawberry_django.filter_field(description="Keep only definitions of these kinds (function, generator, ...).")
+    @strawberry_django.filter_field(
+        description="Keep only definitions of these kinds (function, generator, ...)."
+    )
     def kinds(self, value: list[rkenums.ActionKind], prefix: str) -> Q:
         return Q(**{f"{prefix}kind__in": [kind.value for kind in value]})
 
-    @strawberry_django.filter_field(description="Keep only definitions with one of these data scopes.")
+    @strawberry_django.filter_field(
+        description="Keep only definitions with one of these data scopes."
+    )
     def scopes(self, value: list[rkenums.ActionScope], prefix: str) -> Q:
         return Q(**{f"{prefix}scope__in": [scope.value for scope in value]})
 
-    @strawberry_django.filter_field(description="Keep only pure definitions (their result can be cached), or only impure ones.")
+    @strawberry_django.filter_field(
+        description="Keep only pure definitions (their result can be cached), or only impure ones."
+    )
     def pure(self, value: bool, prefix: str) -> Q:
         return Q(**{f"{prefix}pure": value})
 
-    @strawberry_django.filter_field(description="Keep only idempotent definitions, or only non-idempotent ones.")
+    @strawberry_django.filter_field(
+        description="Keep only idempotent definitions, or only non-idempotent ones."
+    )
     def idempotent(self, value: bool, prefix: str) -> Q:
         return Q(**{f"{prefix}idempotent": value})
 
-    @strawberry_django.filter_field(description="Keep only definitions in these collections.")
-    def collections(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+    @strawberry_django.filter_field(
+        description="Keep only definitions in these collections."
+    )
+    def collections(
+        self, queryset: QuerySet, value: list[strawberry.ID], prefix: str
+    ) -> tuple[QuerySet, Q]:
         # A join over a to-many relation repeats a row once per match, so a definition in
         # two of the listed collections would be returned twice -- and counted twice by
         # pagination.
         return queryset.distinct(), Q(**{f"{prefix}collections__id__in": value})
 
-    @strawberry_django.filter_field(description="Keep only definitions implementing these protocols.")
-    def protocols(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+    @strawberry_django.filter_field(
+        description="Keep only definitions implementing these protocols."
+    )
+    def protocols(
+        self, queryset: QuerySet, value: list[strawberry.ID], prefix: str
+    ) -> tuple[QuerySet, Q]:
         # A join over a to-many relation repeats a row once per match, so a definition in
         # two of the listed collections would be returned twice -- and counted twice by
         # pagination.
         return queryset.distinct(), Q(**{f"{prefix}protocols__id__in": value})
 
-    @strawberry_django.filter_field(description="Keep only definitions provided by these flavours.")
-    def flavours(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+    @strawberry_django.filter_field(
+        description="Keep only definitions provided by these flavours."
+    )
+    def flavours(
+        self, queryset: QuerySet, value: list[strawberry.ID], prefix: str
+    ) -> tuple[QuerySet, Q]:
         # A join over a to-many relation repeats a row once per match, so a definition in
         # two of the listed collections would be returned twice -- and counted twice by
         # pagination.
         return queryset.distinct(), Q(**{f"{prefix}flavours__id__in": value})
 
-    @strawberry_django.filter_field(description="Keep only definitions provided by these apps.")
-    def apps(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+    @strawberry_django.filter_field(
+        description="Keep only definitions provided by these apps."
+    )
+    def apps(
+        self, queryset: QuerySet, value: list[strawberry.ID], prefix: str
+    ) -> tuple[QuerySet, Q]:
         # A join over a to-many relation repeats a row once per match, so a definition in
         # two of the listed collections would be returned twice -- and counted twice by
         # pagination.
-        return queryset.distinct(), Q(**{f"{prefix}flavours__release__app__id__in": value})
+        return queryset.distinct(), Q(
+            **{f"{prefix}flavours__release__app__id__in": value}
+        )
 
-    @strawberry_django.filter_field(description="Keep only definitions that declare all of these interfaces.")
+    @strawberry_django.filter_field(
+        description="Keep only definitions that declare all of these interfaces."
+    )
     def interfaces(self, value: list[str], prefix: str) -> Q:
         # `interfaces` is a JSONB list, so `__contains` is containment of a list, not
         # membership of a scalar: one term per interface, ANDed.
@@ -262,18 +365,30 @@ class DefinitionFilter:
             query &= Q(**{f"{prefix}interfaces__contains": [interface]})
         return query
 
-    @strawberry_django.filter_field(description="Keep only definitions that are tests for these definitions.")
-    def is_test_for(self, queryset: QuerySet, value: list[strawberry.ID], prefix: str) -> tuple[QuerySet, Q]:
+    @strawberry_django.filter_field(
+        description="Keep only definitions that are tests for these definitions."
+    )
+    def is_test_for(
+        self, queryset: QuerySet, value: list[strawberry.ID], prefix: str
+    ) -> tuple[QuerySet, Q]:
         # A join over a to-many relation repeats a row once per match, so a definition in
         # two of the listed collections would be returned twice -- and counted twice by
         # pagination.
         return queryset.distinct(), Q(**{f"{prefix}is_test_for__id__in": value})
 
-    @strawberry_django.filter_field(description="Keep only definitions that have at least one test, or only those that have none.")
-    def has_tests(self, queryset: QuerySet, value: bool, prefix: str) -> tuple[QuerySet, Q]:
+    @strawberry_django.filter_field(
+        description="Keep only definitions that have at least one test, or only those that have none."
+    )
+    def has_tests(
+        self, queryset: QuerySet, value: bool, prefix: str
+    ) -> tuple[QuerySet, Q]:
         return queryset.distinct(), Q(**{f"{prefix}tests__isnull": not value})
 
-    @strawberry_django.filter_field(description=("Keep only definitions already deployed in their organization (a deployment of one of the flavours that provide them, on one of its backends), or with false only those never deployed there: what is left to install."))
+    @strawberry_django.filter_field(
+        description=(
+            "Keep only definitions already deployed in their organization (a deployment of one of the flavours that provide them, on one of its backends), or with false only those never deployed there: what is left to install."
+        )
+    )
     def already_deployed(self, value: bool, prefix: str) -> Q:
         # `Exists`, not a join over flavours and their deployments: a definition provided by a
         # deployed flavour of several releases would come back once per deployment.
@@ -285,11 +400,15 @@ class DefinitionFilter:
         )
         return Q(deployed) if value else ~Q(deployed)
 
-    @strawberry_django.filter_field(description="Keep only definitions first defined at or after this moment.")
+    @strawberry_django.filter_field(
+        description="Keep only definitions first defined at or after this moment."
+    )
     def defined_after(self, value: datetime.datetime, prefix: str) -> Q:
         return Q(**{f"{prefix}defined_at__gte": value})
 
-    @strawberry_django.filter_field(description="Keep only definitions first defined at or before this moment.")
+    @strawberry_django.filter_field(
+        description="Keep only definitions first defined at or before this moment."
+    )
     def defined_before(self, value: datetime.datetime, prefix: str) -> Q:
         return Q(**{f"{prefix}defined_at__lte": value})
 
@@ -344,15 +463,25 @@ class FlavourOrder:
 class FlavourFilter:
     """Filter for flavours."""
 
-    @strawberry_django.filter_field(description="Keep only flavours whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only flavours whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Search by name: a case-insensitive substring, or semantic similarity of the query to the flavour's name and the app it was built from. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking.")
-    def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
-        return hybrid_search(queryset, prefix, value, Q(**{f"{prefix}name__icontains": value}))
+    @strawberry_django.filter_field(
+        description="Search by name: a case-insensitive substring, or semantic similarity of the query to the flavour's name and the app it was built from. Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking."
+    )
+    def search(
+        self, info: Info, queryset: QuerySet, value: str, prefix: str
+    ) -> tuple[QuerySet, Q]:
+        return hybrid_search(
+            queryset, prefix, value, Q(**{f"{prefix}name__icontains": value})
+        )
 
-    @strawberry_django.filter_field(description="Keep only flavours that provide one of the given definitions.")
+    @strawberry_django.filter_field(
+        description="Keep only flavours that provide one of the given definitions."
+    )
     def has_definitions(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}definitions__in": value})
 
@@ -363,37 +492,51 @@ class FlavourFilter:
 
 @strawberry_django.filter_type(models.Resource, description="Filter for resources.")
 class ResourceFilter:
-    @strawberry_django.filter_field(description="Keep only resources whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only resources whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the resource name.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the resource name."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}name__icontains": value})
 
 
 @strawberry_django.filter_type(models.Backend, description="Filter for backends.")
 class BackendFilter:
-    @strawberry_django.filter_field(description="Keep only backends whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only backends whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the backend name.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the backend name."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}name__icontains": value})
 
 
 @strawberry_django.filter_type(models.Pod, description="Filter for pods.")
 class PodFilter:
-    @strawberry_django.filter_field(description="Keep only pods whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only pods whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Match pods by the name of their backend.")
+    @strawberry_django.filter_field(
+        description="Match pods by the name of their backend."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}backend__name": value})
 
-    @strawberry_django.filter_field(description="Keep only pods running on the given backend.")
+    @strawberry_django.filter_field(
+        description="Keep only pods running on the given backend."
+    )
     def backend(self, value: strawberry.ID, prefix: str) -> Q:
         return Q(**{f"{prefix}backend__id": value})
 
@@ -404,11 +547,15 @@ class PodFilter:
 
 @strawberry_django.filter_type(models.Deployment, description="Filter for deployments.")
 class DeploymentFilter:
-    @strawberry_django.filter_field(description="Keep only deployments whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only deployments whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the deployment name.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the deployment name."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}name__icontains": value})
 
@@ -419,11 +566,15 @@ class DeploymentFilter:
 
 @strawberry_django.filter_type(models.Release, description="Filter for app releases.")
 class ReleaseFilter:
-    @strawberry_django.filter_field(description="Keep only releases whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only releases whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the release version.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the release version."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}version__icontains": value})
 
@@ -437,7 +588,9 @@ class ReleaseFilter:
     def apps(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}app__id__in": value})
 
-    @strawberry_django.filter_field(description="Keep only releases whose app identifier contains this text, case-insensitively.")
+    @strawberry_django.filter_field(
+        description="Keep only releases whose app identifier contains this text, case-insensitively."
+    )
     def identifier(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}app__identifier__icontains": value})
 
@@ -446,32 +599,46 @@ class ReleaseFilter:
         return requires(models.Release, value, prefix)
 
 
-@strawberry_django.filter_type(models.ReleaseApproval, description="Filter for release approvals.")
+@strawberry_django.filter_type(
+    models.ReleaseApproval, description="Filter for release approvals."
+)
 class ReleaseApprovalFilter:
-    @strawberry_django.filter_field(description="Keep only approvals whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only approvals whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the approved app identifier or version.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the approved app identifier or version."
+    )
     def search(self, value: str, prefix: str) -> Q:
-        return Q(**{f"{prefix}release__app__identifier__icontains": value}) | Q(**{f"{prefix}release__version__icontains": value})
+        return Q(**{f"{prefix}release__app__identifier__icontains": value}) | Q(
+            **{f"{prefix}release__version__icontains": value}
+        )
 
     @strawberry_django.filter_field(description="Keep only approvals of this release.")
     def release(self, value: strawberry.ID, prefix: str) -> Q:
         return Q(**{f"{prefix}release__id": value})
 
-    @strawberry_django.filter_field(description="Keep only approvals that are not revoked. Staleness depends on the live release and is read from `isStale`.")
+    @strawberry_django.filter_field(
+        description="Keep only approvals that are not revoked. Staleness depends on the live release and is read from `isStale`."
+    )
     def revoked(self, value: bool, prefix: str) -> Q:
         return Q(**{f"{prefix}revoked_at__isnull": not value})
 
-    @strawberry_django.filter_field(description="Keep only approvals this user gave, given by their sub (their id in lok): with `revoked: false`, what they installed.")
+    @strawberry_django.filter_field(
+        description="Keep only approvals this user gave, given by their sub (their id in lok): with `revoked: false`, what they installed."
+    )
     def approver(self, value: strawberry.ID, prefix: str) -> Q:
         return Q(**{f"{prefix}approver__sub": value})
 
 
 @strawberry_django.filter_type(models.App, description="Filter for apps.")
 class AppFilter:
-    @strawberry_django.filter_field(description="Keep only apps whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only apps whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
@@ -482,21 +649,37 @@ class AppFilter:
             "Substring matches rank first, then by similarity; an explicit `ordering` replaces that ranking."
         )
     )
-    def search(self, info: Info, queryset: QuerySet, value: str, prefix: str) -> tuple[QuerySet, Q]:
-        actions = models.Definition.objects.filter(flavours__release__app=OuterRef(f"{prefix}pk"), flavours__release__in=newest_releases(), name__icontains=value)
-        lexical = Q(**{f"{prefix}identifier__icontains": value}) | Q(Exists(actions)) | Q(Exists(newest_flavours(prefix).filter(offered_bloks_named(value))))
+    def search(
+        self, info: Info, queryset: QuerySet, value: str, prefix: str
+    ) -> tuple[QuerySet, Q]:
+        actions = models.Definition.objects.filter(
+            flavours__release__app=OuterRef(f"{prefix}pk"),
+            flavours__release__in=newest_releases(),
+            name__icontains=value,
+        )
+        lexical = (
+            Q(**{f"{prefix}identifier__icontains": value})
+            | Q(Exists(actions))
+            | Q(Exists(newest_flavours(prefix).filter(offered_bloks_named(value))))
+        )
         return hybrid_search(queryset, prefix, value, lexical)
 
-    @strawberry_django.filter_field(description="true: only apps whose newest release brings a panel or a scene (a blok the store offers); false: only apps whose newest release brings none.")
+    @strawberry_django.filter_field(
+        description="true: only apps whose newest release brings a panel or a scene (a blok the store offers); false: only apps whose newest release brings none."
+    )
     def bloks(self, value: bool, prefix: str) -> Q:
         offers = Q(Exists(newest_flavours(prefix).filter(bloks_match(OFFERED_BLOK))))
         return offers if value else ~offers
 
-    @strawberry_django.filter_field(description="Keep only the app with exactly this identifier (unique within the organization).")
+    @strawberry_django.filter_field(
+        description="Keep only the app with exactly this identifier (unique within the organization)."
+    )
     def identifier(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}identifier": value})
 
-    @strawberry_django.filter_field(description="Keep only the apps with exactly these identifiers.")
+    @strawberry_django.filter_field(
+        description="Keep only the apps with exactly these identifiers."
+    )
     def identifiers(self, value: list[str], prefix: str) -> Q:
         return Q(**{f"{prefix}identifier__in": value})
 
@@ -508,68 +691,112 @@ class AppFilter:
         )
     )
     def publisher(self, value: str, prefix: str) -> Q:
-        segments = [re.escape(segment) for segment in re.split(r"[./]", value) if segment]
+        segments = [
+            re.escape(segment) for segment in re.split(r"[./]", value) if segment
+        ]
         if not segments:
             return Q(pk__in=[])
-        return Q(**{f"{prefix}identifier__regex": "^" + "[./]".join(segments) + r"[./][^./]+$"})
+        return Q(
+            **{
+                f"{prefix}identifier__regex": "^"
+                + "[./]".join(segments)
+                + r"[./][^./]+$"
+            }
+        )
 
-    @strawberry_django.filter_field(description="true: only apps with at least one deployment of any of their flavours (installed); false: only apps with none.")
+    @strawberry_django.filter_field(
+        description="true: only apps with at least one deployment of any of their flavours (installed); false: only apps with none."
+    )
     def deployed(self, value: bool, prefix: str) -> Q:
-        deployed = Q(Exists(models.Deployment.objects.filter(flavour__release__app=OuterRef(f"{prefix}pk"))))
+        deployed = Q(
+            Exists(
+                models.Deployment.objects.filter(
+                    flavour__release__app=OuterRef(f"{prefix}pk")
+                )
+            )
+        )
         return deployed if value else ~deployed
 
-    @strawberry_django.filter_field(description="Keep only apps with a flavour for each of these: GPU, a flavour that requires an accelerator; CPU, one that runs on a plain CPU backend. Read from the flavours' required selectors (`@kabinet/gpu`).")
+    @strawberry_django.filter_field(
+        description="Keep only apps with a flavour for each of these: GPU, a flavour that requires an accelerator; CPU, one that runs on a plain CPU backend. Read from the flavours' required selectors (`@kabinet/gpu`)."
+    )
     def hardware(self, value: list[enums.AppHardware], prefix: str) -> Q:
         condition = Q()
         for hardware in value:
-            condition &= Q(Exists(app_flavours(prefix).filter(flavour_hardware_q(hardware))))
+            condition &= Q(
+                Exists(app_flavours(prefix).filter(flavour_hardware_q(hardware)))
+            )
         return condition
 
-    @strawberry_django.filter_field(description="Keep only apps with a flavour that requires this service (e.g. `live.arkitekt.mikro`).")
+    @strawberry_django.filter_field(
+        description="Keep only apps with a flavour that requires this service (e.g. `live.arkitekt.mikro`)."
+    )
     def service(self, value: str, prefix: str) -> Q:
-        return Q(Exists(app_flavours(prefix).filter(requirements__contains=[{"service": value}])))
+        return Q(
+            Exists(
+                app_flavours(prefix).filter(requirements__contains=[{"service": value}])
+            )
+        )
 
 
-@strawberry_django.filter_type(models.DockerImage, description="Filter for Docker images.")
+@strawberry_django.filter_type(
+    models.DockerImage, description="Filter for Docker images."
+)
 class DockerImageFilter:
-    @strawberry_django.filter_field(description="Keep only images whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only images whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the image reference.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the image reference."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}image_string__icontains": value})
 
 
 @strawberry_django.filter_type(models.Collection, description="Filter for collections.")
 class CollectionFilter:
-    @strawberry_django.filter_field(description="Keep only collections whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only collections whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the collection name.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the collection name."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}name__icontains": value})
 
 
 @strawberry_django.filter_type(models.Protocol, description="Filter for protocols.")
 class ProtocolFilter:
-    @strawberry_django.filter_field(description="Keep only protocols whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only protocols whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the protocol name.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the protocol name."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}name__icontains": value})
 
 
 @strawberry_django.filter_type(models.LogDump, description="Filter for log dumps.")
 class LogDumpFilter:
-    @strawberry_django.filter_field(description="Keep only log dumps whose ID is in this list.")
+    @strawberry_django.filter_field(
+        description="Keep only log dumps whose ID is in this list."
+    )
     def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
         return Q(**{f"{prefix}id__in": value})
 
-    @strawberry_django.filter_field(description="Case-insensitive search on the captured log text.")
+    @strawberry_django.filter_field(
+        description="Case-insensitive search on the captured log text."
+    )
     def search(self, value: str, prefix: str) -> Q:
         return Q(**{f"{prefix}logs__icontains": value})
 
@@ -592,17 +819,45 @@ class AppOrder:
     id: strawberry.auto
     identifier: strawberry.auto
 
-    @strawberry_django.order_field(description="By the time of the app's newest release (`Release.releasedAt`): DESC for the most recently released first.")
-    def released_at(self, info: Info, queryset: QuerySet, value: strawberry_django.Ordering, prefix: str) -> tuple[QuerySet, list]:
+    @strawberry_django.order_field(
+        description="By the time of the app's newest release (`Release.releasedAt`): DESC for the most recently released first."
+    )
+    def released_at(
+        self,
+        info: Info,
+        queryset: QuerySet,
+        value: strawberry_django.Ordering,
+        prefix: str,
+    ) -> tuple[QuerySet, list]:
         # `Release.created_at` is auto_now (it moves on every save); `released_at` is when the
         # release was made.
-        queryset = queryset.annotate(_newest_release=Max(f"{prefix}releases__released_at"))
+        queryset = queryset.annotate(
+            _newest_release=Max(f"{prefix}releases__released_at")
+        )
         return queryset, [value.resolve("_newest_release")]
 
-    @strawberry_django.order_field(description="By how many of the app's deployments are RUNNING (`App.runningCount`): DESC for the busiest first.")
-    def running_count(self, info: Info, queryset: QuerySet, value: strawberry_django.Ordering, prefix: str) -> tuple[QuerySet, list]:
-        running = Q(**{f"{prefix}releases__flavours__deployments__status": enums.PodStatus.RUNNING.value})
-        queryset = queryset.annotate(_order_running=Count(f"{prefix}releases__flavours__deployments", filter=running, distinct=True))
+    @strawberry_django.order_field(
+        description="By how many of the app's deployments are RUNNING (`App.runningCount`): DESC for the busiest first."
+    )
+    def running_count(
+        self,
+        info: Info,
+        queryset: QuerySet,
+        value: strawberry_django.Ordering,
+        prefix: str,
+    ) -> tuple[QuerySet, list]:
+        running = Q(
+            **{
+                f"{prefix}releases__flavours__deployments__status": enums.PodStatus.RUNNING.value
+            }
+        )
+        queryset = queryset.annotate(
+            _order_running=Count(
+                f"{prefix}releases__flavours__deployments",
+                filter=running,
+                distinct=True,
+            )
+        )
         return queryset, [value.resolve("_order_running")]
 
 

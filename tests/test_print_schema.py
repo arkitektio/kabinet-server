@@ -23,7 +23,9 @@ from bridge.management.commands.printschema import SCHEMA_PATH, render_sdl
 
 def test_schema_snapshot_is_current():
     """The committed SDL is byte-identical to what the schema renders today."""
-    assert SCHEMA_PATH.exists(), f"{SCHEMA_PATH} is missing. Run `python manage.py printschema`."
+    assert SCHEMA_PATH.exists(), (
+        f"{SCHEMA_PATH} is missing. Run `python manage.py printschema`."
+    )
 
     rendered = render_sdl()
     committed = SCHEMA_PATH.read_text()

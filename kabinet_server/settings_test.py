@@ -1,7 +1,8 @@
-import os
-from .settings import *  # noqa
-from .settings import DATABASES, AUTHENTIKATE
 import logging
+import os
+
+from .settings import *  # noqa
+from .settings import AUTHENTIKATE, DATABASES
 
 # Point at the Postgres brought up by the conftest backend_stack (see
 # tests/integration/docker-compose.yaml — db on :5555, database "testdb").
@@ -31,7 +32,11 @@ AUTHENTIKATE = {
             # A non-privileged user in a different organization, for cross-tenant
             # scoping/permission tests (see the other_org_context fixture): a deployer,
             # every member's role, so it writes in its own organization but is not kabinet's admin.
-            "othertest": {"sub": "9", "org": "other_org", "roles": ["kabinet_deployer"]},
+            "othertest": {
+                "sub": "9",
+                "org": "other_org",
+                "roles": ["kabinet_deployer"],
+            },
             # An app granted only what it reads, for the scope tests (tests/test_scopes.py).
             "readertest": {"sub": "1", "scope": "openid kabinet_read"},
         }.items()
@@ -70,4 +75,3 @@ DATABASE_ROUTERS = []
 
 # Use in-memory channel layer for tests instead of Redis
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
-

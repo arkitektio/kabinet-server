@@ -1,21 +1,20 @@
-from asgiref.sync import sync_to_async
-import pytest
-from bridge.models import Flavour, App, Release, GithubRepo
-from django.contrib.auth import get_user_model
 import typing
-from bridge.repo.models import KabinetConfigFile
+
+import pytest
 import yaml
-from tests.utils import build_relative_dir
-from rekuest_core.enums import PortKind
-from bridge.repo.db import parse_config
+from asgiref.sync import sync_to_async
 from authentikate.models import Organization
+from django.contrib.auth import get_user_model
+
+from bridge.models import GithubRepo
+from bridge.repo.db import parse_config
+from bridge.repo.models import KabinetConfigFile
+from tests.utils import build_relative_dir
 
 
 @pytest.mark.asyncio
 async def test_parse_deployments(db: typing.Any) -> None:
-    with open(
-        build_relative_dir("deployments/deployments.yaml"), "r"
-    ) as deployment_file:
+    with open(build_relative_dir("deployments/deployments.yaml")) as deployment_file:
         deployment = yaml.safe_load(deployment_file)
 
     config = KabinetConfigFile(**deployment)
@@ -41,9 +40,7 @@ async def test_db_deployments(db: typing.Any) -> None:
         organization=organization,
     )
 
-    with open(
-        build_relative_dir("deployments/deployments.yaml"), "r"
-    ) as deployment_file:
+    with open(build_relative_dir("deployments/deployments.yaml")) as deployment_file:
         deployment = yaml.safe_load(deployment_file)
 
     config = KabinetConfigFile(**deployment)

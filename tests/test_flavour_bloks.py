@@ -24,7 +24,9 @@ ACTION_LOGO = '<Blok kind="action" context="logo"><Logo viewBox="0 0 24 24" titl
 BROKEN = '<Blok kind="agent" context="panel"><Card><Text></Card></Blok>'
 
 
-def _app_image(*, logo: str | None = "ome_segment", version: str = "1.0.0") -> tuple[AppImageInputModel, str]:
+def _app_image(
+    *, logo: str | None = "ome_segment", version: str = "1.0.0"
+) -> tuple[AppImageInputModel, str]:
     """The fixture's app image with its logo, an action logo its first action names, and a panel that does not parse."""
     with open(build_relative_dir("deployments/deployments.yaml")) as f:
         app_image = copy.deepcopy(yaml.safe_load(f)["app_images"][0])
@@ -33,8 +35,20 @@ def _app_image(*, logo: str | None = "ome_segment", version: str = "1.0.0") -> t
     implementation["logo"] = logo
     app_image["inspection"]["implementations"] = [implementation]
     app_image["inspection"]["bloks"] = [
-        {"key": "ome_logo", "vocab": 2, "context": "LOGO", "default": True, "source": APP_LOGO},
-        {"key": "ome_segment", "vocab": 2, "context": "LOGO", "source": ACTION_LOGO, "demo": {"task": {"running": True}}},
+        {
+            "key": "ome_logo",
+            "vocab": 2,
+            "context": "LOGO",
+            "default": True,
+            "source": APP_LOGO,
+        },
+        {
+            "key": "ome_segment",
+            "vocab": 2,
+            "context": "LOGO",
+            "source": ACTION_LOGO,
+            "demo": {"task": {"running": True}},
+        },
         {"key": "ome_broken", "vocab": 2, "context": "PANEL", "source": BROKEN},
     ]
     model = AppImageInputModel.model_validate(app_image)
@@ -65,7 +79,9 @@ def test_the_hash_is_what_the_blok_draws() -> None:
     """The same tree, context and declarations hash alike; a different demo does not."""
     one = bloks.render_blok({"key": "a", "context": "LOGO", "source": APP_LOGO})
     same = bloks.render_blok({"key": "b", "context": "LOGO", "source": APP_LOGO})
-    other = bloks.render_blok({"key": "a", "context": "LOGO", "source": APP_LOGO, "demo": {"args": {"x": 1}}})
+    other = bloks.render_blok(
+        {"key": "a", "context": "LOGO", "source": APP_LOGO, "demo": {"args": {"x": 1}}}
+    )
 
     assert one["hash"] == same["hash"]
     assert one["hash"] != other["hash"]
@@ -78,18 +94,35 @@ def test_a_source_that_does_not_parse_says_why() -> None:
     assert render["component_tree"] is None
     assert render["parse_error"]
     # A root that disagrees with the context it is sent as is the blok's problem too.
-    assert "its <Blok> says LOGO" in bloks.render_blok({"key": "a", "context": "PANEL", "source": APP_LOGO})["parse_error"]
+    assert (
+        "its <Blok> says LOGO"
+        in bloks.render_blok({"key": "a", "context": "PANEL", "source": APP_LOGO})[
+            "parse_error"
+        ]
+    )
 
 
 def test_a_blok_sent_as_its_tree_keeps_it() -> None:
-    tree = [{"id": "Blok[0]", "component": "Blok", "props": [{"key": "kind", "static_value": "agent"}, {"key": "context", "static_value": "panel"}], "children": [{"id": "root", "component": "Text"}]}]
+    tree = [
+        {
+            "id": "Blok[0]",
+            "component": "Blok",
+            "props": [
+                {"key": "kind", "static_value": "agent"},
+                {"key": "context", "static_value": "panel"},
+            ],
+            "children": [{"id": "root", "component": "Text"}],
+        }
+    ]
     render = bloks.render_blok({"key": "a", "context": "PANEL", "components": tree})
     assert render["component_tree"] == tree and render["parse_error"] is None
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_an_import_renders_its_bloks_and_keeps_them_as_sent(authenticated_context: HttpContext) -> None:
+async def test_an_import_renders_its_bloks_and_keeps_them_as_sent(
+    authenticated_context: HttpContext,
+) -> None:
     flavour, definition_hash = await _import(authenticated_context)
 
     assert [blok["source"] for blok in flavour.bloks] == [APP_LOGO, ACTION_LOGO, BROKEN]
@@ -100,7 +133,9 @@ async def test_an_import_renders_its_bloks_and_keeps_them_as_sent(authenticated_
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_a_flavour_serves_its_bloks_and_its_logo(authenticated_context: HttpContext) -> None:
+async def test_a_flavour_serves_its_bloks_and_its_logo(
+    authenticated_context: HttpContext,
+) -> None:
     flavour, _ = await _import(authenticated_context)
 
     result = (
@@ -119,11 +154,20 @@ async def test_a_flavour_serves_its_bloks_and_its_logo(authenticated_context: Ht
     assert result["logoBlok"]["default"] is True
     assert result["logoBlok"]["hash"] == flavour.blok_renders["ome_logo"]["hash"]
     by_key = {blok["key"]: blok for blok in result["blokImplementations"]}
-    assert by_key["ome_segment"]["componentTree"][0]["children"][0]["component"] == "Logo"
-    assert by_key["ome_broken"]["componentTree"] is None and by_key["ome_broken"]["parseError"]
+    assert (
+        by_key["ome_segment"]["componentTree"][0]["children"][0]["component"] == "Logo"
+    )
+    assert (
+        by_key["ome_broken"]["componentTree"] is None
+        and by_key["ome_broken"]["parseError"]
+    )
     # An action's logo is a LOGO too: its root's kind tells it from the app's.
     _, action_logo = result["logos"]
-    assert action_logo["key"] == "ome_segment" and action_logo["kind"] == "action" and action_logo["vocab"] == 2
+    assert (
+        action_logo["key"] == "ome_segment"
+        and action_logo["kind"] == "action"
+        and action_logo["vocab"] == 2
+    )
     assert action_logo["demo"]["task"] == {"running": True}
 
 
@@ -132,9 +176,21 @@ async def test_a_flavour_serves_its_bloks_and_its_logo(authenticated_context: Ht
 async def test_a_blok_is_found_by_its_id(authenticated_context: HttpContext) -> None:
     flavour, _ = await _import(authenticated_context)
 
-    found = await execute("query($id: ID!) { flavourBlok(id: $id) { key flavourId } }", authenticated_context, {"id": f"{flavour.id}:ome_segment"})
-    missing = await execute("query($id: ID!) { flavourBlok(id: $id) { key } }", authenticated_context, {"id": f"{flavour.id}:nope"})
-    garbage = await execute("query($id: ID!) { flavourBlok(id: $id) { key } }", authenticated_context, {"id": "nope"})
+    found = await execute(
+        "query($id: ID!) { flavourBlok(id: $id) { key flavourId } }",
+        authenticated_context,
+        {"id": f"{flavour.id}:ome_segment"},
+    )
+    missing = await execute(
+        "query($id: ID!) { flavourBlok(id: $id) { key } }",
+        authenticated_context,
+        {"id": f"{flavour.id}:nope"},
+    )
+    garbage = await execute(
+        "query($id: ID!) { flavourBlok(id: $id) { key } }",
+        authenticated_context,
+        {"id": "nope"},
+    )
 
     assert found["flavourBlok"] == {"key": "ome_segment", "flavourId": str(flavour.id)}
     assert missing["flavourBlok"] is None
@@ -143,10 +199,15 @@ async def test_a_blok_is_found_by_its_id(authenticated_context: HttpContext) -> 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_a_release_and_its_app_serve_the_logo(authenticated_context: HttpContext) -> None:
+async def test_a_release_and_its_app_serve_the_logo(
+    authenticated_context: HttpContext,
+) -> None:
     flavour, _ = await _import(authenticated_context)
 
-    result = await execute("query { apps { logoBlok { key } releases { logoBlok { key } } } }", authenticated_context)
+    result = await execute(
+        "query { apps { logoBlok { key } releases { logoBlok { key } } } }",
+        authenticated_context,
+    )
 
     [app] = result["apps"]
     assert app["logoBlok"] == {"key": "ome_logo"}
@@ -155,7 +216,9 @@ async def test_a_release_and_its_app_serve_the_logo(authenticated_context: HttpC
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_a_definition_is_drawn_by_the_logo_its_implementation_names(authenticated_context: HttpContext) -> None:
+async def test_a_definition_is_drawn_by_the_logo_its_implementation_names(
+    authenticated_context: HttpContext,
+) -> None:
     older, _ = await _import(authenticated_context, logo=None, version="0.9.0")
     newer, definition_hash = await _import(authenticated_context, version="1.0.0")
 
@@ -172,16 +235,24 @@ async def test_a_definition_is_drawn_by_the_logo_its_implementation_names(authen
             {"id": str(stored.id), "older": str(older.id), "newer": str(newer.id)},
         )
     )["definition"]
-    assert definition["logo"] == {"id": f"{newer.id}:ome_segment", "key": "ome_segment", "context": "LOGO"}
+    assert definition["logo"] == {
+        "id": f"{newer.id}:ome_segment",
+        "key": "ome_segment",
+        "context": "LOGO",
+    }
     assert definition["ofOlder"] is None
     assert definition["ofNewer"] == {"key": "ome_segment"}
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_restore_bloks_renders_a_flavour_imported_before(authenticated_context: HttpContext) -> None:
+async def test_restore_bloks_renders_a_flavour_imported_before(
+    authenticated_context: HttpContext,
+) -> None:
     flavour, definition_hash = await _import(authenticated_context)
-    await models.Flavour.objects.filter(id=flavour.id).aupdate(blok_renders={}, action_logos={})
+    await models.Flavour.objects.filter(id=flavour.id).aupdate(
+        blok_renders={}, action_logos={}
+    )
 
     await sync_to_async(call_command)("restore_bloks")
     await sync_to_async(call_command)("restore_bloks")

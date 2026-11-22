@@ -19,11 +19,10 @@ They also pin the two server bugs that were fixed alongside the migration:
 """
 
 import pytest
-
 from kante.context import HttpContext
+
 from tests.test_pods import DECLARE_BACKEND, DECLARE_RESOURCE, setup_pod
 from tests.utils import execute
-
 
 # ---------------------------------------------------------------------------
 # Bug fixes
@@ -32,7 +31,9 @@ from tests.utils import execute
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_null_filters_do_not_crash(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_null_filters_do_not_crash(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """Passing ``filters: null`` (the default the generated client sends) must not crash.
 
     The crash was server-side in ``build_prescoped_queryset``; the variable has to be named
@@ -47,10 +48,17 @@ async def test_null_filters_do_not_crash(authenticated_context: HttpContext, fla
         ("githubRepos", "GithubRepoFilter"),
     ]
     for field, filter_type in cases:
-        document = "query($filters: %s){ %s(filters: $filters){ id } }" % (filter_type, field)
+        document = "query($filters: %s){ %s(filters: $filters){ id } }" % (
+            filter_type,
+            field,
+        )
 
-        explicit_null = (await execute(document, authenticated_context, {"filters": None}))[field]
-        assert len(explicit_null) >= 1, f"{field} with filters=null should still return rows"
+        explicit_null = (
+            await execute(document, authenticated_context, {"filters": None})
+        )[field]
+        assert len(explicit_null) >= 1, (
+            f"{field} with filters=null should still return rows"
+        )
 
         omitted = (await execute(document, authenticated_context))[field]
         assert [r["id"] for r in omitted] == [r["id"] for r in explicit_null], field
@@ -58,10 +66,16 @@ async def test_null_filters_do_not_crash(authenticated_context: HttpContext, fla
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_declare_resource_without_name(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_declare_resource_without_name(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """``declareResource`` must accept input with no ``name`` (optional in the client model)."""
     backend = (
-        await execute(DECLARE_BACKEND, authenticated_context, {"input": {"name": "b", "kind": "docker"}})
+        await execute(
+            DECLARE_BACKEND,
+            authenticated_context,
+            {"input": {"name": "b", "kind": "docker"}},
+        )
     )["declareBackend"]
 
     resource = (
@@ -85,7 +99,9 @@ async def test_declare_resource_without_name(authenticated_context: HttpContext,
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_github_repo_custom_filter_fields(authenticated_context: HttpContext, built_chain: dict) -> None:
+async def test_github_repo_custom_filter_fields(
+    authenticated_context: HttpContext, built_chain: dict
+) -> None:
     """The GithubRepo ``repo`` / ``user`` / ``branch`` filters (migrated) each narrow correctly."""
     repo_id = built_chain["repo_id"]
 
@@ -108,7 +124,9 @@ async def test_github_repo_custom_filter_fields(authenticated_context: HttpConte
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_pod_filter_backend_and_search(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_pod_filter_backend_and_search(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """PodFilter ``backend`` (backend__id) and ``search`` (backend__name) both work."""
     setup = await setup_pod(authenticated_context, flavour_id)
     pod_id, backend_id = setup["pod"]["id"], setup["backend"]["id"]
@@ -143,9 +161,13 @@ async def test_pod_filter_backend_and_search(authenticated_context: HttpContext,
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_flavour_has_definitions_filter(authenticated_context: HttpContext, flavour_id: str) -> None:
+async def test_flavour_has_definitions_filter(
+    authenticated_context: HttpContext, flavour_id: str
+) -> None:
     """FlavourFilter.has_definitions (definitions__in) keeps flavours providing a definition."""
-    definitions = (await execute("query{ definitions{ id } }", authenticated_context))["definitions"]
+    definitions = (await execute("query{ definitions{ id } }", authenticated_context))[
+        "definitions"
+    ]
     definition_id = definitions[0]["id"]
 
     hit = (
@@ -160,7 +182,9 @@ async def test_flavour_has_definitions_filter(authenticated_context: HttpContext
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_definition_demands_filter_is_wired(authenticated_context: HttpContext, built_chain: dict) -> None:
+async def test_definition_demands_filter_is_wired(
+    authenticated_context: HttpContext, built_chain: dict
+) -> None:
     """The complex DefinitionFilter.demands resolver is reachable via the new API.
 
     An empty ``demands`` list exercises the resolver without constraining (no demands ->
@@ -183,7 +207,9 @@ async def test_definition_demands_filter_is_wired(authenticated_context: HttpCon
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_filter_logical_composition(authenticated_context: HttpContext, built_chain: dict) -> None:
+async def test_filter_logical_composition(
+    authenticated_context: HttpContext, built_chain: dict
+) -> None:
     """The new filter API adds AND/OR/NOT composition over the migrated fields."""
     repo_id = built_chain["repo_id"]
 
@@ -198,7 +224,9 @@ async def test_filter_logical_composition(authenticated_context: HttpContext, bu
         return [r["id"] for r in hit]
 
     # AND: the top-level field and the nested AND filter must both match.
-    assert await repo_ids({"user": "arkitektio", "AND": {"branch": "main"}}) == [repo_id]
+    assert await repo_ids({"user": "arkitektio", "AND": {"branch": "main"}}) == [
+        repo_id
+    ]
     assert await repo_ids({"user": "arkitektio", "AND": {"branch": "nope"}}) == []
 
     # OR: either the top-level field or the nested OR filter matching is enough.

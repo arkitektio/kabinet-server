@@ -56,7 +56,9 @@ async def fake_github(monkeypatch):
 
 
 async def inspect(coordinates: RepoCoordinates) -> None:
-    await aget_kabinet_config(layout.raw_url(*coordinates, layout.DEPLOYMENTS_PATH), coordinates)
+    await aget_kabinet_config(
+        layout.raw_url(*coordinates, layout.DEPLOYMENTS_PATH), coordinates
+    )
 
 
 @pytest.mark.asyncio
@@ -118,7 +120,9 @@ async def test_unreachable_repo_says_so(fake_github):
 async def test_private_repo_or_rate_limit(fake_github):
     coordinates = await fake_github({layout.DEPLOYMENTS_PATH: 403})
 
-    with pytest.raises(InspectionError, match="private repository, or GitHub rate-limiting"):
+    with pytest.raises(
+        InspectionError, match="private repository, or GitHub rate-limiting"
+    ):
         await inspect(coordinates)
 
 
@@ -140,7 +144,9 @@ async def test_empty_config(fake_github):
 
 @pytest.mark.asyncio
 async def test_malformed_yaml_points_at_the_line(fake_github):
-    coordinates = await fake_github({layout.DEPLOYMENTS_PATH: "app_images:\n  - name: one\n   bad indent: yes\n"})
+    coordinates = await fake_github(
+        {layout.DEPLOYMENTS_PATH: "app_images:\n  - name: one\n   bad indent: yes\n"}
+    )
 
     with pytest.raises(InspectionError) as excinfo:
         await inspect(coordinates)
@@ -178,7 +184,9 @@ async def test_invalid_config_lists_every_field(fake_github):
 @pytest.mark.asyncio
 async def test_config_without_app_images(fake_github):
     """Valid, parseable, and describes nothing -- which used to be reported as success."""
-    coordinates = await fake_github({layout.DEPLOYMENTS_PATH: "spec_version: 8.0.0\nlatest_app_image: null\n"})
+    coordinates = await fake_github(
+        {layout.DEPLOYMENTS_PATH: "spec_version: 8.0.0\nlatest_app_image: null\n"}
+    )
 
     with pytest.raises(InspectionError, match="lists no app images"):
         await inspect(coordinates)
@@ -188,7 +196,9 @@ async def test_config_without_app_images(fake_github):
 async def test_a_good_config_still_parses(fake_github):
     coordinates = await fake_github({layout.DEPLOYMENTS_PATH: VALID_CONFIG})
 
-    config = await aget_kabinet_config(layout.raw_url(*coordinates, layout.DEPLOYMENTS_PATH), coordinates)
+    config = await aget_kabinet_config(
+        layout.raw_url(*coordinates, layout.DEPLOYMENTS_PATH), coordinates
+    )
 
     assert config.app_images
 
@@ -217,7 +227,9 @@ async def test_slow_diagnosis_is_not_reported_as_a_timeout(fake_github, monkeypa
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_create_github_repo_surfaces_the_diagnosis(fake_github, authenticated_context):
+async def test_create_github_repo_surfaces_the_diagnosis(
+    fake_github, authenticated_context
+):
     """The wiring: the real fetcher, called through the mutation, with real coordinates."""
     await fake_github({".arkitekt_next/deployments.yaml": VALID_CONFIG})
 

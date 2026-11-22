@@ -8,7 +8,6 @@ async def execute(query: str, context: Any, variables: dict | None = None) -> di
     Mirrors how ``test_inspect_repo.test_create_github_repo`` drives the schema, so
     endpoint tests can stay one-liners: it fails loudly on any GraphQL error.
     """
-    from kabinet_server.schema import schema
 
     result = await execute_raw(query, context, variables)
     assert not result.errors, result.errors
@@ -26,7 +25,9 @@ async def execute_raw(query: str, context: Any, variables: dict | None = None):
     """
     from kabinet_server.schema import schema
 
-    return await schema.execute(query, variable_values=variables or {}, context_value=context)
+    return await schema.execute(
+        query, variable_values=variables or {}, context_value=context
+    )
 
 
 def build_relative_dir(path: str) -> str:

@@ -1,18 +1,19 @@
+import uuid
+
 from arkitekt_service.service.described import Described
+from authentikate.models import Client, Organization
+from django.contrib.auth import get_user_model
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models
-from embeddings import engine as embedding_engine
-from embeddings.models import EmbeddedDescriptionMixin, embedding_indexes
-from django.contrib.auth import get_user_model
-import uuid
-from bridge.fields import S3Field
+
 from bridge.datalayer import Datalayer
+from bridge.fields import S3Field
 
 # Create your models here.
 from bridge.repo import selectors as rselectors
 from bridge.repo.layout import DEPLOYMENTS_PATH, MANIFEST_PATH, raw_url
-from typing import List
-from authentikate.models import Client, Organization
+from embeddings import engine as embedding_engine
+from embeddings.models import EmbeddedDescriptionMixin, embedding_indexes
 
 
 class Repo(EmbeddedDescriptionMixin, models.Model):
@@ -48,13 +49,17 @@ class Repo(EmbeddedDescriptionMixin, models.Model):
 
 
 class GithubRepo(Repo):
-    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
+    creator = models.ForeignKey(
+        get_user_model(), on_delete=models.CASCADE, null=True, blank=True
+    )
     repo = models.CharField(max_length=4000)
     user = models.CharField(max_length=4000)
     branch = models.CharField(max_length=4000)
     updated_at = models.DateTimeField(auto_now=True)
     added_at = models.DateTimeField(auto_now_add=True)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="repos")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="repos"
+    )
 
     #: Its own column, not the base table's way round (`Repo.embedding_organization_path`).
     embedding_organization_path = "organization"
@@ -89,7 +94,12 @@ class GithubRepo(Repo):
     class Meta:
         # Declared as `class Config` until now, which Django ignores, so this was never
         # enforced -- even though `create_github_repo` upserts on exactly this key.
-        constraints = [models.UniqueConstraint(fields=["repo", "user", "branch", "organization"], name="Unique repo for url")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["repo", "user", "branch", "organization"],
+                name="Unique repo for url",
+            )
+        ]
 
 
 class OciRepo(Repo):
@@ -100,15 +110,31 @@ class OciRepo(Repo):
     moves to the latest build of a branch. Nothing about it is specific to one forge.
     """
 
-    creator = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, null=True, blank=True)
-    registry = models.CharField(max_length=1000, help_text="The registry host, e.g. ghcr.io")
-    repository = models.CharField(max_length=2000, help_text="The repository path on the registry, e.g. org/app")
-    channels = models.JSONField(default=list, help_text="The channel tags followed besides the releases, e.g. ['main']")
-    seen = models.JSONField(default=dict, help_text="Every tag already read, with the digest it pointed at then")
-    scanned_at = models.DateTimeField(null=True, blank=True, help_text="When the registry was last read")
+    creator = models.ForeignKey(
+        get_user_model(), on_delete=models.CASCADE, null=True, blank=True
+    )
+    registry = models.CharField(
+        max_length=1000, help_text="The registry host, e.g. ghcr.io"
+    )
+    repository = models.CharField(
+        max_length=2000, help_text="The repository path on the registry, e.g. org/app"
+    )
+    channels = models.JSONField(
+        default=list,
+        help_text="The channel tags followed besides the releases, e.g. ['main']",
+    )
+    seen = models.JSONField(
+        default=dict,
+        help_text="Every tag already read, with the digest it pointed at then",
+    )
+    scanned_at = models.DateTimeField(
+        null=True, blank=True, help_text="When the registry was last read"
+    )
     updated_at = models.DateTimeField(auto_now=True)
     added_at = models.DateTimeField(auto_now_add=True)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="oci_repos")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="oci_repos"
+    )
 
     #: Its own column, as on `GithubRepo`.
     embedding_organization_path = "organization"
@@ -122,7 +148,12 @@ class OciRepo(Repo):
         return f"{self.registry}/{self.repository}"
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["registry", "repository", "organization"], name="Unique oci repo for org")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["registry", "repository", "organization"],
+                name="Unique oci repo for org",
+            )
+        ]
 
 
 class RepoBlok(models.Model):
@@ -135,28 +166,72 @@ class RepoBlok(models.Model):
     """
 
     repo = models.ForeignKey(GithubRepo, on_delete=models.CASCADE, related_name="bloks")
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="repo_bloks")
-    key = models.CharField(max_length=100, help_text="Unique in its repository: what a scan finds it again by")
-    name = models.CharField(max_length=1000, help_text="The name it is installed under in rekuest")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="repo_bloks"
+    )
+    key = models.CharField(
+        max_length=100,
+        help_text="Unique in its repository: what a scan finds it again by",
+    )
+    name = models.CharField(
+        max_length=1000, help_text="The name it is installed under in rekuest"
+    )
     description = models.TextField(null=True, blank=True)
-    context = models.CharField(max_length=16, default="PANEL", help_text="What draws it, as its <Blok context=...> says (rekuest_core ComponentContext): PANEL or SCENE")
-    source = models.TextField(help_text="The blok as BSX, as the repository publishes it")
-    source_path = models.CharField(max_length=1000, null=True, blank=True, help_text="The file of the repository its BSX was read from; null when it is written inline")
-    vocab = models.PositiveSmallIntegerField(default=2, help_text="The blok language version it speaks; 2 is the only one")
-    catalogs = models.JSONField(default=list, help_text="The catalogs it needs, as name@version")
-    module = models.CharField(max_length=1000, null=True, blank=True, help_text="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when null")
-    demo = models.JSONField(default=dict, help_text="What a preview renders it with (rekuest_core BlokDemoInput)")
-    dependencies = models.JSONField(default=list, help_text="The agents it draws from (rekuest_core AgentDependencyInput)")
+    context = models.CharField(
+        max_length=16,
+        default="PANEL",
+        help_text="What draws it, as its <Blok context=...> says (rekuest_core ComponentContext): PANEL or SCENE",
+    )
+    source = models.TextField(
+        help_text="The blok as BSX, as the repository publishes it"
+    )
+    source_path = models.CharField(
+        max_length=1000,
+        null=True,
+        blank=True,
+        help_text="The file of the repository its BSX was read from; null when it is written inline",
+    )
+    vocab = models.PositiveSmallIntegerField(
+        default=2, help_text="The blok language version it speaks; 2 is the only one"
+    )
+    catalogs = models.JSONField(
+        default=list, help_text="The catalogs it needs, as name@version"
+    )
+    module = models.CharField(
+        max_length=1000,
+        null=True,
+        blank=True,
+        help_text="The module (an app's own UI extras, registered in rekuest) it renders against besides its catalogs; the Orkestrator's when null",
+    )
+    demo = models.JSONField(
+        default=dict,
+        help_text="What a preview renders it with (rekuest_core BlokDemoInput)",
+    )
+    dependencies = models.JSONField(
+        default=list,
+        help_text="The agents it draws from (rekuest_core AgentDependencyInput)",
+    )
     for_model = models.CharField(max_length=71, null=True, blank=True)
     for_node = models.CharField(max_length=1000, null=True, blank=True)
-    component_tree = models.JSONField(null=True, blank=True, help_text="Its BSX parsed (bridge/repo/bloks.py); null when it does not parse")
-    hash = models.CharField(max_length=100, help_text="sha256 of what it draws: its tree, context and declarations")
-    parse_error = models.TextField(null=True, blank=True, help_text="Why its BSX does not parse, or null")
+    component_tree = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Its BSX parsed (bridge/repo/bloks.py); null when it does not parse",
+    )
+    hash = models.CharField(
+        max_length=100,
+        help_text="sha256 of what it draws: its tree, context and declarations",
+    )
+    parse_error = models.TextField(
+        null=True, blank=True, help_text="Why its BSX does not parse, or null"
+    )
     updated_at = models.DateTimeField(auto_now=True)
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["repo", "key"], name="unique_repo_blok_key")]
+        constraints = [
+            models.UniqueConstraint(fields=["repo", "key"], name="unique_repo_blok_key")
+        ]
         ordering = ["repo", "key"]
 
     def __str__(self) -> str:
@@ -176,7 +251,9 @@ class App(EmbeddedDescriptionMixin, models.Model):
     """
 
     identifier = models.CharField(max_length=4000)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="apps")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="apps"
+    )
     source = models.ForeignKey(
         Repo,
         on_delete=models.SET_NULL,
@@ -190,12 +267,18 @@ class App(EmbeddedDescriptionMixin, models.Model):
 
     class Meta:
         # Was `class Config`, which Django ignores, so this was never enforced.
-        constraints = [models.UniqueConstraint(fields=["identifier", "organization"], name="Unique app for org")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["identifier", "organization"], name="Unique app for org"
+            )
+        ]
         indexes = [*embedding_indexes("app")]
 
 
 class S3Store(models.Model):
-    path = S3Field(null=True, blank=True, help_text="The store of the image", unique=True)
+    path = S3Field(
+        null=True, blank=True, help_text="The store of the image", unique=True
+    )
     key = models.CharField(max_length=1000)
     bucket = models.CharField(max_length=1000)
     populated = models.BooleanField(default=False)
@@ -213,17 +296,49 @@ class Release(Described):
     app = models.ForeignKey(App, on_delete=models.CASCADE, related_name="releases")
     version = models.CharField(max_length=400)
     scopes = models.JSONField(default=list)
-    logo = models.ForeignKey(MediaStore, on_delete=models.CASCADE, related_name="releases", null=True, blank=True)
-    original_logo = models.CharField(max_length=1000, null=True, blank=True, help_text="The original logo url")
+    logo = models.ForeignKey(
+        MediaStore,
+        on_delete=models.CASCADE,
+        related_name="releases",
+        null=True,
+        blank=True,
+    )
+    original_logo = models.CharField(
+        max_length=1000, null=True, blank=True, help_text="The original logo url"
+    )
     entrypoint = models.CharField(max_length=4000, default="app")
-    channel = models.CharField(max_length=400, null=True, blank=True, help_text="The channel this is the latest build of. Null for a release proper, which never changes.")
-    revision = models.CharField(max_length=400, null=True, blank=True, help_text="The source revision this was built from")
-    released_at = models.DateTimeField(auto_now_add=True, help_text="When this release was created")
-    created_at = models.DateTimeField(auto_now=True, help_text="When this release was created")
+    channel = models.CharField(
+        max_length=400,
+        null=True,
+        blank=True,
+        help_text="The channel this is the latest build of. Null for a release proper, which never changes.",
+    )
+    revision = models.CharField(
+        max_length=400,
+        null=True,
+        blank=True,
+        help_text="The source revision this was built from",
+    )
+    released_at = models.DateTimeField(
+        auto_now_add=True, help_text="When this release was created"
+    )
+    created_at = models.DateTimeField(
+        auto_now=True, help_text="When this release was created"
+    )
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["app", "version"], name="Unique release for version")]
-        indexes = [GinIndex(fields=["stored_descriptors"], name="kab_release_desc_gin", opclasses=["jsonb_path_ops"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["app", "version"], name="Unique release for version"
+            )
+        ]
+        indexes = [
+            GinIndex(
+                fields=["stored_descriptors"],
+                name="kab_release_desc_gin",
+                opclasses=["jsonb_path_ops"],
+            )
+        ]
 
 
 class DockerImage(models.Model):
@@ -243,22 +358,39 @@ class Flavour(EmbeddedDescriptionMixin, Described):
     actually answered; this is here so a flavour list can be ranked at all.
     """
 
-    release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="flavours")
+    release = models.ForeignKey(
+        Release, on_delete=models.CASCADE, related_name="flavours"
+    )
     name = models.CharField(max_length=400)
     deployment_id = models.CharField(max_length=400, default=uuid.uuid4)
     flavour = models.CharField(max_length=400, default="vanilla")
     selectors = models.JSONField(default=list)
-    repo = models.ForeignKey(Repo, on_delete=models.CASCADE, related_name="flavours", null=True, blank=True)
-    image = models.ForeignKey(DockerImage, on_delete=models.CASCADE, related_name="flavours")
+    repo = models.ForeignKey(
+        Repo, on_delete=models.CASCADE, related_name="flavours", null=True, blank=True
+    )
+    image = models.ForeignKey(
+        DockerImage, on_delete=models.CASCADE, related_name="flavours"
+    )
     builder = models.CharField(max_length=400)
     inspection = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now=True)
     deployed_at = models.DateTimeField(null=True)
     manifest = models.JSONField(default=dict)
     requirements = models.JSONField(default=list)
-    bloks = models.JSONField(default=list, help_text="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput).")
-    blok_renders = models.JSONField(default=dict, db_default=models.Value({}, output_field=models.JSONField()), help_text="What each blok draws, by its key: its component tree parsed from its source, the hash of what it draws, and why its source did not parse (bridge/repo/bloks.py).")
-    action_logos = models.JSONField(default=dict, db_default=models.Value({}, output_field=models.JSONField()), help_text="The key of the action logo (a LOGO blok of kind action) each action's implementation names as its logo, by the action's definition hash.")
+    bloks = models.JSONField(
+        default=list,
+        help_text="Blok implementation manifests declared by this flavour's inspection (rekuest_core BlokImplementationInput).",
+    )
+    blok_renders = models.JSONField(
+        default=dict,
+        db_default=models.Value({}, output_field=models.JSONField()),
+        help_text="What each blok draws, by its key: its component tree parsed from its source, the hash of what it draws, and why its source did not parse (bridge/repo/bloks.py).",
+    )
+    action_logos = models.JSONField(
+        default=dict,
+        db_default=models.Value({}, output_field=models.JSONField()),
+        help_text="The key of the action logo (a LOGO blok of kind action) each action's implementation names as its logo, by the action's definition hash.",
+    )
 
     #: ``manifest`` is JSON, so the text pulled out of it is assembled below; it is listed
     #: here so the healer loads the column and so a manifest change re-embeds the row.
@@ -269,14 +401,27 @@ class Flavour(EmbeddedDescriptionMixin, Described):
     def embedding_source_text(self) -> str | None:
         """The flavour's name, plus the app identifier and author its manifest names."""
         manifest = self.manifest or {}
-        return embedding_engine.source_text(self.name, manifest.get("identifier"), manifest.get("author"))
+        return embedding_engine.source_text(
+            self.name, manifest.get("identifier"), manifest.get("author")
+        )
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["release", "name"], name="Unique flavour for release")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["release", "name"], name="Unique flavour for release"
+            )
+        ]
         ordering = ["-created_at"]
-        indexes = [*embedding_indexes("flavour"), GinIndex(fields=["stored_descriptors"], name="kab_flavour_desc_gin", opclasses=["jsonb_path_ops"])]
+        indexes = [
+            *embedding_indexes("flavour"),
+            GinIndex(
+                fields=["stored_descriptors"],
+                name="kab_flavour_desc_gin",
+                opclasses=["jsonb_path_ops"],
+            ),
+        ]
 
-    def get_selectors(self) -> List[rselectors.Selector]:
+    def get_selectors(self) -> list[rselectors.Selector]:
         field_json = rselectors.SelectorFieldJson(**{"selectors": self.selectors})
         return field_json.selectors
 
@@ -285,19 +430,31 @@ class Collection(models.Model):
     name = models.CharField(max_length=1000, help_text="The name of this Collection")
     description = models.TextField(help_text="A description for the Collection")
     defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="collections")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="collections"
+    )
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["name", "organization"], name="Unique collection for org")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "organization"], name="Unique collection for org"
+            )
+        ]
 
 
 class Protocol(models.Model):
     name = models.CharField(max_length=1000, help_text="The name of this Protocol")
     description = models.TextField(help_text="A description for the Protocol")
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="protocols")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="protocols"
+    )
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["name", "organization"], name="Unique protocol for org")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "organization"], name="Unique protocol for org"
+            )
+        ]
 
     def __str__(self) -> str:
         return self.name
@@ -326,22 +483,36 @@ class Definition(EmbeddedDescriptionMixin, Described):
         max_length=1000,
         help_text="The hash of the Action (unique within an organization)",
     )
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="definitions")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="definitions"
+    )
     collections = models.ManyToManyField(
         Collection,
         related_name="actions",
         help_text="The collections this Action belongs to",
     )
-    pure = models.BooleanField(default=False, help_text="Is this function pure. e.g can we cache the result?")
-    idempotent = models.BooleanField(default=False, help_text="Is this function pure. e.g can we cache the result?")
+    pure = models.BooleanField(
+        default=False, help_text="Is this function pure. e.g can we cache the result?"
+    )
+    idempotent = models.BooleanField(
+        default=False, help_text="Is this function pure. e.g can we cache the result?"
+    )
     kind = models.CharField(
         max_length=1000,
         help_text="The kind of this Action. e.g. is it a function or a generator?",
     )
-    interfaces = models.JSONField(default=list, help_text="Intercae that we use to interpret the meta data")
-    port_groups = models.JSONField(default=list, help_text="Intercae that we use to interpret the meta data")
-    name = models.CharField(max_length=1000, help_text="The cleartext name of this Action")
-    meta = models.JSONField(null=True, blank=True, help_text="Meta data about this Action")
+    interfaces = models.JSONField(
+        default=list, help_text="Intercae that we use to interpret the meta data"
+    )
+    port_groups = models.JSONField(
+        default=list, help_text="Intercae that we use to interpret the meta data"
+    )
+    name = models.CharField(
+        max_length=1000, help_text="The cleartext name of this Action"
+    )
+    meta = models.JSONField(
+        null=True, blank=True, help_text="Meta data about this Action"
+    )
 
     description = models.TextField(help_text="A description for the Action")
     scope = models.CharField(
@@ -368,9 +539,20 @@ class Definition(EmbeddedDescriptionMixin, Described):
     returns = models.JSONField(default=list, help_text="Outputs for this Action")
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["hash", "organization"], name="Unique definition for org")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["hash", "organization"], name="Unique definition for org"
+            )
+        ]
         # The embedding healer's "any row not by the current model?" probe.
-        indexes = [*embedding_indexes("definition"), GinIndex(fields=["stored_descriptors"], name="kab_def_desc_gin", opclasses=["jsonb_path_ops"])]
+        indexes = [
+            *embedding_indexes("definition"),
+            GinIndex(
+                fields=["stored_descriptors"],
+                name="kab_def_desc_gin",
+                opclasses=["jsonb_path_ops"],
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.name}"
@@ -379,10 +561,16 @@ class Definition(EmbeddedDescriptionMixin, Described):
 class StateDefinition(models.Model):
     """StateDefinitions are used to define the state that an Action can have. They are used to define the state that an Action can have. They are used to define the state that an Action can have."""
 
-    name = models.CharField(max_length=1000, help_text="The cleartext name of this State")
+    name = models.CharField(
+        max_length=1000, help_text="The cleartext name of this State"
+    )
     description = models.TextField(help_text="A description for the State")
-    meta = models.JSONField(null=True, blank=True, help_text="Meta data about this State")
-    interfaces = models.JSONField(default=list, help_text="Intercae that we use to interpret the meta data")
+    meta = models.JSONField(
+        null=True, blank=True, help_text="Meta data about this State"
+    )
+    interfaces = models.JSONField(
+        default=list, help_text="Intercae that we use to interpret the meta data"
+    )
     protocols = models.ManyToManyField(
         Protocol,
         related_name="states",
@@ -391,11 +579,15 @@ class StateDefinition(models.Model):
     )
     ports = models.JSONField(default=list, help_text="Inputs for this Action")
     defined_at = models.DateTimeField(auto_created=True, auto_now_add=True)
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="state_definitions")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="state_definitions"
+    )
 
 
 class Backend(models.Model):
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="backends")
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="backends"
+    )
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     last_heartbeat = models.DateTimeField(auto_now=True)
@@ -413,13 +605,33 @@ class ReleaseApproval(models.Model):
     approval is *stale* and nothing new may be deployed from it.
     """
 
-    release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="approvals")
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="release_approvals")
-    approver = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="release_approvals")
-    mandate_id = models.CharField(max_length=1000, help_text="The lok mandate that lets the agent provision this release as the approver.")
-    agent = models.CharField(max_length=1000, help_text="Identifier of the agent app (deployer) the mandate names.")
-    digest = models.CharField(max_length=200, help_text="The release digest at approval time (see bridge.approvals.release_digest).")
-    backends = models.ManyToManyField(Backend, blank=True, related_name="approvals", help_text="Backends allowed to deploy under this approval. Empty means any backend of the organization.")
+    release = models.ForeignKey(
+        Release, on_delete=models.CASCADE, related_name="approvals"
+    )
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="release_approvals"
+    )
+    approver = models.ForeignKey(
+        get_user_model(), on_delete=models.CASCADE, related_name="release_approvals"
+    )
+    mandate_id = models.CharField(
+        max_length=1000,
+        help_text="The lok mandate that lets the agent provision this release as the approver.",
+    )
+    agent = models.CharField(
+        max_length=1000,
+        help_text="Identifier of the agent app (deployer) the mandate names.",
+    )
+    digest = models.CharField(
+        max_length=200,
+        help_text="The release digest at approval time (see bridge.approvals.release_digest).",
+    )
+    backends = models.ManyToManyField(
+        Backend,
+        blank=True,
+        related_name="approvals",
+        help_text="Backends allowed to deploy under this approval. Empty means any backend of the organization.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
 
@@ -450,23 +662,37 @@ class Deployment(Described):
     local_id = models.CharField(max_length=2000, default="unset")
 
     class Meta:
-        indexes = [GinIndex(fields=["stored_descriptors"], name="kab_deploy_desc_gin", opclasses=["jsonb_path_ops"])]
+        indexes = [
+            GinIndex(
+                fields=["stored_descriptors"],
+                name="kab_deploy_desc_gin",
+                opclasses=["jsonb_path_ops"],
+            )
+        ]
 
 
 class Resource(models.Model):
-    backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="resources")
+    backend = models.ForeignKey(
+        Backend, on_delete=models.CASCADE, related_name="resources"
+    )
     resource_id = models.CharField(max_length=1000)
     name = models.CharField(max_length=1000, default="unset")
     qualifiers = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["backend", "resource_id"], name="Unique resource for backend ")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["backend", "resource_id"], name="Unique resource for backend "
+            )
+        ]
 
 
 class Pod(Described):
     backend = models.ForeignKey(Backend, on_delete=models.CASCADE, related_name="pods")
-    resource = models.ForeignKey(Resource, on_delete=models.SET_NULL, related_name="pods", null=True, blank=True)
+    resource = models.ForeignKey(
+        Resource, on_delete=models.SET_NULL, related_name="pods", null=True, blank=True
+    )
     pod_id = models.CharField(max_length=1000)
     client_id = models.CharField(max_length=1000, null=True, blank=True)
     deployment = models.ForeignKey(
@@ -479,9 +705,19 @@ class Pod(Described):
     created_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["backend", "pod_id"], name="Unique pod for backend ")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["backend", "pod_id"], name="Unique pod for backend "
+            )
+        ]
         ordering = ["-created_at"]
-        indexes = [GinIndex(fields=["stored_descriptors"], name="kab_pod_desc_gin", opclasses=["jsonb_path_ops"])]
+        indexes = [
+            GinIndex(
+                fields=["stored_descriptors"],
+                name="kab_pod_desc_gin",
+                opclasses=["jsonb_path_ops"],
+            )
+        ]
 
     def latest_log_dump(self):
         return self.log_dumps.order_by("-created_at").first()

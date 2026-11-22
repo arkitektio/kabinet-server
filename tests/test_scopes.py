@@ -3,19 +3,26 @@ own (the ``@auth`` directive publishes it, a generated client gathers it), and `
 for all of them. What a member may do is their role: a deployer deploys, only an approver approves."""
 
 import pytest
+from arkitekt_service.graphql import scope_gaps
 from kante.context import HttpContext, UniversalRequest
 from strawberry.http.temporal_response import TemporalResponse
 
-from arkitekt_service.graphql import scope_gaps
 from kabinet_server.schema import schema
 
-DECLARE_BACKEND = 'mutation { declareBackend(input: {name: "scoped", kind: "docker"}) { id } }'
+DECLARE_BACKEND = (
+    'mutation { declareBackend(input: {name: "scoped", kind: "docker"}) { id } }'
+)
 BACKENDS = "query { backends { id } }"
 REVOKE = 'mutation { revokeApproval(input: {id: "1"}) { id } }'
 
 
 def _as(token: str) -> HttpContext:
-    return HttpContext(request=UniversalRequest(_extensions={}), response=TemporalResponse(), headers={"Authorization": f"Bearer {token}"}, type="http")
+    return HttpContext(
+        request=UniversalRequest(_extensions={}),
+        response=TemporalResponse(),
+        headers={"Authorization": f"Bearer {token}"},
+        type="http",
+    )
 
 
 def _reason(result) -> str | None:
@@ -29,7 +36,9 @@ def test_every_root_field_asks_for_a_scope_kabinet_declares():
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def test_an_app_granted_reads_reads_and_writes_nothing(backend_stack):
-    assert (await schema.execute(BACKENDS, context_value=_as("readertest"))).errors is None
+    assert (
+        await schema.execute(BACKENDS, context_value=_as("readertest"))
+    ).errors is None
     refused = await schema.execute(DECLARE_BACKEND, context_value=_as("readertest"))
     assert _reason(refused) == "INSUFFICIENT_SCOPE"
 
