@@ -1,4 +1,4 @@
-"""Organization scoping helpers for single-object access.
+"""Organization scoping helpers for single-object access, and for a guest, their collaborations.
 
 List fields are tenant-scoped through ``build_prescoped_queryset`` on the
 GraphQL types (see :mod:`bridge.types`); everything that fetches a single row
@@ -6,10 +6,14 @@ by ID (mutations, single-item queries, subscriptions) must go through
 :func:`for_org`, :func:`get_for_org` or :func:`aget_for_org` instead of
 ``Model.objects`` so one organization cannot read or mutate another
 organization's rows.
+
+Both also hold a guest of the organization, at a root field, to what is in their collaborations
+(``arkitekt_service.collaborations``); below a root field the collaboration gate does.
 """
 
 from functools import cache
 
+from arkitekt_service.collaborations.guests import object_scope
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models as django_models
 from kante.types import Info
@@ -60,7 +64,7 @@ def organization_path(model: type[django_models.Model]) -> str | None:
 
 
 def for_org(model: type[django_models.Model], info: Info) -> django_models.QuerySet:
-    """Return ``model``'s queryset limited to the request's organization."""
+    """Return ``model``'s queryset limited to the request's organization (a guest: to their collaborations)."""
     path = organization_path(model)
     if path is None:
         if model.__name__ not in UNSCOPED_MODELS:
@@ -68,8 +72,10 @@ def for_org(model: type[django_models.Model], info: Info) -> django_models.Query
                 f"{model.__name__} has no path to an organization and is not "
                 "registered in bridge.scoping.UNSCOPED_MODELS"
             )
-        return model.objects.all()
-    return model.objects.filter(**{path: info.context.request.organization})
+        return object_scope(model.objects.all(), info=info)
+    return object_scope(
+        model.objects.filter(**{path: info.context.request.organization}), info=info
+    )
 
 
 def get_for_org(

@@ -8,6 +8,7 @@ from typing import Optional, TypeVar
 import strawberry
 import strawberry.django
 import strawberry_django
+from arkitekt_service.collaborations.guests import object_scope
 from authentikate import models as auth_models
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Count, Model, Prefetch, Q, QuerySet
@@ -73,7 +74,10 @@ def build_prescoped_queryset(
         raise LookupError(
             f"{queryset.model.__name__} has no path to an organization and is not registered in bridge.scoping.UNSCOPED_MODELS, so it cannot be scoped to the requesting organization."
         )
-    return queryset.filter(**{field: info.context.request.organization})
+    # At a root field, a guest of the organization is held to what is in their collaborations.
+    return object_scope(
+        queryset.filter(**{field: info.context.request.organization}), info=info
+    )
 
 
 def build_prescoper(

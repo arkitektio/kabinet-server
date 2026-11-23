@@ -14,7 +14,10 @@ That is all a service is. What can be *done* in this process is not declared her
 agent's to say (``kabinet_server.hook_agent``), a different thing with its own configuration.
 """
 
+from arkitekt_service.collaborations import items as collaboration_items
 from arkitekt_service.service import Service, organization_of
+from django.db.models import Model, Q
+from django.db.models.signals import m2m_changed, post_save
 
 from bridge import models
 from kabinet_server import descriptors
@@ -27,9 +30,38 @@ service = Service(
 )
 
 
-# --- Structures: what kabinet hosts ---------------------------------------------------
+# --- Collaborations: what a guest of the organization may be shown -------------------------
+# An app is what is put in a collaboration: its releases and their flavours are part of it and come
+# with it, live; what else they need to be seen (each flavour's image and the actions it provides)
+# is brought along. An action definition and a repository (with the bloks it publishes) can be put
+# in by themselves.
+#
+# Never shared: where the organization runs things (deployments, pods, and the backends, resources
+# and logs they hang on), who approved what to run under its mandate (release approvals), and its
+# catalogs, configuration that reading also refreshes. They cannot be put in by hand
+# (``SHAREABLE``), a workflow share never puts them in (``created_under`` matches nothing), and
+# they are part of nothing that is shared (``not_part_of``).
 
-app = service.structure(models.App, "@kabinet/app")
+
+def _never(root_task_id: str) -> Q:
+    """No workflow's objects of a structure that is never shared."""
+    return Q(pk__in=[])
+
+
+def _app_needs(app: models.App) -> list[Model | None]:
+    """The image each flavour of the app deploys, and the actions each provides."""
+    flavours = models.Flavour.objects.filter(release__app=app)
+    return [
+        *models.DockerImage.objects.filter(flavours__in=flavours).distinct(),
+        *models.Definition.objects.filter(flavours__in=flavours).distinct(),
+    ]
+
+
+# --- Structures: what kabinet hosts ---------------------------------------------------
+# What a workflow (a root task) created is read off ``created_through``, stamped when a repository
+# or an app image is imported under a provenance token.
+
+app = service.structure(models.App, "@kabinet/app", depends=_app_needs)
 release = service.structure(
     models.Release, "@kabinet/release", describe=descriptors.release_descriptors
 )
@@ -42,14 +74,75 @@ definition = service.structure(
     describe=descriptors.definition_descriptors,
 )
 deployment = service.structure(
-    models.Deployment, "@kabinet/deployment", describe=descriptors.placement_descriptors
+    models.Deployment,
+    "@kabinet/deployment",
+    describe=descriptors.placement_descriptors,
+    created_under=_never,
 )
 pod = service.structure(
-    models.Pod, "@kabinet/pod", describe=descriptors.placement_descriptors
+    models.Pod,
+    "@kabinet/pod",
+    describe=descriptors.placement_descriptors,
+    created_under=_never,
 )
 githubrepo = service.structure(models.GithubRepo, "@kabinet/githubrepo")
-catalog = service.structure(models.Catalog, "@kabinet/catalog")
-catalogentry = service.structure(models.CatalogEntry, "@kabinet/catalogentry")
+catalog = service.structure(models.Catalog, "@kabinet/catalog", created_under=_never)
+catalogentry = service.structure(
+    models.CatalogEntry, "@kabinet/catalogentry", created_under=_never
+)
+
+#: What a full member may put in a collaboration by hand.
+SHAREABLE: frozenset[type[Model]] = frozenset(
+    {models.App, models.Release, models.Flavour, models.Definition, models.GithubRepo}
+)
+
+# A flavour is its release's, not part of the image it deploys (an image may be any flavour's);
+# a deployment runs a flavour but is the organization's; an approval is its release's record of
+# who let it run, never a guest's to read.
+service.not_part_of(models.Flavour, "image")
+service.not_part_of(models.Deployment, "flavour")
+service.not_part_of(models.ReleaseApproval, "release")
+
+
+def _flavour_saved(
+    sender: type[models.Flavour],
+    instance: models.Flavour,
+    raw: bool = False,
+    **_: object,
+) -> None:
+    """A flavour imported into an app in a collaboration brings its image into it."""
+    if not raw:
+        collaboration_items.refresh(instance.release.app)
+
+
+def _definitions_changed(
+    sender: type[Model],
+    instance: models.Definition | models.Flavour,
+    action: str,
+    reverse: bool = False,
+    pk_set: set[int] | None = None,
+    **_: object,
+) -> None:
+    """An action provided by a flavour of an app in a collaboration comes into it."""
+    if action != "post_add":
+        return
+    flavours = (
+        models.Flavour.objects.filter(pk=instance.pk)
+        if reverse
+        else models.Flavour.objects.filter(pk__in=pk_set or ())
+    )
+    for app in models.App.objects.filter(releases__flavours__in=flavours).distinct():
+        collaboration_items.refresh(app)
+
+
+post_save.connect(
+    _flavour_saved, sender=models.Flavour, dispatch_uid="kabinet-collaborations-flavour"
+)
+m2m_changed.connect(
+    _definitions_changed,
+    sender=models.Definition.flavours.through,
+    dispatch_uid="kabinet-collaborations-definitions",
+)
 
 
 # --- Signals: what kabinet announces ---------------------------------------------------

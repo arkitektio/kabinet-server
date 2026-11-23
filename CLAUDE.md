@@ -67,3 +67,16 @@ A flavour's hardware descriptors (`gpu`, `arch`, `min_ram_mb`, `min_vram_mb`) re
 required accelerator and `multiple` when more than one vendor's is required (no single
 vendor's backend runs it). `@kabinet/flavour_name` is `Flavour.name` (vanilla, cuda);
 `Flavour.flavour` holds the image's digest.
+
+## Sharing
+
+kabinet lets guests of an organization in (`arkitekt_service.collaborations`): a full member puts an
+app, an action definition or a GitHub repository in a collaboration (lok's, by key;
+`addToCollaboration`, `shareWorkflow`, behind `kabinet_share`). An app's releases and flavours are
+in it with it; their images and the actions they provide come along (`kabinet_server/service.py`).
+Never shared: deployments, pods, backends, resources, logs, release approvals and catalogs
+(`SHAREABLE`, `not_part_of`, `created_under` matching nothing). Every read goes through
+`bridge/scoping.py` / `build_prescoped_queryset` (organization, then a guest's collaborations at a
+root field); the `CollaborationGate` holds nested reads. A guest writes nothing, and the `pods`
+subscriptions refuse them. A new route outside GraphQL that takes a bearer token must refuse guests
+(`authentikate.scoped.require_full_member`).

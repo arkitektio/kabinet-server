@@ -47,6 +47,10 @@ SCOPES = [
         description="Approve or revoke releases, which decides what may run under the organization's mandate.",
     ),
     Scope(
+        key="kabinet_share",
+        description="Share apps, their actions and repositories with people outside your organization through collaborations.",
+    ),
+    Scope(
         key="kabinet_all",
         description="Do everything in Kabinet on your behalf.",
         is_all_scope=True,
@@ -63,7 +67,7 @@ ROLES = [
     ),
     Role(
         key="kabinet_deployer",
-        description="Add repositories and deploy apps.",
+        description="Add repositories, deploy apps and share them.",
         is_default_role=True,
     ),
     Role(key="kabinet_approver", description="Approve and revoke releases."),

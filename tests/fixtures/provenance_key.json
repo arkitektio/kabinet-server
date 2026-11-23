@@ -1,0 +1,7 @@
+{
+  "crv": "Ed25519",
+  "x": "LmFAYRVby-na4p05a9Xk6NduHp7eVFKuYHac-sgHj5I",
+  "d": "3NsrviYErsIu04aDmQnGXCp4OXuAOjuub_0m6WWlGxw",
+  "kty": "OKP",
+  "kid": "kabinet-test-provenance"
+}

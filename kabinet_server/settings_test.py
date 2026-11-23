@@ -41,6 +41,27 @@ AUTHENTIKATE = {
             "readertest": {"sub": "1", "scope": "openid kabinet_read"},
         }.items()
     },
+    # A rekuest that signs task tokens with tests/fixtures/provenance_key.json: what an app, a
+    # release or a flavour records as the task it was created through (tests/test_share_workflow.py).
+    "provenance": {
+        "issuers": [
+            {
+                "iss": "rekuest",
+                "kind": "jwks_dict",
+                "jwks": {
+                    "keys": [
+                        {
+                            "crv": "Ed25519",
+                            "x": "LmFAYRVby-na4p05a9Xk6NduHp7eVFKuYHac-sgHj5I",
+                            "kty": "OKP",
+                            "kid": "kabinet-test-provenance",
+                        }
+                    ]
+                },
+            }
+        ],
+        "audience": "*",
+    },
 }
 
 

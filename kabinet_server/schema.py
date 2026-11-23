@@ -2,28 +2,53 @@ from typing import Any
 
 import strawberry
 import strawberry_django
-from arkitekt_service.graphql import TelemetryExtension, annotate_schema
+from arkitekt_service.collaborations import graphql as collaboration_types
+from arkitekt_service.graphql import (
+    CollaborationGate,
+    TelemetryExtension,
+    annotate_schema,
+)
 from authentikate.strawberry import AuthExtension, AuthSubscribeExtension
 from authentikate.strawberry.extension import AuthentikateExtension
+from django.db.models import Model
+from kante.types import Info
 from kante.unions import unionElementOf
 from koherent.strawberry.extension import KoherentExtension
 from strawberry.schema.config import StrawberryConfig
 from strawberry_django.optimizer import DjangoOptimizerExtension
 
-from bridge import mutations, queries, subscriptions, types
+from bridge import mutations, queries, scoping, subscriptions, types
 from bridge.repo.types import selector_types
 from bridge.scalars import scalar_map as bscalar_map
 from embeddings.strawberry import scalar_map as escalar_map
 from kabinet_server.contract import APPROVER, DEPLOYER
 from kabinet_server.logs import QuietErrorsSchema
+from kabinet_server.service import SHAREABLE
 from kabinet_server.service import service as kabinet_service
 from rekuest_core.constants import input_union_types, interface_types
 from rekuest_core.scalars import scalar_map as rscalar_map
 
 
-def field(scope: str = "kabinet_read", **kwargs: Any) -> Any:  # noqa: ANN401 - as strawberry_django.field: the value of `x: T = field()`
-    "A field an app needs ``scope`` for (``kabinet_read``, unless it says otherwise)."
-    return strawberry_django.field(extensions=[AuthExtension(scopes=[scope])], **kwargs)
+def field(scope: str = "kabinet_read", guests: bool = False, **kwargs: Any) -> Any:  # noqa: ANN401 - as strawberry_django.field: the value of `x: T = field()`
+    """A field an app needs ``scope`` for (``kabinet_read``, unless it says otherwise).
+
+    ``guests`` opens a field that hands out no models to guests of the organization: its resolver
+    reads only what is in their collaborations. The gate closes every other such field to them."""
+    return strawberry_django.field(
+        extensions=[AuthExtension(scopes=[scope], allow_scoped=guests)], **kwargs
+    )
+
+
+def _shareable(model: type[Model], id: object, info: Info) -> Model:
+    """The object a full member puts in a collaboration: an app, a release, a flavour, an action or a
+    repository of the organization. Deployments, pods and catalogs are never shared."""
+    if model not in SHAREABLE:
+        raise ValueError(f"{model.__name__} is never shared")
+    return scoping.get_for_org(model, info, id=id)
+
+
+#: The collaborations of kabinet's apps, which a guest of the organization is granted.
+collaboration_api = collaboration_types.resolvers(fetch=_shareable)
 
 
 def mutation(
@@ -90,6 +115,7 @@ class Query:
         description="Return a single flavour (a buildable variant of a release) by its ID.",
     )
     flavour_blok: types.FlavourBlok | None = field(
+        guests=True,
         resolver=queries.flavour_blok,
         description="Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none.",
     )
@@ -162,6 +188,19 @@ class Query:
     my_pod_at = field(
         resolver=queries.my_pod_at,
         description="Let a backend discover one of its own pods by local identifier.",
+    )
+
+    collaborations: list[collaboration_types.Collaboration] = field(
+        resolver=collaboration_api.collaborations,
+        description="List the organization's collaborations that hold something of kabinet (a guest: the collaborations granted to them)",
+    )
+    collaboration: collaboration_types.Collaboration = field(
+        resolver=collaboration_api.collaboration,
+        description="Get a single collaboration by its key (lok's): what was put in it here",
+    )
+    collaborations_stats: collaboration_types.CollaborationStats = field(
+        resolver=collaboration_api.collaborations_stats,
+        description="Count the collaborations `collaborations` lists, and the objects in them",
     )
 
     # Stats
@@ -261,6 +300,33 @@ class Mutation:
         resolver=mutations.delete_backend,
         description="Delete a backend and return its ID.",
     )
+
+    # --- Collaborations ----------------------------------------------------
+    add_to_collaboration = mutation(
+        scope="kabinet_share",
+        resolver=collaboration_api.add_to_collaboration,
+        description="Put an app, an action definition or a repository in a collaboration (lok's, by its key), with what it needs to be seen: an app brings its releases and flavours, their images and the actions they provide. Deployments, pods, approvals and catalogs are never shared. The collaboration's row here is made the first time something is put in",
+    )
+    add_many_to_collaboration = mutation(
+        scope="kabinet_share",
+        resolver=collaboration_api.add_many_to_collaboration,
+        description="Put several objects in a collaboration (by its key) at once, a whole before its parts, each with what it needs to be seen: all of them, or none",
+    )
+    share_workflow = mutation(
+        scope="kabinet_share",
+        resolver=collaboration_api.share_workflow,
+        description="Put what a workflow (its root task) created in kabinet in a collaboration, as it is now: what it makes later is not. A release, flavour or action made for an app made before the workflow, and not shared, is left out and reported; `dryRun` only says what would be put in",
+    )
+    remove_from_collaboration = mutation(
+        scope="kabinet_share",
+        resolver=collaboration_api.remove_from_collaboration,
+        description="Take an object out of a collaboration, with what it brought that nothing else there needs",
+    )
+    delete_collaboration = mutation(
+        scope="kabinet_share",
+        resolver=collaboration_api.delete_collaboration,
+        description="Take everything kabinet put in a collaboration (by its key) out of it: whoever was granted it sees nothing of it here any more. lok's collaboration, and its grants, stay",
+    )
     approve_release: types.ReleaseApproval = mutation(
         scope="kabinet_approve",
         roles=[APPROVER],
@@ -305,9 +371,11 @@ schema = Schema(
     schema_directives=[unionElementOf],
     extensions=[
         TelemetryExtension,
-        DjangoOptimizerExtension,
         AuthentikateExtension,
+        # A guest of the organization is handed only what is in their collaborations.
+        CollaborationGate,
         KoherentExtension,
+        DjangoOptimizerExtension,
     ],
     types=[
         types.Selector,

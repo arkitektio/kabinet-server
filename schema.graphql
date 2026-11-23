@@ -211,6 +211,20 @@ enum ActionScope {
   BRIDGE_LOCAL_TO_GLOBAL
 }
 
+"""Objects to put in a collaboration at once: all of them, or none"""
+input AddManyToCollaborationInput {
+  """The collaboration's key (lok's)"""
+  collaboration: ID!
+
+  """What to put in; a whole before its parts"""
+  objects: [CollaborationObjectRef!]!
+
+  """
+  The collaboration's name, kept here when these are the first things put in
+  """
+  name: String = null
+}
+
 """
 Defines a callback that routes user interactions directly to an Arkitekt Agent via Rekuest.
 """
@@ -369,6 +383,13 @@ type App @identified(by: "@kabinet/app") {
 
 """Filter for apps."""
 input AppFilter {
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   AND: AppFilter
   OR: AppFilter
   NOT: AppFilter
@@ -1093,6 +1114,13 @@ type CatalogEntry @identified(by: "@kabinet/catalogentry") {
 
 """Filter for the entries of the hub's catalogs."""
 input CatalogEntryFilter {
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   AND: CatalogEntryFilter
   OR: CatalogEntryFilter
   NOT: CatalogEntryFilter
@@ -1227,6 +1255,87 @@ type ClientRelease {
 
   """Version string of the release."""
   version: String!
+}
+
+"""
+What a guest granted it sees of the organization: the objects put in it, and what is part of them.
+"""
+type Collaboration {
+  id: ID!
+  name: String!
+  description: String
+  createdAt: DateTime!
+
+  """
+  The collaboration's key across the hub: what lok grants, and what names it in every service
+  """
+  key: ID!
+
+  """
+  What is in the collaboration, oldest first; what is part of these is in it too. `brought` keeps what was put in by hand (false) or only what came along with it (true)
+  """
+  items(brought: Boolean = null, pagination: OffsetPaginationInput = null): [CollaborationItem!]!
+
+  """
+  How many objects are in the collaboration: all of them, or (`brought`) only those put in by hand (false) or only those that came along with one (true)
+  """
+  itemCount(brought: Boolean = null): Int!
+}
+
+"""
+One object in a collaboration: put there, or brought along with one that needs it to be seen.
+"""
+type CollaborationItem {
+  id: ID!
+
+  """The object's id, in its structure"""
+  objectId: String!
+  addedAt: DateTime!
+
+  """The structure the object is known by across the hub: @mikro/scene"""
+  identifier: String
+
+  """
+  Whether it is in the collaboration only as what another object in it needs to be seen
+  """
+  brought: Boolean!
+}
+
+"""An object to put in, or take out of, a collaboration"""
+input CollaborationObjectInput {
+  """The collaboration's key (lok's)"""
+  collaboration: ID!
+
+  """The structure the object is known by: @mikro/scene"""
+  identifier: String!
+
+  """The object's id"""
+  object: ID!
+
+  """
+  The collaboration's name, kept here when this is the first thing put in
+  """
+  name: String = null
+}
+
+"""An object, by its structure and id"""
+input CollaborationObjectRef {
+  """The structure the object is known by: @mikro/scene"""
+  identifier: String!
+
+  """The object's id"""
+  object: ID!
+}
+
+"""
+How many collaborations the organization has (a guest: theirs), and how much is in them
+"""
+type CollaborationStats {
+  """How many collaborations"""
+  count: Int!
+
+  """How many objects are in them altogether, brought along ones included"""
+  itemCount: Int!
 }
 
 """A named grouping of related action definitions."""
@@ -1668,6 +1777,13 @@ type Definition @identified(by: "@kabinet/definition") {
 
 """Filter for action definitions."""
 input DefinitionFilter {
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   AND: DefinitionFilter
   OR: DefinitionFilter
   NOT: DefinitionFilter
@@ -1890,6 +2006,13 @@ type Deployment @identified(by: "@kabinet/deployment") {
 
 """Filter for deployments."""
 input DeploymentFilter {
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   AND: DeploymentFilter
   OR: DeploymentFilter
   NOT: DeploymentFilter
@@ -2241,6 +2364,13 @@ type FlavourBlok {
 
 """Filter for flavours."""
 input FlavourFilter {
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   AND: FlavourFilter
   OR: FlavourFilter
   NOT: FlavourFilter
@@ -2339,6 +2469,13 @@ enum GithubRepoField {
 
 """Filter for tracked GitHub repositories."""
 input GithubRepoFilter {
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   AND: GithubRepoFilter
   OR: GithubRepoFilter
   NOT: GithubRepoFilter
@@ -2840,6 +2977,31 @@ type Mutation {
 
   """Delete a backend and return its ID."""
   deleteBackend(id: ID!): ID! @auth(required_scopes: ["kabinet_deploy"], any_role_of: ["kabinet_deployer"])
+
+  """
+  Put an app, an action definition or a repository in a collaboration (lok's, by its key), with what it needs to be seen: an app brings its releases and flavours, their images and the actions they provide. Deployments, pods, approvals and catalogs are never shared. The collaboration's row here is made the first time something is put in
+  """
+  addToCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(required_scopes: ["kabinet_share"], any_role_of: ["kabinet_deployer"])
+
+  """
+  Put several objects in a collaboration (by its key) at once, a whole before its parts, each with what it needs to be seen: all of them, or none
+  """
+  addManyToCollaboration(input: AddManyToCollaborationInput!): Collaboration! @auth(required_scopes: ["kabinet_share"], any_role_of: ["kabinet_deployer"])
+
+  """
+  Put what a workflow (its root task) created in kabinet in a collaboration, as it is now: what it makes later is not. A release, flavour or action made for an app made before the workflow, and not shared, is left out and reported; `dryRun` only says what would be put in
+  """
+  shareWorkflow(input: ShareWorkflowInput!): WorkflowShare! @auth(required_scopes: ["kabinet_share"], any_role_of: ["kabinet_deployer"])
+
+  """
+  Take an object out of a collaboration, with what it brought that nothing else there needs
+  """
+  removeFromCollaboration(input: CollaborationObjectInput!): Collaboration! @auth(required_scopes: ["kabinet_share"], any_role_of: ["kabinet_deployer"])
+
+  """
+  Take everything kabinet put in a collaboration (by its key) out of it: whoever was granted it sees nothing of it here any more. lok's collaboration, and its grants, stay
+  """
+  deleteCollaboration(key: ID!): ID! @auth(required_scopes: ["kabinet_share"], any_role_of: ["kabinet_deployer"])
 }
 
 """
@@ -3045,6 +3207,13 @@ type PodEvent {
 
 """Filter for pods."""
 input PodFilter {
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   AND: PodFilter
   OR: PodFilter
   NOT: PodFilter
@@ -3359,7 +3528,7 @@ type Query {
   """
   Return a single blok a flavour's app brings by its ID (`<flavour id>:<key>`), or null when there is none.
   """
-  flavourBlok(id: ID!): FlavourBlok @auth(required_scopes: ["kabinet_read"])
+  flavourBlok(id: ID!): FlavourBlok @auth(required_scopes: ["kabinet_read"], allow_scoped: true)
 
   """Return a single blok a repository publishes by its ID."""
   repoBlok(id: ID!): RepoBlok! @auth(required_scopes: ["kabinet_read"])
@@ -3425,6 +3594,19 @@ type Query {
 
   """Return a single release approval by its ID."""
   releaseApproval(id: ID!): ReleaseApproval! @auth(required_scopes: ["kabinet_read"])
+
+  """
+  List the organization's collaborations that hold something of kabinet (a guest: the collaborations granted to them)
+  """
+  collaborations(pagination: OffsetPaginationInput = null): [Collaboration!]! @auth(required_scopes: ["kabinet_read"])
+
+  """Get a single collaboration by its key (lok's): what was put in it here"""
+  collaboration(key: ID!): Collaboration! @auth(required_scopes: ["kabinet_read"])
+
+  """
+  Count the collaborations `collaborations` lists, and the objects in them
+  """
+  collaborationsStats: CollaborationStats! @auth(required_scopes: ["kabinet_read"])
 
   """Stats about github repos"""
   githubRepoStats(filters: GithubRepoFilter = null): GithubRepoStats! @auth(required_scopes: ["kabinet_read"])
@@ -3626,6 +3808,13 @@ input ReleaseApprovalFilter {
 
 """Filter for app releases."""
 input ReleaseFilter {
+  """
+  Only what is in this collaboration (its key): put in, or part of what was
+  """
+  inCollaboration: ID
+
+  """Only what the workflow (its root task id) created"""
+  createdUnder: ID
   AND: ReleaseFilter
   OR: ReleaseFilter
   NOT: ReleaseFilter
@@ -4174,6 +4363,51 @@ type ServiceCount {
   apps: Int!
 }
 
+"""Put what a workflow created in a collaboration, as it is now"""
+input ShareWorkflowInput {
+  """The collaboration's key (lok's)"""
+  collaboration: ID!
+
+  """
+  The workflow: the id of the task a person started, the root of every task it caused
+  """
+  rootTask: ID!
+
+  """Only say what would be put in, and what left out"""
+  dryRun: Boolean! = false
+
+  """The collaboration's name, kept here when this puts the first things in"""
+  name: String = null
+}
+
+"""An object, by its structure and id"""
+type SharedObject {
+  """The structure the object is known by: @mikro/scene"""
+  identifier: String
+
+  """The object's id"""
+  object: ID!
+}
+
+"""
+Created in the workflow, but part of something made before it that is not shared: left out
+"""
+type SkippedObject {
+  """The structure the object is known by"""
+  identifier: String
+
+  """The object's id"""
+  object: ID!
+
+  """The structure of what it is part of"""
+  wholeIdentifier: String
+
+  """
+  The id of what it is part of: put that in, and share the workflow again, to bring it
+  """
+  whole: ID!
+}
+
 type SliderAssignWidget implements AssignWidget {
   kind: AssignWidgetKind!
   followValue: String
@@ -4516,4 +4750,31 @@ input ValidatorInput {
   The authoring expression the call was compiled from (informational; never parsed or validated by the server).
   """
   source: String = null
+}
+
+"""
+What sharing a workflow put in a collaboration here (or, tried, would put in)
+"""
+type WorkflowShare {
+  """The collaboration's key"""
+  collaboration: ID!
+
+  """Whether nothing was written"""
+  dryRun: Boolean!
+
+  """Put in, with what each needs to be seen"""
+  added: [SharedObject!]!
+
+  """
+  How many parts came along with their whole, without being put in themselves
+  """
+  covered: Int!
+
+  """Left out: parts of something made before the workflow and not shared"""
+  skipped: [SkippedObject!]!
+
+  """
+  Structures here that cannot say what created their objects: not looked at
+  """
+  unknown: [String!]!
 }

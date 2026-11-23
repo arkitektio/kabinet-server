@@ -8,6 +8,7 @@ import pytest_asyncio
 from aiohttp import web
 from arkitekt_service import trust
 from asgiref.sync import sync_to_async
+from authentikate import settings as authentikate_settings
 from authentikate.models import Client, Membership, Organization, User
 from django.contrib.contenttypes.management import create_contenttypes
 from django.db.models.signals import post_migrate
@@ -209,6 +210,54 @@ def authenticated_context(db: None, backend_stack: dict[str, int]) -> HttpContex
         headers={"Authorization": "Bearer test"},
         type="http",
     )
+
+
+#: ``guest({key: roles})``: a request presenting a guest granted those collaborations.
+GuestFactory = Callable[[Mapping[str, list[str]]], HttpContext]
+
+
+def token_context(token: str, task: str | None = None) -> HttpContext:
+    """A request presenting the static token ``token``, as a client sends it: nothing resolved yet.
+
+    ``task`` is a provenance token, sent in the ``Rekuest-Task`` header as an agent does for the
+    task it runs.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    if task is not None:
+        headers["Rekuest-Task"] = task
+    return HttpContext(
+        request=UniversalRequest(_extensions={}),
+        response=TemporalResponse(),
+        headers=headers,
+        type="http",
+    )
+
+
+@pytest.fixture
+def guest(
+    db: None, authenticated_context: HttpContext, settings: SettingsWrapper
+) -> Iterator[GuestFactory]:
+    """``guest({key: roles})``: a context presenting a guest of the test organization (sub 20),
+    granted those collaborations by their key, as lok lists them in the token's ``collabs``."""
+
+    def mint(collaborations: Mapping[str, list[str]]) -> HttpContext:
+        settings.AUTHENTIKATE = {
+            **settings.AUTHENTIKATE,
+            "static_tokens": {
+                **settings.AUTHENTIKATE["static_tokens"],
+                "guest": {
+                    "sub": "20",
+                    "roles": [],
+                    "collabs": dict(collaborations),
+                    "scope": "openid kabinet_all",
+                },
+            },
+        }
+        authentikate_settings.cached_settings = None
+        return token_context("guest")
+
+    yield mint
+    authentikate_settings.cached_settings = None
 
 
 @pytest.fixture(scope="function")

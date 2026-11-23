@@ -3,6 +3,7 @@ import re
 
 import strawberry
 import strawberry_django
+from arkitekt_service.collaborations.filters import SharingFilterMixin
 from django.db.models import (
     BooleanField,
     Count,
@@ -112,7 +113,7 @@ class DefinitionOrder:
 @strawberry_django.filter_type(
     models.GithubRepo, description="Filter for tracked GitHub repositories."
 )
-class GithubRepoFilter:
+class GithubRepoFilter(SharingFilterMixin):
     """Filter for tracked GitHub repositories."""
 
     @strawberry_django.filter_field(
@@ -188,7 +189,7 @@ class OciRepoFilter:
 @strawberry_django.filter_type(
     models.CatalogEntry, description="Filter for the entries of the hub's catalogs."
 )
-class CatalogEntryFilter:
+class CatalogEntryFilter(SharingFilterMixin):
     """Filter for the entries of the hub's catalogs."""
 
     @strawberry_django.filter_field(
@@ -262,7 +263,7 @@ class RepoBlokFilter:
 @strawberry_django.filter_type(
     models.Definition, description="Filter for action definitions."
 )
-class DefinitionFilter:
+class DefinitionFilter(SharingFilterMixin):
     """Filter for action definitions."""
 
     @strawberry_django.filter_field(
@@ -498,7 +499,7 @@ class FlavourOrder:
 
 
 @strawberry_django.filter_type(models.Flavour, description="Filter for flavours.")
-class FlavourFilter:
+class FlavourFilter(SharingFilterMixin):
     """Filter for flavours."""
 
     @strawberry_django.filter_field(
@@ -559,7 +560,7 @@ class BackendFilter:
 
 
 @strawberry_django.filter_type(models.Pod, description="Filter for pods.")
-class PodFilter:
+class PodFilter(SharingFilterMixin):
     @strawberry_django.filter_field(
         description="Keep only pods whose ID is in this list."
     )
@@ -584,7 +585,7 @@ class PodFilter:
 
 
 @strawberry_django.filter_type(models.Deployment, description="Filter for deployments.")
-class DeploymentFilter:
+class DeploymentFilter(SharingFilterMixin):
     @strawberry_django.filter_field(
         description="Keep only deployments whose ID is in this list."
     )
@@ -603,7 +604,7 @@ class DeploymentFilter:
 
 
 @strawberry_django.filter_type(models.Release, description="Filter for app releases.")
-class ReleaseFilter:
+class ReleaseFilter(SharingFilterMixin):
     @strawberry_django.filter_field(
         description="Keep only releases whose ID is in this list."
     )
@@ -673,7 +674,7 @@ class ReleaseApprovalFilter:
 
 
 @strawberry_django.filter_type(models.App, description="Filter for apps.")
-class AppFilter:
+class AppFilter(SharingFilterMixin):
     @strawberry_django.filter_field(
         description="Keep only apps whose ID is in this list."
     )

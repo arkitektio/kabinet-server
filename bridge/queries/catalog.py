@@ -2,24 +2,24 @@
 the ones not read for ``CATALOG_TTL`` seconds."""
 
 import strawberry
+from arkitekt_service.collaborations.guests import guest_of
 from kante.types import Info
 
 from bridge import catalog as catalogs
 from bridge import models, types
-from bridge.scoping import aget_for_org, get_for_org
+from bridge.scoping import aget_for_org, for_org, get_for_org
 
 
 async def catalogs_list(info: Info) -> list[types.Catalog]:
-    """Every catalog of the organization, the config's included, each read first when stale."""
+    """Every catalog of the organization, the config's included, each read first when stale.
+
+    A guest of the organization is shown none (catalogs are never shared), and writes nothing.
+    """
     organization = info.context.request.organization
-    await catalogs.ensure(organization)
-    await catalogs.refresh_stale(organization)
-    return [
-        catalog
-        async for catalog in models.Catalog.objects.filter(
-            organization=organization
-        ).order_by("id")
-    ]
+    if guest_of(info) is None:
+        await catalogs.ensure(organization)
+        await catalogs.refresh_stale(organization)
+    return [catalog async for catalog in for_org(models.Catalog, info).order_by("id")]
 
 
 async def catalog(info: Info, id: strawberry.ID) -> types.Catalog:
