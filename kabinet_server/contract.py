@@ -203,6 +203,11 @@ HOSTS = Hosts(
             label="GitHub Repository",
             description="A GitHub repository scanned for installable apps and their releases.",
         ),
+        Structure(
+            identifier="@kabinet/catalogentry",
+            label="Catalog Entry",
+            description="A repository a curated catalog the hub reads (e.g. arkitekt.live's default list) offers for import: an app's OCI repository or a GitHub repository of apps and bloks. The hub's, not an organization's.",
+        ),
     ],
     signals=[
         Signal(
@@ -304,8 +309,9 @@ contract = Contract(
         "ensureadmin": Job(
             ("ensureadmin",), "Create the operator account the config names"
         ),
-        "ensurerepos": Job(
-            ("ensurerepos",), "Register the repositories the config names"
+        "ensurecatalogs": Job(
+            ("ensurecatalogs",),
+            "Make the hub's catalogs (curated repository lists) exactly the ones the config names",
         ),
         "restore_descriptors": Job(
             ("restore_descriptors",),
@@ -316,5 +322,5 @@ contract = Contract(
             "Store what the bloks of every flavour draw where it has none stored (--all: of every flavour)",
         ),
     },
-    setup=("ensureadmin", "ensurerepos", "restore_descriptors", "restore_bloks"),
+    setup=("ensureadmin", "ensurecatalogs", "restore_descriptors", "restore_bloks"),
 )

@@ -55,6 +55,21 @@ class Query:
         resolver=queries.github_repo,
         description="Return a single tracked GitHub repository by its ID.",
     )
+    catalogs: list[types.Catalog] = field(
+        resolver=queries.catalogs_list,
+        description="List the catalogs this hub reads (curated lists of repositories, e.g. arkitekt.live's), reading again the ones not read for a while.",
+    )
+    catalog: types.Catalog = field(
+        resolver=queries.catalog,
+        description="Return a single catalog by its ID, read again first when it was not read for a while.",
+    )
+    catalog_entry: types.CatalogEntry = field(
+        resolver=queries.catalog_entry,
+        description="Return a single catalog entry by its ID.",
+    )
+    catalog_entries: list[types.CatalogEntry] = field(
+        description="List the repositories the hub's catalogs list, as they were last read. `catalogs` reads stale catalogs again."
+    )
     oci_repo: types.OciRepo = field(
         resolver=queries.oci_repo,
         description="Return a single imported OCI repository by its ID.",
@@ -175,6 +190,17 @@ class Mutation:
         scope="kabinet_repos",
         resolver=mutations.import_repo,
         description="Import an OCI repository that carries an app's releases (e.g. ghcr.io/org/app), or read an imported one again.",
+    )
+
+    import_catalog_entry: types.CatalogEntry = mutation(
+        scope="kabinet_repos",
+        resolver=mutations.import_catalog_entry,
+        description="Import the repository a catalog entry names into the organization: an OCI entry as `importRepo`, a GitHub entry as `createGithubRepo`.",
+    )
+    refresh_catalog: types.Catalog = mutation(
+        scope="kabinet_repos",
+        resolver=mutations.refresh_catalog,
+        description="Read a catalog again now, however recently it was read.",
     )
 
     create_app_image = mutation(

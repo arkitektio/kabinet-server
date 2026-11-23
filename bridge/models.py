@@ -156,6 +156,87 @@ class OciRepo(Repo):
         ]
 
 
+class Catalog(models.Model):
+    """A curated list of repositories this hub reads, e.g. arkitekt.live's default list.
+
+    Hub-wide, not an organization's: the hub's config names every catalog (``ensure_catalogs``)
+    and the ``ensurecatalogs`` setup job keeps these rows exactly what it names. Reading the
+    list (``bridge.catalog``) writes its entries; nothing is tracked until an organization
+    imports an entry.
+    """
+
+    url = models.URLField(
+        max_length=2000, unique=True, help_text="Where the catalog file is read from"
+    )
+    name = models.CharField(
+        max_length=400, blank=True, default="", help_text="The name the file gives"
+    )
+    description = models.TextField(
+        blank=True, default="", help_text="The description the file gives"
+    )
+    etag = models.CharField(
+        max_length=400,
+        blank=True,
+        default="",
+        help_text="The ETag of the last version read, sent back so an unchanged file is not read again",
+    )
+    checked_at = models.DateTimeField(
+        null=True, blank=True, help_text="When reading the file was last tried"
+    )
+    fetched_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the file was last read (or found unchanged) without an error",
+    )
+    error = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Why the last read failed; the entries of the last good read are kept",
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return self.name or self.url
+
+
+class CatalogEntry(models.Model):
+    """One repository a catalog lists: what an organization can import with one click."""
+
+    catalog = models.ForeignKey(
+        Catalog, on_delete=models.CASCADE, related_name="entries"
+    )
+    key = models.CharField(
+        max_length=200,
+        help_text="Unique in the catalog: the entry's identity across reads",
+    )
+    kind = models.CharField(
+        max_length=20, help_text="How the repository is read: 'oci' or 'github'"
+    )
+    reference = models.CharField(
+        max_length=2000,
+        help_text="'registry/repository' for oci, 'owner/repo:branch' for github",
+    )
+    channels = models.JSONField(
+        default=list, help_text="The channels an oci import follows besides releases"
+    )
+    name = models.CharField(max_length=400)
+    description = models.TextField(blank=True, default="")
+    tags = models.JSONField(default=list)
+    logo_url = models.URLField(max_length=2000, null=True, blank=True)
+    homepage = models.URLField(max_length=2000, null=True, blank=True)
+    maintainer = models.CharField(max_length=400, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["catalog", "key"], name="Unique catalog entry key"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.catalog_id}#{self.key}"
+
+
 class RepoBlok(models.Model):
     """A blok a GitHub repository publishes on its own, in its ``.arkitekt/bloks.yaml``.
 

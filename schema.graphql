@@ -987,6 +987,128 @@ type CPUSelector implements Selector {
   arch: String
 }
 
+"""
+A curated list of repositories this hub reads, e.g. arkitekt.live's default list. The hub's config names its catalogs; every organization browses the same ones and imports what it wants from them.
+"""
+type Catalog {
+  id: ID!
+
+  """Where the catalog file is read from."""
+  url: String!
+
+  """The name the file gives, empty until it was read."""
+  name: String!
+
+  """The description the file gives."""
+  description: String!
+
+  """When reading the file was last tried."""
+  checkedAt: DateTime
+
+  """When the file was last read without an error."""
+  fetchedAt: DateTime
+
+  """Why the last read failed. The entries of the last good read are kept."""
+  error: String
+
+  """The repositories the catalog lists."""
+  entries(filters: CatalogEntryFilter, ordering: [CatalogEntryOrder!]! = [], pagination: OffsetPaginationInput): [CatalogEntry!]!
+}
+
+"""
+A repository a catalog lists. Importing it (`importCatalogEntry`) tracks it for the organization, as `importRepo` or `createGithubRepo` would; listing it trusts nothing, a release is still approved before it is deployed.
+"""
+type CatalogEntry @identified(by: "@kabinet/catalogentry") {
+  id: ID!
+
+  """The entry's identity in its catalog, the same across reads."""
+  key: String!
+
+  """
+  The repository: `registry/repository` for an OCI entry, `owner/repo:branch` for a GitHub one.
+  """
+  reference: String!
+
+  """The channels an import of an OCI entry follows besides the releases."""
+  channels: [String!]!
+
+  """The name the catalog gives."""
+  name: String!
+
+  """What the catalog says the repository is."""
+  description: String!
+
+  """The catalog's tags for it."""
+  tags: [String!]!
+
+  """A public URL of a logo, as the catalog gives it."""
+  logoUrl: String
+
+  """Where to read more about it."""
+  homepage: String
+
+  """Who maintains it."""
+  maintainer: String
+
+  """The catalog listing it."""
+  catalog: Catalog!
+
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test (e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
+
+  """How the repository is read."""
+  kind: CatalogEntryKind!
+
+  """
+  The OCI repository the requesting organization imported from this entry, if it did.
+  """
+  ociRepo: OciRepo
+
+  """
+  The GitHub repository the requesting organization tracks from this entry, if it does.
+  """
+  githubRepo: GithubRepo
+}
+
+"""Filter for the entries of the hub's catalogs."""
+input CatalogEntryFilter {
+  AND: CatalogEntryFilter
+  OR: CatalogEntryFilter
+  NOT: CatalogEntryFilter
+  DISTINCT: Boolean
+
+  """Keep only entries whose ID is in this list."""
+  ids: [ID!]
+
+  """
+  Case-insensitive substring of the name, the description, the key or the reference.
+  """
+  search: String
+
+  """Keep only entries of this kind."""
+  kind: CatalogEntryKind
+
+  """Keep only entries carrying every one of these tags."""
+  tags: [String!]
+
+  """Keep only entries of this catalog."""
+  catalog: ID
+}
+
+"""How the repository a catalog entry names is read."""
+enum CatalogEntryKind {
+  OCI
+  GITHUB
+}
+
+input CatalogEntryOrder @oneOf {
+  id: Ordering
+  name: Ordering
+  key: Ordering
+}
+
 type Choice {
   label: String!
   value: AnyDefault!
@@ -2380,6 +2502,19 @@ input ImplementationInput {
 }
 
 """
+Input for importing the repository a catalog entry names into the organization.
+"""
+input ImportCatalogEntryInput {
+  """The ID of the catalog entry."""
+  id: String!
+
+  """
+  For an OCI entry, the channels to follow besides the releases. Omit for the ones the catalog gives.
+  """
+  channels: [String!] = null
+}
+
+"""
 Input for importing an OCI repository, or reading an imported one again.
 """
 input ImportRepoInput {
@@ -2611,6 +2746,14 @@ type Mutation {
   Import an OCI repository that carries an app's releases (e.g. ghcr.io/org/app), or read an imported one again.
   """
   importRepo(input: ImportRepoInput!): OciRepo! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
+
+  """
+  Import the repository a catalog entry names into the organization: an OCI entry as `importRepo`, a GitHub entry as `createGithubRepo`.
+  """
+  importCatalogEntry(input: ImportCatalogEntryInput!): CatalogEntry! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
+
+  """Read a catalog again now, however recently it was read."""
+  refreshCatalog(input: RefreshCatalogInput!): Catalog! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
 
   """Start tracking a new GitHub repository so it can be scanned for apps."""
   createGithubRepo(input: CreateGithubRepoInput!): GithubRepo! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
@@ -3137,6 +3280,24 @@ type Query {
   """Return a single tracked GitHub repository by its ID."""
   githubRepo(id: ID!): GithubRepo! @auth(required_scopes: ["kabinet_read"])
 
+  """
+  List the catalogs this hub reads (curated lists of repositories, e.g. arkitekt.live's), reading again the ones not read for a while.
+  """
+  catalogs: [Catalog!]! @auth(required_scopes: ["kabinet_read"])
+
+  """
+  Return a single catalog by its ID, read again first when it was not read for a while.
+  """
+  catalog(id: ID!): Catalog! @auth(required_scopes: ["kabinet_read"])
+
+  """Return a single catalog entry by its ID."""
+  catalogEntry(id: ID!): CatalogEntry! @auth(required_scopes: ["kabinet_read"])
+
+  """
+  List the repositories the hub's catalogs list, as they were last read. `catalogs` reads stale catalogs again.
+  """
+  catalogEntries(filters: CatalogEntryFilter, ordering: [CatalogEntryOrder!]! = [], pagination: OffsetPaginationInput): [CatalogEntry!]! @auth(required_scopes: ["kabinet_read"])
+
   """Return a single imported OCI repository by its ID."""
   ociRepo(id: ID!): OciRepo! @auth(required_scopes: ["kabinet_read"])
 
@@ -3266,6 +3427,12 @@ input RamSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "k
 
   """The minimum amount of system memory required, in MB."""
   min: Int = null
+}
+
+"""Input for reading a catalog again now."""
+input RefreshCatalogInput {
+  """The ID of the catalog to read."""
+  id: String!
 }
 
 """

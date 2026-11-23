@@ -29,8 +29,6 @@ rustfs:
 redis:
   host: redis
   port: 6379
-default_repos:
-- jhnnsrs/final:main
 
 authentikate:
   # authentikate 4.0 requires AUDIENCE. "*" (ANY_AUDIENCE) accepts a token minted

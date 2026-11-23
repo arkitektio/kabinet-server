@@ -30,13 +30,14 @@ from tests.test_pods import DECLARE_BACKEND, UPDATE_POD, setup_pod
 from tests.utils import Intake, build_relative_dir, execute, execute_raw
 
 DESCRIBED = """
-    query Described($flavour: ID!, $repo: ID!, $deployment: ID!, $pod: ID!) {
+    query Described($flavour: ID!, $repo: ID!, $deployment: ID!, $pod: ID!, $entry: ID!) {
         flavour(id: $flavour) {
             descriptors
             release { descriptors app { descriptors } }
             definitions { descriptors }
         }
         githubRepo(id: $repo) { descriptors }
+        catalogEntry(id: $entry) { descriptors }
         deployment(id: $deployment) { descriptors }
         pod(id: $pod) { descriptors }
         flavours { id descriptors }
@@ -141,7 +142,14 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(
     authenticated_context: HttpContext, built_chain: dict
 ) -> None:
     created = await setup_pod(authenticated_context, built_chain["flavour_id"])
+    catalog = await models.Catalog.objects.acreate(
+        url="https://catalogs.example/a.json"
+    )
+    entry = await models.CatalogEntry.objects.acreate(
+        catalog=catalog, key="ome", kind="oci", reference="ghcr.io/a/ome", name="OME"
+    )
     variables = {
+        "entry": entry.id,
         "flavour": built_chain["flavour_id"],
         "repo": built_chain["repo_id"],
         "deployment": created["deployment"]["id"],
@@ -177,6 +185,7 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(
     # A structure that declares no descriptors has none.
     assert described["release"]["app"]["descriptors"] == {}
     assert data["githubRepo"]["descriptors"] == {}
+    assert data["catalogEntry"]["descriptors"] == {}
 
     declared = {
         s["identifier"]: {d["key"] for d in s["descriptors"]}
@@ -190,6 +199,7 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(
         "@kabinet/deployment": data["deployment"]["descriptors"],
         "@kabinet/pod": data["pod"]["descriptors"],
         "@kabinet/githubrepo": data["githubRepo"]["descriptors"],
+        "@kabinet/catalogentry": data["catalogEntry"]["descriptors"],
     }
     assert {
         identifier: set(values) for identifier, values in answered.items()

@@ -61,7 +61,7 @@ Every value is also settable from the environment. The nesting is expressed with
 | `django.debug` | `DJANGO__DEBUG` |
 | `redis.host` | `REDIS__HOST` |
 
-Lists and nested objects (e.g. `authentikate.issuers`, `ensured_repos`, `repo_map`) are
+Lists and nested objects (e.g. `authentikate.issuers`, `ensure_catalogs`) are
 awkward to express as environment variables — prefer the YAML file for those and use env
 vars for the flat scalars (hosts, ports, passwords, toggles).
 
@@ -177,17 +177,20 @@ authentikate:
   static_tokens: {}
 ```
 
-### Repository provisioning (top-level keys)
+### Catalogs (top-level keys)
 
-Kabinet manages container/app repositories. These three top-level keys control which
-repos are cloned, mapped, and provisioned. All are optional lists/objects, so set them in
-the YAML file rather than via environment variables.
+The curated repository lists this hub reads, e.g. arkitekt.live's default list
+(`docs/catalogs.md`). Every organization of the hub browses the same catalogs and imports
+what it wants from them; nothing is tracked for an organization until it does.
 
 | Key | Env var | Type | Default | Description |
 |---|---|---|---|---|
-| `ensured_repos` | — (use YAML) | list[str] | `[]` | Container repos cloned/ensured on boot (`owner/repo:ref`). |
-| `repo_map` | — (use YAML) | list[object] | `[]` | Per-organization repository mappings. |
-| `default_repos` | — (use YAML) | list[str] | `[]` | Default repositories provisioned for new installs (`owner/repo:ref`). |
+| `ensure_catalogs` | — (use YAML) | list[str] | `["https://arkitekt.live/catalogs/default.json"]` | URLs of the catalog files (JSON or YAML); `[]` reads none. The `ensurecatalogs` setup job makes the hub's catalogs exactly these. |
+| `catalog_ttl` | `CATALOG_TTL` | int | `3600` | Seconds a catalog is not read again when the catalogs are listed; `refreshCatalog` reads one at once. |
+
+`ensured_repos`, `repo_map` and `default_repos` are gone: they copied GitHub repositories
+into an organization once, when it was created, and nothing kept them up to date. A config
+that still has them loads; they are ignored.
 
 ### `embeddings` — semantic search
 

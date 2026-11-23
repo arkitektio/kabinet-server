@@ -3,6 +3,7 @@
 from .app_image import create_app_image
 from .approval import approve_release, revoke_approval
 from .backend import declare_backend, delete_backend
+from .catalog import import_catalog_entry, refresh_catalog
 from .deployment import create_deployment, update_deployment
 from .pod import create_pod, delete_pod, dump_logs, update_pod
 from .repo import create_github_repo, rescan_repos, scan_repo
@@ -28,7 +29,9 @@ __all__ = [
     "delete_backend",
     "delete_pod",
     "dump_logs",
+    "import_catalog_entry",
     "import_repo",
+    "refresh_catalog",
     "rescan_repos",
     "scan_repo",
     "update_deployment",

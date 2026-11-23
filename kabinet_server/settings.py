@@ -139,9 +139,8 @@ AUTHENTICATION_BACKENDS = (
 WSGI_APPLICATION = "kabinet_server.wsgi.application"
 ASGI_APPLICATION = "kabinet_server.asgi.application"
 
-REPO_MAP = conf.repo_map
-ENSURED_REPOS = conf.ensured_repos
-DEFAULT_REPOS = conf.default_repos
+ENSURE_CATALOGS = conf.ensure_catalogs
+CATALOG_TTL = conf.catalog_ttl
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 

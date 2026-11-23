@@ -63,12 +63,8 @@ class DisableMigrations:
 # Disable logging during tests to reduce noise
 logging.disable(logging.CRITICAL)
 
-# Don't auto-provision default/ensured GithubRepos when an Organization is
-# created (see bridge.signals.ensure_default_repos_for_organization). The query
-# tests build their own repo chains via fixtures and assert on exact contents,
-# so any config-provisioned repo would leak in as an extra row.
-DEFAULT_REPOS = []
-ENSURED_REPOS = []
+# No catalogs unless a test names its own.
+ENSURE_CATALOGS = []
 
 # Enable database access from async code in tests
 DATABASE_ROUTERS = []

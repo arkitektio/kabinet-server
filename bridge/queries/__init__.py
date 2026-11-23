@@ -2,6 +2,7 @@
 
 from .app import app, app_store_totals
 from .backend import backend
+from .catalog import catalog, catalog_entry, catalogs_list
 from .definition import definition
 from .deployment import deployment
 from .flavour import flavour, flavour_blok
@@ -15,6 +16,9 @@ __all__ = [
     "app",
     "app_store_totals",
     "backend",
+    "catalog",
+    "catalog_entry",
+    "catalogs_list",
     "definition",
     "deployment",
     "flavour",

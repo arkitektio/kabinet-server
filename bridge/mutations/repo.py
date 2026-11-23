@@ -12,7 +12,6 @@ Fetching and diagnosing the config file itself lives in ``bridge.repo.fetch``.
 
 import asyncio
 import logging
-import re
 
 from asgiref.sync import sync_to_async
 from authentikate.models import Organization, User
@@ -22,6 +21,7 @@ from bridge import inputs, models, types
 from bridge.repo import oci
 from bridge.repo.db import apply_contents
 from bridge.repo.fetch import RepoCoordinates, aget_repo_contents
+from bridge.repo.layout import parse_github_identifier
 from bridge.scoping import aget_for_org, for_org
 
 logger = logging.getLogger(__name__)
@@ -58,25 +58,7 @@ def infer_repo_info(
     are stripped under `python -O`.
     """
     if input.identifier:
-        # A full GitHub URL, with or without a /tree/<branch> suffix.
-        match = re.match(
-            r"https:\/\/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/([^\/]+))?",
-            input.identifier,
-        )
-        if match:
-            user, repo, branch = match.groups()
-            branch = branch or "main"
-        elif "/" in input.identifier:
-            # The short form: "user/repo" or "user/repo:branch".
-            user, repo_with_branch = input.identifier.split("/", 1)
-            if ":" in repo_with_branch:
-                repo, branch = repo_with_branch.split(":", 1)
-            else:
-                repo, branch = repo_with_branch, "main"
-        else:
-            raise ValueError(
-                f"'{input.identifier}' is not a GitHub identifier. Expected a github.com URL, 'user/repo', or 'user/repo:branch'."
-            )
+        user, repo, branch = parse_github_identifier(input.identifier)
     else:
         if not (input.user and input.repo):
             raise ValueError(

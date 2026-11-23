@@ -443,6 +443,106 @@ class OciRepo:
         return build_prescoped_queryset(info, queryset, field="organization")
 
 
+@strawberry_django.type(
+    models.Catalog,
+    description="A curated list of repositories this hub reads, e.g. arkitekt.live's default list. The hub's config names its catalogs; every organization browses the same ones and imports what it wants from them.",
+    pagination=True,
+)
+class Catalog:
+    id: auto
+    url: str = strawberry_django.field(
+        description="Where the catalog file is read from."
+    )
+    name: str = strawberry_django.field(
+        description="The name the file gives, empty until it was read."
+    )
+    description: str = strawberry_django.field(
+        description="The description the file gives."
+    )
+    checked_at: datetime.datetime | None = strawberry_django.field(
+        description="When reading the file was last tried."
+    )
+    fetched_at: datetime.datetime | None = strawberry_django.field(
+        description="When the file was last read without an error."
+    )
+    error: str | None = strawberry_django.field(
+        description="Why the last read failed. The entries of the last good read are kept."
+    )
+    entries: list["CatalogEntry"] = strawberry_django.field(
+        description="The repositories the catalog lists."
+    )
+
+
+@strawberry_django.type(
+    models.CatalogEntry,
+    description="A repository a catalog lists. Importing it (`importCatalogEntry`) tracks it for the organization, as `importRepo` or `createGithubRepo` would; listing it trusts nothing, a release is still approved before it is deployed.",
+    filters=filters.CatalogEntryFilter,
+    ordering=filters.CatalogEntryOrder,
+    pagination=True,
+)
+class CatalogEntry:
+    id: auto
+    key: str = strawberry_django.field(
+        description="The entry's identity in its catalog, the same across reads."
+    )
+    reference: str = strawberry_django.field(
+        description="The repository: `registry/repository` for an OCI entry, `owner/repo:branch` for a GitHub one."
+    )
+    channels: list[str] = strawberry_django.field(
+        description="The channels an import of an OCI entry follows besides the releases."
+    )
+    name: str = strawberry_django.field(description="The name the catalog gives.")
+    description: str = strawberry_django.field(
+        description="What the catalog says the repository is."
+    )
+    tags: list[str] = strawberry_django.field(description="The catalog's tags for it.")
+    logo_url: str | None = strawberry_django.field(
+        description="A public URL of a logo, as the catalog gives it."
+    )
+    homepage: str | None = strawberry_django.field(
+        description="Where to read more about it."
+    )
+    maintainer: str | None = strawberry_django.field(description="Who maintains it.")
+    catalog: Catalog = strawberry_django.field(description="The catalog listing it.")
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION
+    )
+
+    @strawberry_django.field(description="How the repository is read.", only=["kind"])
+    def kind(self) -> enums.CatalogEntryKind:
+        return enums.CatalogEntryKind(self.kind)
+
+    @strawberry_django.field(
+        description="The OCI repository the requesting organization imported from this entry, if it did.",
+        only=["kind", "reference"],
+    )
+    def oci_repo(self, info: Info) -> Optional["OciRepo"]:
+        if self.kind != enums.CatalogEntryKind.OCI.value:
+            return None
+        registry, _, repository = self.reference.partition("/")
+        return models.OciRepo.objects.filter(
+            registry=registry,
+            repository=repository,
+            organization=info.context.request.organization,
+        ).first()
+
+    @strawberry_django.field(
+        description="The GitHub repository the requesting organization tracks from this entry, if it does.",
+        only=["kind", "reference"],
+    )
+    def github_repo(self, info: Info) -> Optional["GithubRepo"]:
+        if self.kind != enums.CatalogEntryKind.GITHUB.value:
+            return None
+        user, _, rest = self.reference.partition("/")
+        repo, _, branch = rest.partition(":")
+        return models.GithubRepo.objects.filter(
+            user=user,
+            repo=repo,
+            branch=branch,
+            organization=info.context.request.organization,
+        ).first()
+
+
 GithubRepoStats, GithubRepoStatsResolver = create_stats_type(
     model=models.GithubRepo,
     filters=filters.GithubRepoFilter,

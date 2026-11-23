@@ -59,3 +59,11 @@ class AppHardware(str, Enum):
 
     GPU = "GPU"
     CPU = "CPU"
+
+
+@strawberry.enum(description="How the repository a catalog entry names is read.")
+class CatalogEntryKind(str, Enum):
+    """How the repository a catalog entry names is read."""
+
+    OCI = "oci"
+    GITHUB = "github"

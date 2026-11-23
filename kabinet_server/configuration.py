@@ -7,8 +7,6 @@ then the YAML file (``config.yaml`` where the service runs by default; override 
 with a ``ValidationError`` if they are not supplied via config or environment.
 """
 
-from typing import Any
-
 from arkitekt_service.server import settings as shared
 from arkitekt_service.server.settings import (
     DjangoSettings,
@@ -17,7 +15,10 @@ from arkitekt_service.server.settings import (
     ServiceSettings,
 )
 from authentikate.base_models import AuthentikateSettings
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+#: The apps the Arkitekt team publishes, served by arkitekt.live (arkitektio/arkitektio.github.io).
+DEFAULT_CATALOG = "https://arkitekt.live/catalogs/default.json"
 
 
 class RedisSettings(shared.RedisSettings):
@@ -96,16 +97,22 @@ class Settings(ServiceSettings):
     authentikate: AuthentikateSettings = Field(
         description="Token-verification config (authentikate)."
     )
-    ensured_repos: list[str] = Field(
-        default_factory=list,
-        description="Container repos cloned/ensured on boot (``owner/repo:ref``).",
+    ensure_catalogs: list[str] = Field(
+        default_factory=lambda: [DEFAULT_CATALOG],
+        description="The catalogs this hub reads: URLs of curated repository lists (JSON or YAML, see docs/catalogs.md). Defaults to arkitekt.live's list; `[]` reads none. The `ensurecatalogs` setup job makes the hub's catalogs exactly these.",
     )
-    repo_map: list[dict[str, Any]] = Field(
-        default_factory=list, description="Per-organization repository mappings."
-    )
-    default_repos: list[str] = Field(
-        default_factory=list,
-        description="Default repositories provisioned for new installs (``owner/repo:ref``).",
+
+    @field_validator("ensure_catalogs")
+    @classmethod
+    def _catalog_urls(cls, value: list[str]) -> list[str]:
+        for url in value:
+            if not url.startswith(("https://", "http://")):
+                raise ValueError(f"'{url}' is not an http(s) URL of a catalog")
+        return value
+
+    catalog_ttl: int = Field(
+        default=3600,
+        description="Seconds a catalog is not read again when the catalogs are listed; `refreshCatalog` reads one at once.",
     )
     embeddings: EmbeddingsSettings = Field(
         default_factory=EmbeddingsSettings,

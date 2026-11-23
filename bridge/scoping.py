@@ -17,8 +17,13 @@ from kante.types import Info
 # Models that have no organization anywhere in their non-nullable FK graph.
 # Access to these is knowingly unscoped until they grow an organization (or a
 # required FK to an organization-scoped model). Keep this list short and
-# visible — it is the tenancy escape hatch. Currently every model is scoped.
-UNSCOPED_MODELS: frozenset[str] = frozenset()
+# visible — it is the tenancy escape hatch.
+#
+# `Catalog` and `CatalogEntry` are the hub's, not an organization's: the config names the
+# catalogs and every organization browses the same entries. What an organization imports
+# from one is an `OciRepo` / `GithubRepo` of its own, and an entry's fields that point at
+# those filter by the requesting organization (``bridge.types.CatalogEntry``).
+UNSCOPED_MODELS: frozenset[str] = frozenset({"Catalog", "CatalogEntry"})
 
 # `LogDump` reaches its organization through `pod__backend__organization` and `Flavour`
 # through `release__app__organization`, so a depth of 3 was exactly saturated: one more

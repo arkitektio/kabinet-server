@@ -186,6 +186,44 @@ class OciRepoFilter:
 
 
 @strawberry_django.filter_type(
+    models.CatalogEntry, description="Filter for the entries of the hub's catalogs."
+)
+class CatalogEntryFilter:
+    """Filter for the entries of the hub's catalogs."""
+
+    @strawberry_django.filter_field(
+        description="Keep only entries whose ID is in this list."
+    )
+    def ids(self, value: list[strawberry.ID], prefix: str) -> Q:
+        return Q(**{f"{prefix}id__in": value})
+
+    @strawberry_django.filter_field(
+        description="Case-insensitive substring of the name, the description, the key or the reference."
+    )
+    def search(self, value: str, prefix: str) -> Q:
+        return (
+            Q(**{f"{prefix}name__icontains": value})
+            | Q(**{f"{prefix}description__icontains": value})
+            | Q(**{f"{prefix}key__icontains": value})
+            | Q(**{f"{prefix}reference__icontains": value})
+        )
+
+    @strawberry_django.filter_field(description="Keep only entries of this kind.")
+    def kind(self, value: enums.CatalogEntryKind, prefix: str) -> Q:
+        return Q(**{f"{prefix}kind": value.value})
+
+    @strawberry_django.filter_field(
+        description="Keep only entries carrying every one of these tags."
+    )
+    def tags(self, value: list[str], prefix: str) -> Q:
+        return Q(**{f"{prefix}tags__contains": value})
+
+    @strawberry_django.filter_field(description="Keep only entries of this catalog.")
+    def catalog(self, value: strawberry.ID, prefix: str) -> Q:
+        return Q(**{f"{prefix}catalog_id": value})
+
+
+@strawberry_django.filter_type(
     models.RepoBlok, description="Filter for the bloks repositories publish."
 )
 class RepoBlokFilter:
@@ -867,6 +905,13 @@ class OciRepoOrder:
     name: strawberry.auto
     added_at: strawberry.auto
     updated_at: strawberry.auto
+
+
+@strawberry_django.order_type(models.CatalogEntry)
+class CatalogEntryOrder:
+    id: strawberry.auto
+    name: strawberry.auto
+    key: strawberry.auto
 
 
 @strawberry_django.order_type(models.Release)

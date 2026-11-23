@@ -51,6 +51,42 @@ class ImportRepoInput:
     channels: list[str] | None = None
 
 
+class RefreshCatalogInputModel(BaseModel):
+    """Input for reading a catalog again."""
+
+    id: str = Field(description="The ID of the catalog to read.")
+
+
+@pydantic.input(
+    RefreshCatalogInputModel, description="Input for reading a catalog again now."
+)
+class RefreshCatalogInput:
+    """Input for reading a catalog again."""
+
+    id: str
+
+
+class ImportCatalogEntryInputModel(BaseModel):
+    """Input for importing the repository a catalog entry names."""
+
+    id: str = Field(description="The ID of the catalog entry.")
+    channels: list[str] | None = Field(
+        default=None,
+        description="For an OCI entry, the channels to follow besides the releases. Omit for the ones the catalog gives.",
+    )
+
+
+@pydantic.input(
+    ImportCatalogEntryInputModel,
+    description="Input for importing the repository a catalog entry names into the organization.",
+)
+class ImportCatalogEntryInput:
+    """Input for importing the repository a catalog entry names."""
+
+    id: str
+    channels: list[str] | None = None
+
+
 class CreateGithubRepoInputModel(BaseModel):
     """Input for tracking a new GitHub repository."""
 
