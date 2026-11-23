@@ -157,16 +157,26 @@ class OciRepo(Repo):
 
 
 class Catalog(models.Model):
-    """A curated list of repositories this hub reads, e.g. arkitekt.live's default list.
+    """A curated list of repositories an organization reads, e.g. arkitekt.live's default list.
 
-    Hub-wide, not an organization's: the hub's config names every catalog (``ensure_catalogs``)
-    and the ``ensurecatalogs`` setup job keeps these rows exactly what it names. Reading the
-    list (``bridge.catalog``) writes its entries; nothing is tracked until an organization
-    imports an entry.
+    The organization's: the hub's config names the catalogs every organization has
+    (``ensure_catalogs``, ``ensured``), and an organization adds its own (``createCatalog``).
+    Reading the list (``bridge.catalog``) writes its entries; nothing is tracked until the
+    organization imports an entry.
     """
 
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="catalogs"
+    )
+    creator = models.ForeignKey(
+        get_user_model(), on_delete=models.SET_NULL, null=True, blank=True
+    )
     url = models.URLField(
-        max_length=2000, unique=True, help_text="Where the catalog file is read from"
+        max_length=2000, help_text="Where the catalog file is read from"
+    )
+    ensured = models.BooleanField(
+        default=False,
+        help_text="The hub's config names it (ensure_catalogs): the organization cannot remove it",
     )
     name = models.CharField(
         max_length=400, blank=True, default="", help_text="The name the file gives"
@@ -194,6 +204,13 @@ class Catalog(models.Model):
         help_text="Why the last read failed; the entries of the last good read are kept",
     )
     added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "url"], name="Unique catalog url for org"
+            )
+        ]
 
     def __str__(self) -> str:
         return self.name or self.url

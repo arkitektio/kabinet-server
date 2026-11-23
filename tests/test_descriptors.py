@@ -37,7 +37,7 @@ DESCRIBED = """
             definitions { descriptors }
         }
         githubRepo(id: $repo) { descriptors }
-        catalogEntry(id: $entry) { descriptors }
+        catalogEntry(id: $entry) { descriptors catalog { descriptors } }
         deployment(id: $deployment) { descriptors }
         pod(id: $pod) { descriptors }
         flavours { id descriptors }
@@ -143,7 +143,8 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(
 ) -> None:
     created = await setup_pod(authenticated_context, built_chain["flavour_id"])
     catalog = await models.Catalog.objects.acreate(
-        url="https://catalogs.example/a.json"
+        url="https://catalogs.example/a.json",
+        organization=authenticated_context.request.organization,
     )
     entry = await models.CatalogEntry.objects.acreate(
         catalog=catalog, key="ome", kind="oci", reference="ghcr.io/a/ome", name="OME"
@@ -186,6 +187,7 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(
     assert described["release"]["app"]["descriptors"] == {}
     assert data["githubRepo"]["descriptors"] == {}
     assert data["catalogEntry"]["descriptors"] == {}
+    assert data["catalogEntry"]["catalog"]["descriptors"] == {}
 
     declared = {
         s["identifier"]: {d["key"] for d in s["descriptors"]}
@@ -200,6 +202,7 @@ async def test_an_object_answers_the_descriptors_its_structure_declares(
         "@kabinet/pod": data["pod"]["descriptors"],
         "@kabinet/githubrepo": data["githubRepo"]["descriptors"],
         "@kabinet/catalogentry": data["catalogEntry"]["descriptors"],
+        "@kabinet/catalog": data["catalogEntry"]["catalog"]["descriptors"],
     }
     assert {
         identifier: set(values) for identifier, values in answered.items()

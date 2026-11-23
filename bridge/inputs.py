@@ -51,6 +51,40 @@ class ImportRepoInput:
     channels: list[str] | None = None
 
 
+class CreateCatalogInputModel(BaseModel):
+    """Input for adding a catalog to the organization."""
+
+    url: str = Field(
+        description="Where the catalog file (JSON or YAML) is read from, an http(s) URL."
+    )
+
+
+@pydantic.input(
+    CreateCatalogInputModel,
+    description="Input for adding a catalog to the organization, or reading an added one again.",
+)
+class CreateCatalogInput:
+    """Input for adding a catalog to the organization."""
+
+    url: str
+
+
+class DeleteCatalogInputModel(BaseModel):
+    """Input for removing a catalog from the organization."""
+
+    id: str = Field(description="The ID of the catalog to remove.")
+
+
+@pydantic.input(
+    DeleteCatalogInputModel,
+    description="Input for removing a catalog the organization added.",
+)
+class DeleteCatalogInput:
+    """Input for removing a catalog from the organization."""
+
+    id: str
+
+
 class RefreshCatalogInputModel(BaseModel):
     """Input for reading a catalog again."""
 

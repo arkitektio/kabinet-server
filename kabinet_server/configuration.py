@@ -99,7 +99,7 @@ class Settings(ServiceSettings):
     )
     ensure_catalogs: list[str] = Field(
         default_factory=lambda: [DEFAULT_CATALOG],
-        description="The catalogs this hub reads: URLs of curated repository lists (JSON or YAML, see docs/catalogs.md). Defaults to arkitekt.live's list; `[]` reads none. The `ensurecatalogs` setup job makes the hub's catalogs exactly these.",
+        description="The catalogs every organization of this hub reads: URLs of curated repository lists (JSON or YAML, see docs/catalogs.md). Defaults to arkitekt.live's list; `[]` names none. An organization gets them when it lists its catalogs, cannot remove them, and adds its own beside them.",
     )
 
     @field_validator("ensure_catalogs")
@@ -112,7 +112,7 @@ class Settings(ServiceSettings):
 
     catalog_ttl: int = Field(
         default=3600,
-        description="Seconds a catalog is not read again when the catalogs are listed; `refreshCatalog` reads one at once.",
+        description="Seconds a catalog is not read again when its organization lists its catalogs; `refreshCatalog` reads one at once.",
     )
     embeddings: EmbeddingsSettings = Field(
         default_factory=EmbeddingsSettings,

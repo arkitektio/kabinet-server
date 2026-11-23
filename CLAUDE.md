@@ -26,9 +26,9 @@ anything is recreated — and runs everything else as a job the image offers by 
 
 What this service declares:
 
-- Setup, in order: `ensureadmin`, `ensurecatalogs`, `restore_descriptors`, `restore_bloks`.
-  `ensurecatalogs` makes the hub's catalogs (`docs/catalogs.md`) exactly the `ensure_catalogs`
-  the config names; it reads no file (that happens when the catalogs are listed).
+- Setup, in order: `ensureadmin`, `restore_descriptors`, `restore_bloks`. The catalogs the
+  config names (`ensure_catalogs`, `docs/catalogs.md`) are no job: an organization gets them
+  when it lists its catalogs.
   `restore_descriptors` stores the descriptors of every flavour, release, definition, deployment
   and pod that misses a declared key (rows from before a key existed); `--all` describes every
   row again after a describer changed what a key means. `restore_bloks` stores what a flavour's

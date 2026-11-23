@@ -179,14 +179,15 @@ authentikate:
 
 ### Catalogs (top-level keys)
 
-The curated repository lists this hub reads, e.g. arkitekt.live's default list
-(`docs/catalogs.md`). Every organization of the hub browses the same catalogs and imports
-what it wants from them; nothing is tracked for an organization until it does.
+The curated repository lists every organization of this hub reads, e.g. arkitekt.live's
+default list (`docs/catalogs.md`). Catalogs are an organization's: it gets the ones named here
+the first time it lists its catalogs (and cannot remove them), adds its own beside them
+(`createCatalog`), and imports what it wants from either.
 
 | Key | Env var | Type | Default | Description |
 |---|---|---|---|---|
-| `ensure_catalogs` | — (use YAML) | list[str] | `["https://arkitekt.live/catalogs/default.json"]` | URLs of the catalog files (JSON or YAML); `[]` reads none. The `ensurecatalogs` setup job makes the hub's catalogs exactly these. |
-| `catalog_ttl` | `CATALOG_TTL` | int | `3600` | Seconds a catalog is not read again when the catalogs are listed; `refreshCatalog` reads one at once. |
+| `ensure_catalogs` | — (use YAML) | list[str] | `["https://arkitekt.live/catalogs/default.json"]` | URLs of the catalog files (JSON or YAML) every organization reads; `[]` names none. A URL dropped here is removed from every organization the next time it lists its catalogs. |
+| `catalog_ttl` | `CATALOG_TTL` | int | `3600` | Seconds a catalog is not read again when its organization lists its catalogs; `refreshCatalog` reads one at once. |
 
 `ensured_repos`, `repo_map` and `default_repos` are gone: they copied GitHub repositories
 into an organization once, when it was created, and nothing kept them up to date. A config

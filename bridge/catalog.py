@@ -1,15 +1,16 @@
-"""Catalogs: curated lists of repositories a hub reads, e.g. arkitekt.live's default list.
+"""Catalogs: curated lists of repositories an organization reads, e.g. arkitekt.live's.
 
-A catalog is one file at a URL, JSON or YAML (``docs/catalogs.md``). Reading it writes its
-entries: upserted by key and deleted when the file no longer lists them, in one transaction,
-so two replicas reading at once leave the same rows. A file that cannot be read, or that does
-not validate, leaves the entries of the last good read and records why on the catalog.
+A catalog is one file at a URL, JSON or YAML (``docs/catalogs.md``), and an organization's:
+the ones the hub's config names (``ensure_catalogs``, added to every organization the first
+time it lists its catalogs) and the ones it added itself (``createCatalog``). Reading it writes
+its entries: matched by key, created, changed or deleted row by row, so each change is
+signalled to the organization. A file that cannot be read, or that does not validate, leaves
+the entries of the last good read and records why on the catalog.
 
-Nothing here runs on its own. A catalog is read when the catalogs are listed and it was last
-tried longer ago than ``CATALOG_TTL`` seconds, or when ``refreshCatalog`` asks for it. Which
-catalogs there are is the config's to say (``ensure_catalogs``, the ``ensurecatalogs`` job).
+Nothing here runs on its own. A catalog is read when its organization lists its catalogs and it
+was last tried longer ago than ``CATALOG_TTL`` seconds, or when ``refreshCatalog`` asks for it.
 
-Listing is not trusting: an entry is found here, and an organization still imports it, and a
+Listing is not trusting: an entry is found here, and the organization still imports it, and a
 release of it is still approved, before anything of it runs.
 """
 
@@ -23,6 +24,7 @@ from typing import Literal
 import aiohttp
 import yaml
 from asgiref.sync import sync_to_async
+from authentikate.models import Organization, User
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
@@ -170,50 +172,70 @@ async def _fetch(
         raise CatalogError(f"{url} could not be read: {e or type(e).__name__}") from e
 
 
+_ENTRY_FIELDS = (
+    "kind",
+    "reference",
+    "channels",
+    "name",
+    "description",
+    "tags",
+    "logo_url",
+    "homepage",
+    "maintainer",
+)
+
+
+def _entry_values(entry: EntrySpec) -> dict[str, object]:
+    return {
+        "kind": entry.kind.value,
+        "reference": entry.reference,
+        "channels": entry.channels,
+        "name": entry.name,
+        "description": entry.description,
+        "tags": entry.tags,
+        "logo_url": entry.logo,
+        "homepage": entry.homepage,
+        "maintainer": entry.maintainer,
+    }
+
+
 def _write(catalog_id: int, spec: CatalogSpec | None, etag: str) -> None:
-    """Record a good read: ``spec`` is the file, ``None`` when it was unchanged."""
+    """Record a good read: ``spec`` is the file, ``None`` when it was unchanged.
+
+    Row by row, so each entry that is new, changed or gone is signalled to the catalog's
+    organization, and nothing else is. The catalog row is locked first: two writers of the
+    same catalog (a stale read and a ``refreshCatalog``) take turns.
+    """
     now = timezone.now()
     with transaction.atomic():
+        catalog = models.Catalog.objects.select_for_update().get(id=catalog_id)
         if spec is not None:
-            models.CatalogEntry.objects.bulk_create(
-                [
-                    models.CatalogEntry(
-                        catalog_id=catalog_id,
-                        key=entry.key,
-                        kind=entry.kind.value,
-                        reference=entry.reference,
-                        channels=entry.channels,
-                        name=entry.name,
-                        description=entry.description,
-                        tags=entry.tags,
-                        logo_url=entry.logo,
-                        homepage=entry.homepage,
-                        maintainer=entry.maintainer,
+            stored = {entry.key: entry for entry in catalog.entries.all()}
+            for entry in spec.entries:
+                values = _entry_values(entry)
+                existing = stored.pop(entry.key, None)
+                if existing is None:
+                    models.CatalogEntry.objects.create(
+                        catalog=catalog, key=entry.key, **values
                     )
-                    for entry in spec.entries
-                ],
-                update_conflicts=True,
-                unique_fields=["catalog", "key"],
-                update_fields=[
-                    "kind",
-                    "reference",
-                    "channels",
-                    "name",
-                    "description",
-                    "tags",
-                    "logo_url",
-                    "homepage",
-                    "maintainer",
-                ],
-            )
-            models.CatalogEntry.objects.filter(catalog_id=catalog_id).exclude(
-                key__in=[entry.key for entry in spec.entries]
-            ).delete()
-            models.Catalog.objects.filter(id=catalog_id).update(
-                name=spec.name, description=spec.description
-            )
-        models.Catalog.objects.filter(id=catalog_id).update(
-            etag=etag, checked_at=now, fetched_at=now, error=None
+                elif any(getattr(existing, f) != v for f, v in values.items()):
+                    for field, value in values.items():
+                        setattr(existing, field, value)
+                    existing.save(update_fields=list(_ENTRY_FIELDS))
+            for gone in stored.values():
+                gone.delete()
+            catalog.name, catalog.description = spec.name, spec.description
+        catalog.etag, catalog.error = etag, None
+        catalog.checked_at = catalog.fetched_at = now
+        catalog.save(
+            update_fields=[
+                "name",
+                "description",
+                "etag",
+                "error",
+                "checked_at",
+                "fetched_at",
+            ]
         )
 
 
@@ -241,6 +263,55 @@ async def refresh(catalog: models.Catalog) -> models.Catalog:
     return await models.Catalog.objects.aget(id=catalog.id)
 
 
+async def add(
+    url: str, organization: Organization, creator: User | None
+) -> models.Catalog:
+    """Add the catalog at ``url`` to ``organization`` and read it, or read it again.
+
+    Read before it is stored: a URL that is not a readable catalog is not added.
+    """
+    catalog = await models.Catalog.objects.filter(
+        organization=organization, url=url
+    ).afirst()
+    if catalog is not None:
+        return await refresh(catalog)
+    async with aiohttp.ClientSession() as session:
+        body, etag = await _fetch(session, url, "")
+    if body is None:  # nothing was sent to match, so a 304 is the server's mistake
+        raise CatalogError(f"{url} answered 304 to a first read")
+    spec = parse(body)
+    catalog, _ = await models.Catalog.objects.aget_or_create(
+        organization=organization, url=url, defaults={"creator": creator}
+    )
+    await sync_to_async(_write)(catalog.id, spec, etag)
+    return await models.Catalog.objects.aget(id=catalog.id)
+
+
+def _ensure(organization: Organization) -> None:
+    """Make ``organization``'s config catalogs exactly the ones ``ENSURE_CATALOGS`` names.
+
+    A named catalog it lacks is added (unread); one it added itself becomes the config's; a
+    config catalog no longer named is deleted. Its own catalogs stay as they are.
+    """
+    urls: list[str] = list(dict.fromkeys(settings.ENSURE_CATALOGS))
+    for url in urls:
+        catalog, created = models.Catalog.objects.get_or_create(
+            organization=organization, url=url, defaults={"ensured": True}
+        )
+        if not created and not catalog.ensured:
+            catalog.ensured = True
+            catalog.save(update_fields=["ensured"])
+    for gone in models.Catalog.objects.filter(
+        organization=organization, ensured=True
+    ).exclude(url__in=urls):
+        gone.delete()
+
+
+async def ensure(organization: Organization) -> None:
+    """``organization``'s config catalogs as the config names them now (``_ensure``)."""
+    await sync_to_async(_ensure)(organization)
+
+
 def _claim(catalog: models.Catalog, cutoff: datetime.datetime) -> bool:
     """Take the read of a stale catalog, unless another request (or replica) just did."""
     now = timezone.now()
@@ -250,13 +321,15 @@ def _claim(catalog: models.Catalog, cutoff: datetime.datetime) -> bool:
     )
 
 
-async def refresh_stale() -> None:
-    """Read every catalog last tried longer ago than ``CATALOG_TTL`` seconds, all at once."""
+async def refresh_stale(organization: Organization) -> None:
+    """Read every catalog of ``organization`` last tried longer ago than ``CATALOG_TTL``
+    seconds, all at once."""
     cutoff = timezone.now() - datetime.timedelta(seconds=settings.CATALOG_TTL)
     stale = [
         catalog
         async for catalog in models.Catalog.objects.filter(
-            Q(checked_at__isnull=True) | Q(checked_at__lt=cutoff)
+            Q(checked_at__isnull=True) | Q(checked_at__lt=cutoff),
+            organization=organization,
         )
     ]
     claimed = [

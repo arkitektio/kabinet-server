@@ -988,13 +988,18 @@ type CPUSelector implements Selector {
 }
 
 """
-A curated list of repositories this hub reads, e.g. arkitekt.live's default list. The hub's config names its catalogs; every organization browses the same ones and imports what it wants from them.
+A curated list of repositories the organization reads, e.g. arkitekt.live's default list: the ones the hub's config names (`ensured`) and the ones the organization added (`createCatalog`).
 """
-type Catalog {
+type Catalog @identified(by: "@kabinet/catalog") {
   id: ID!
 
   """Where the catalog file is read from."""
   url: String!
+
+  """
+  Whether the hub's config names it. The organization cannot remove such a catalog.
+  """
+  ensured: Boolean!
 
   """The name the file gives, empty until it was read."""
   name: String!
@@ -1011,12 +1016,26 @@ type Catalog {
   """Why the last read failed. The entries of the last good read are kept."""
   error: String
 
+  """When the organization got this catalog."""
+  addedAt: DateTime!
+
+  """The member who added it; none for a catalog the config names."""
+  creator: User
+
+  """The organization reading this catalog."""
+  organization: Organization!
+
   """The repositories the catalog lists."""
   entries(filters: CatalogEntryFilter, ordering: [CatalogEntryOrder!]! = [], pagination: OffsetPaginationInput): [CatalogEntry!]!
+
+  """
+  This object's descriptors, a flat mapping of key to value: the facts about it that a trigger can test (e.g. `@kabinet/status`). The keys are the ones kabinet declares for this structure, and the values are the ones a signal about the object carries. Empty for a structure that declares none
+  """
+  descriptors: JSON!
 }
 
 """
-A repository a catalog lists. Importing it (`importCatalogEntry`) tracks it for the organization, as `importRepo` or `createGithubRepo` would; listing it trusts nothing, a release is still approved before it is deployed.
+A repository a catalog of the organization lists. Importing it (`importCatalogEntry`) imports it as `importRepo` or `createGithubRepo` would; listing it trusts nothing, a release is still approved before it is deployed.
 """
 type CatalogEntry @identified(by: "@kabinet/catalogentry") {
   id: ID!
@@ -1062,12 +1081,12 @@ type CatalogEntry @identified(by: "@kabinet/catalogentry") {
   kind: CatalogEntryKind!
 
   """
-  The OCI repository the requesting organization imported from this entry, if it did.
+  The OCI repository the organization imported from this entry, if it did.
   """
   ociRepo: OciRepo
 
   """
-  The GitHub repository the requesting organization tracks from this entry, if it does.
+  The GitHub repository the organization tracks from this entry, if it does.
   """
   githubRepo: GithubRepo
 }
@@ -1335,6 +1354,14 @@ input CpuSelectorInput @unionElementOf(union: "SelectorInput", discriminator: "k
   The CPU architecture the image is built for (docker platform / kubernetes.io/arch values, e.g. 'amd64', 'arm64').
   """
   arch: String = null
+}
+
+"""
+Input for adding a catalog to the organization, or reading an added one again.
+"""
+input CreateCatalogInput {
+  """Where the catalog file (JSON or YAML) is read from, an http(s) URL."""
+  url: String!
 }
 
 """Input for creating a deployment of a flavour on a backend."""
@@ -1812,6 +1839,12 @@ input DefinitionOrder @oneOf {
   definedAt: Ordering
   name: Ordering
   kind: Ordering
+}
+
+"""Input for removing a catalog the organization added."""
+input DeleteCatalogInput {
+  """The ID of the catalog to remove."""
+  id: String!
 }
 
 """Input for deleting a pod."""
@@ -2752,6 +2785,16 @@ type Mutation {
   """
   importCatalogEntry(input: ImportCatalogEntryInput!): CatalogEntry! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
 
+  """
+  Add a catalog (a curated list of repositories, JSON or YAML at a URL) to the organization and read it, or read an added one again. A URL that is not a readable catalog is refused.
+  """
+  createCatalog(input: CreateCatalogInput!): Catalog! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
+
+  """
+  Remove a catalog the organization added, with its entries; what was imported from it stays. A catalog the hub's config names cannot be removed.
+  """
+  deleteCatalog(input: DeleteCatalogInput!): ID! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
+
   """Read a catalog again now, however recently it was read."""
   refreshCatalog(input: RefreshCatalogInput!): Catalog! @auth(required_scopes: ["kabinet_repos"], any_role_of: ["kabinet_deployer"])
 
@@ -3281,7 +3324,7 @@ type Query {
   githubRepo(id: ID!): GithubRepo! @auth(required_scopes: ["kabinet_read"])
 
   """
-  List the catalogs this hub reads (curated lists of repositories, e.g. arkitekt.live's), reading again the ones not read for a while.
+  List the organization's catalogs (curated lists of repositories, e.g. arkitekt.live's): the ones the hub's config names and the ones it added, reading again the ones not read for a while.
   """
   catalogs: [Catalog!]! @auth(required_scopes: ["kabinet_read"])
 
@@ -3294,7 +3337,7 @@ type Query {
   catalogEntry(id: ID!): CatalogEntry! @auth(required_scopes: ["kabinet_read"])
 
   """
-  List the repositories the hub's catalogs list, as they were last read. `catalogs` reads stale catalogs again.
+  List the repositories the organization's catalogs list, as they were last read. `catalogs` adds the config's catalogs and reads stale ones again.
   """
   catalogEntries(filters: CatalogEntryFilter, ordering: [CatalogEntryOrder!]! = [], pagination: OffsetPaginationInput): [CatalogEntry!]! @auth(required_scopes: ["kabinet_read"])
 

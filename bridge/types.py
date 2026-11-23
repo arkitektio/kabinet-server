@@ -445,13 +445,16 @@ class OciRepo:
 
 @strawberry_django.type(
     models.Catalog,
-    description="A curated list of repositories this hub reads, e.g. arkitekt.live's default list. The hub's config names its catalogs; every organization browses the same ones and imports what it wants from them.",
+    description="A curated list of repositories the organization reads, e.g. arkitekt.live's default list: the ones the hub's config names (`ensured`) and the ones the organization added (`createCatalog`).",
     pagination=True,
 )
 class Catalog:
     id: auto
     url: str = strawberry_django.field(
         description="Where the catalog file is read from."
+    )
+    ensured: bool = strawberry_django.field(
+        description="Whether the hub's config names it. The organization cannot remove such a catalog."
     )
     name: str = strawberry_django.field(
         description="The name the file gives, empty until it was read."
@@ -468,14 +471,30 @@ class Catalog:
     error: str | None = strawberry_django.field(
         description="Why the last read failed. The entries of the last good read are kept."
     )
+    added_at: datetime.datetime = strawberry_django.field(
+        description="When the organization got this catalog."
+    )
+    creator: User | None = strawberry_django.field(
+        description="The member who added it; none for a catalog the config names."
+    )
+    organization: Organization = strawberry_django.field(
+        description="The organization reading this catalog."
+    )
     entries: list["CatalogEntry"] = strawberry_django.field(
         description="The repositories the catalog lists."
     )
+    descriptors: JSON = strawberry_django.field(
+        resolver=resolve_descriptors, description=DESCRIPTORS_DESCRIPTION
+    )
+
+    @classmethod
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
+        return build_prescoped_queryset(info, queryset, field="organization")
 
 
 @strawberry_django.type(
     models.CatalogEntry,
-    description="A repository a catalog lists. Importing it (`importCatalogEntry`) tracks it for the organization, as `importRepo` or `createGithubRepo` would; listing it trusts nothing, a release is still approved before it is deployed.",
+    description="A repository a catalog of the organization lists. Importing it (`importCatalogEntry`) imports it as `importRepo` or `createGithubRepo` would; listing it trusts nothing, a release is still approved before it is deployed.",
     filters=filters.CatalogEntryFilter,
     ordering=filters.CatalogEntryOrder,
     pagination=True,
@@ -513,7 +532,7 @@ class CatalogEntry:
         return enums.CatalogEntryKind(self.kind)
 
     @strawberry_django.field(
-        description="The OCI repository the requesting organization imported from this entry, if it did.",
+        description="The OCI repository the organization imported from this entry, if it did.",
         only=["kind", "reference"],
     )
     def oci_repo(self, info: Info) -> Optional["OciRepo"]:
@@ -527,7 +546,7 @@ class CatalogEntry:
         ).first()
 
     @strawberry_django.field(
-        description="The GitHub repository the requesting organization tracks from this entry, if it does.",
+        description="The GitHub repository the organization tracks from this entry, if it does.",
         only=["kind", "reference"],
     )
     def github_repo(self, info: Info) -> Optional["GithubRepo"]:
@@ -541,6 +560,10 @@ class CatalogEntry:
             branch=branch,
             organization=info.context.request.organization,
         ).first()
+
+    @classmethod
+    def get_queryset(cls, queryset: QuerySet, info: Info) -> QuerySet:
+        return build_prescoped_queryset(info, queryset, field="catalog__organization")
 
 
 GithubRepoStats, GithubRepoStatsResolver = create_stats_type(

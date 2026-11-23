@@ -1,4 +1,4 @@
-"""Catalogs: curated lists of repositories a hub reads, and importing what they list.
+"""Catalogs: curated lists of repositories an organization reads, and importing what they list.
 
 Every read goes to a real HTTP server standing in for the host of a catalog file (arkitekt.live
 in a hub), with the ETag handling a static host has; importing an entry goes to the same fake
@@ -14,19 +14,18 @@ import pytest_asyncio
 import yaml
 from aiohttp import web
 from asgiref.sync import sync_to_async
-from django.core.management import call_command
 from kante.context import HttpContext
 from pytest_django.fixtures import SettingsWrapper
 
 from bridge import models
 from bridge.repo import layout
 from tests.test_oci_repo import FakeRegistry, registry  # noqa: F401 - the fixture
-from tests.utils import COORDINATES, ServeRepo, execute
+from tests.utils import COORDINATES, ServeRepo, execute, execute_raw
 
 CATALOGS = """
     query {
         catalogs {
-            id url name error fetchedAt
+            id url ensured name error fetchedAt
             entries { id key kind reference channels name tags logoUrl }
         }
     }
@@ -36,6 +35,16 @@ REFRESH = """
     mutation Refresh($input: RefreshCatalogInput!) {
         refreshCatalog(input: $input) { id name error entries { id key name reference } }
     }
+"""
+
+CREATE = """
+    mutation Create($input: CreateCatalogInput!) {
+        createCatalog(input: $input) { id url ensured error entries { key } }
+    }
+"""
+
+DELETE = """
+    mutation Delete($input: DeleteCatalogInput!) { deleteCatalog(input: $input) }
 """
 
 IMPORT_ENTRY = """
@@ -125,6 +134,13 @@ async def host() -> AsyncIterator[CatalogHost]:
     await runner.cleanup()
 
 
+async def _add(context: HttpContext, url: str) -> models.Catalog:
+    """A catalog of the context's organization, as an organization's own (not the config's)."""
+    return await models.Catalog.objects.acreate(
+        url=url, organization=context.request.organization
+    )
+
+
 async def _list(context: HttpContext) -> list[dict]:
     return (await execute(CATALOGS, context))["catalogs"]
 
@@ -140,9 +156,7 @@ async def _refresh(context: HttpContext, catalog_id: str) -> dict:
 async def test_listing_reads_a_catalog_and_writes_its_entries(
     authenticated_context: HttpContext, host: CatalogHost
 ) -> None:
-    await models.Catalog.objects.acreate(
-        url=host.put("default.json", _catalog(OME, RENDERER))
-    )
+    await _add(authenticated_context, host.put("default.json", _catalog(OME, RENDERER)))
 
     [catalog] = await _list(authenticated_context)
 
@@ -164,8 +178,8 @@ async def test_listing_reads_a_catalog_and_writes_its_entries(
 async def test_a_catalog_may_be_yaml(
     authenticated_context: HttpContext, host: CatalogHost
 ) -> None:
-    await models.Catalog.objects.acreate(
-        url=host.put("default.yaml", yaml.safe_dump(_catalog(OME)))
+    await _add(
+        authenticated_context, host.put("default.yaml", yaml.safe_dump(_catalog(OME)))
     )
 
     [catalog] = await _list(authenticated_context)
@@ -178,8 +192,9 @@ async def test_a_catalog_may_be_yaml(
 async def test_a_catalog_may_be_json_indented_with_tabs(
     authenticated_context: HttpContext, host: CatalogHost
 ) -> None:
-    await models.Catalog.objects.acreate(
-        url=host.put("default.json", json.dumps(_catalog(OME), indent="\t"))
+    await _add(
+        authenticated_context,
+        host.put("default.json", json.dumps(_catalog(OME), indent="\t")),
     )
 
     [catalog] = await _list(authenticated_context)
@@ -193,7 +208,7 @@ async def test_a_catalog_may_be_json_indented_with_tabs(
 async def test_a_catalog_read_lately_is_not_read_again(
     authenticated_context: HttpContext, host: CatalogHost
 ) -> None:
-    await models.Catalog.objects.acreate(url=host.put("default.json", _catalog(OME)))
+    await _add(authenticated_context, host.put("default.json", _catalog(OME)))
 
     await _list(authenticated_context)
     await _list(authenticated_context)
@@ -207,7 +222,7 @@ async def test_a_stale_catalog_is_asked_with_its_etag(
     authenticated_context: HttpContext, host: CatalogHost, settings: SettingsWrapper
 ) -> None:
     settings.CATALOG_TTL = 0
-    await models.Catalog.objects.acreate(url=host.put("default.json", _catalog(OME)))
+    await _add(authenticated_context, host.put("default.json", _catalog(OME)))
 
     await _list(authenticated_context)
     [catalog] = await _list(authenticated_context)
@@ -225,7 +240,7 @@ async def test_reading_again_updates_entries_by_key_and_drops_the_unlisted(
     authenticated_context: HttpContext, host: CatalogHost
 ) -> None:
     url = host.put("default.json", _catalog(OME, RENDERER))
-    await models.Catalog.objects.acreate(url=url)
+    await _add(authenticated_context, url)
     [catalog] = await _list(authenticated_context)
     ome_id = catalog["entries"][0]["id"]
 
@@ -267,7 +282,7 @@ async def test_a_broken_catalog_keeps_the_entries_of_the_last_good_read(
     broken: dict | str | int,
     says: str,
 ) -> None:
-    await models.Catalog.objects.acreate(url=host.put("default.json", _catalog(OME)))
+    await _add(authenticated_context, host.put("default.json", _catalog(OME)))
     [catalog] = await _list(authenticated_context)
 
     host.put("default.json", broken)
@@ -280,35 +295,121 @@ async def test_a_broken_catalog_keeps_the_entries_of_the_last_good_read(
     assert (await _refresh(authenticated_context, catalog["id"]))["error"] is None
 
 
-@pytest.mark.django_db
-def test_ensurecatalogs_makes_the_catalogs_the_ones_the_config_names(
-    settings: SettingsWrapper,
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_listing_gives_the_organization_the_catalogs_the_config_names(
+    authenticated_context: HttpContext, host: CatalogHost, settings: SettingsWrapper
 ) -> None:
-    a, b, c = (f"https://catalogs.example/{name}.json" for name in "abc")
+    a, b, own = (
+        host.put(name, _catalog(OME)) for name in ("a.json", "b.json", "own.json")
+    )
+    await _add(authenticated_context, own)
 
     settings.ENSURE_CATALOGS = [a, b]
-    call_command("ensurecatalogs")
-    kept = models.Catalog.objects.get(url=b)
+    first = {c["url"]: c["ensured"] for c in await _list(authenticated_context)}
+    ids = {c["url"]: c["id"] for c in await _list(authenticated_context)}
 
-    settings.ENSURE_CATALOGS = [b, c]
-    call_command("ensurecatalogs")
-    call_command("ensurecatalogs")
+    # The config no longer names `a` and now names the organization's own catalog.
+    settings.ENSURE_CATALOGS = [b, own]
+    second = {
+        c["url"]: (c["ensured"], c["id"]) for c in await _list(authenticated_context)
+    }
 
-    assert sorted(models.Catalog.objects.values_list("url", flat=True)) == [b, c]
-    assert models.Catalog.objects.get(url=b).id == kept.id
+    assert first == {a: True, b: True, own: False}
+    assert second == {b: (True, ids[b]), own: (True, ids[own])}
 
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def test_importing_an_oci_entry_imports_it_for_that_organization_only(
+async def test_an_organization_adds_and_removes_its_own_catalogs(
+    authenticated_context: HttpContext, host: CatalogHost, settings: SettingsWrapper
+) -> None:
+    settings.ENSURE_CATALOGS = [host.put("default.json", _catalog(OME))]
+    [ensured] = await _list(authenticated_context)
+
+    added = (
+        await execute(
+            CREATE,
+            authenticated_context,
+            {
+                "input": {
+                    "url": host.put("lab.yaml", yaml.safe_dump(_catalog(RENDERER)))
+                }
+            },
+        )
+    )["createCatalog"]
+    assert (added["ensured"], [e["key"] for e in added["entries"]]) == (
+        False,
+        ["renderer"],
+    )
+
+    await execute(DELETE, authenticated_context, {"input": {"id": added["id"]}})
+    refused = await execute_raw(
+        DELETE, authenticated_context, {"input": {"id": ensured["id"]}}
+    )
+
+    assert refused.errors and "config" in refused.errors[0].message
+    assert [c["id"] for c in await _list(authenticated_context)] == [ensured["id"]]
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("served", "says"),
+    [(404, "answered 404"), ("just: text", "not a catalog")],
+)
+async def test_a_url_that_is_no_catalog_is_not_added(
+    authenticated_context: HttpContext,
+    host: CatalogHost,
+    served: str | int,
+    says: str,
+) -> None:
+    result = await execute_raw(
+        CREATE, authenticated_context, {"input": {"url": host.put("x.json", served)}}
+    )
+
+    assert result.errors and says in result.errors[0].message
+    assert await models.Catalog.objects.acount() == 0
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_another_organization_neither_sees_nor_reads_a_catalog(
     authenticated_context: HttpContext,
     other_org_context: HttpContext,
+    host: CatalogHost,
+) -> None:
+    await _add(authenticated_context, host.put("default.json", _catalog(OME)))
+    [catalog] = await _list(authenticated_context)
+    entry_id = catalog["entries"][0]["id"]
+    requests = len(host.requests)
+
+    assert await _list(other_org_context) == []
+    entries = await execute("query { catalogEntries { id } }", other_org_context)
+    assert entries["catalogEntries"] == []
+    for document, variables in [
+        ("query($id: ID!) { catalog(id: $id) { id } }", {"id": catalog["id"]}),
+        (ENTRY, {"id": entry_id}),
+        (REFRESH, {"input": {"id": catalog["id"]}}),
+        (DELETE, {"input": {"id": catalog["id"]}}),
+        (IMPORT_ENTRY, {"input": {"id": entry_id}}),
+    ]:
+        assert (await execute_raw(document, other_org_context, variables)).errors
+    # Listing its own catalogs read nothing of another organization's.
+    assert len(host.requests) == requests
+    assert await models.Catalog.objects.acount() == 1
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_importing_an_oci_entry_imports_its_repository(
+    authenticated_context: HttpContext,
     host: CatalogHost,
     registry: FakeRegistry,  # noqa: F811 - the fixture
 ) -> None:
     registry.release("org/ome", "1.0.0", "1.0.0")
     entry = {**OME, "reference": registry.reference("org/ome"), "channels": ["main"]}
-    await models.Catalog.objects.acreate(url=host.put("default.json", _catalog(entry)))
+    await _add(authenticated_context, host.put("default.json", _catalog(entry)))
     [catalog] = await _list(authenticated_context)
     entry_id = catalog["entries"][0]["id"]
 
@@ -321,9 +422,6 @@ async def test_importing_an_oci_entry_imports_it_for_that_organization_only(
         "main"
     ]  # the catalog's, as none were given
     assert imported["githubRepo"] is None
-    # The entry is the hub's; the repository imported from it is the organization's.
-    other = (await execute(ENTRY, other_org_context, {"id": entry_id}))["catalogEntry"]
-    assert other == {"key": "ome", "ociRepo": None, "githubRepo": None}
     assert await models.OciRepo.objects.acount() == 1
 
     # Importing again reads it again and keeps the channels the organization chose since.
@@ -362,7 +460,7 @@ async def test_importing_a_github_entry_tracks_the_repository(
     )
     reference = f"{COORDINATES.user}/{COORDINATES.repo}:{COORDINATES.branch}"
     entry = {**RENDERER, "reference": reference}
-    await models.Catalog.objects.acreate(url=host.put("default.json", _catalog(entry)))
+    await _add(authenticated_context, host.put("default.json", _catalog(entry)))
     [catalog] = await _list(authenticated_context)
 
     imported = (

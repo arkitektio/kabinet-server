@@ -57,7 +57,7 @@ class Query:
     )
     catalogs: list[types.Catalog] = field(
         resolver=queries.catalogs_list,
-        description="List the catalogs this hub reads (curated lists of repositories, e.g. arkitekt.live's), reading again the ones not read for a while.",
+        description="List the organization's catalogs (curated lists of repositories, e.g. arkitekt.live's): the ones the hub's config names and the ones it added, reading again the ones not read for a while.",
     )
     catalog: types.Catalog = field(
         resolver=queries.catalog,
@@ -68,7 +68,7 @@ class Query:
         description="Return a single catalog entry by its ID.",
     )
     catalog_entries: list[types.CatalogEntry] = field(
-        description="List the repositories the hub's catalogs list, as they were last read. `catalogs` reads stale catalogs again."
+        description="List the repositories the organization's catalogs list, as they were last read. `catalogs` adds the config's catalogs and reads stale ones again."
     )
     oci_repo: types.OciRepo = field(
         resolver=queries.oci_repo,
@@ -196,6 +196,16 @@ class Mutation:
         scope="kabinet_repos",
         resolver=mutations.import_catalog_entry,
         description="Import the repository a catalog entry names into the organization: an OCI entry as `importRepo`, a GitHub entry as `createGithubRepo`.",
+    )
+    create_catalog: types.Catalog = mutation(
+        scope="kabinet_repos",
+        resolver=mutations.create_catalog,
+        description="Add a catalog (a curated list of repositories, JSON or YAML at a URL) to the organization and read it, or read an added one again. A URL that is not a readable catalog is refused.",
+    )
+    delete_catalog: strawberry.ID = mutation(
+        scope="kabinet_repos",
+        resolver=mutations.delete_catalog,
+        description="Remove a catalog the organization added, with its entries; what was imported from it stays. A catalog the hub's config names cannot be removed.",
     )
     refresh_catalog: types.Catalog = mutation(
         scope="kabinet_repos",

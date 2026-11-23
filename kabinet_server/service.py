@@ -48,8 +48,8 @@ pod = service.structure(
     models.Pod, "@kabinet/pod", describe=descriptors.placement_descriptors
 )
 githubrepo = service.structure(models.GithubRepo, "@kabinet/githubrepo")
-# The hub's, not an organization's, so nothing to signal: a signal goes to one organization.
-service.structure(models.CatalogEntry, "@kabinet/catalogentry")
+catalog = service.structure(models.Catalog, "@kabinet/catalog")
+catalogentry = service.structure(models.CatalogEntry, "@kabinet/catalogentry")
 
 
 # --- Signals: what kabinet announces ---------------------------------------------------
@@ -63,3 +63,5 @@ service.model_signal(definition, organization=organization_of())
 service.model_signal(deployment, organization=organization_of("backend.organization"))
 service.model_signal(pod, organization=organization_of("backend.organization"))
 service.model_signal(githubrepo, organization=organization_of())
+service.model_signal(catalog, organization=organization_of())
+service.model_signal(catalogentry, organization=organization_of("catalog.organization"))

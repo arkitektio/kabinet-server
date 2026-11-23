@@ -204,9 +204,14 @@ HOSTS = Hosts(
             description="A GitHub repository scanned for installable apps and their releases.",
         ),
         Structure(
+            identifier="@kabinet/catalog",
+            label="Catalog",
+            description="A curated list of repositories an organization reads, e.g. arkitekt.live's default list of apps: a JSON or YAML file at a URL, named by the hub's config or added by the organization.",
+        ),
+        Structure(
             identifier="@kabinet/catalogentry",
             label="Catalog Entry",
-            description="A repository a curated catalog the hub reads (e.g. arkitekt.live's default list) offers for import: an app's OCI repository or a GitHub repository of apps and bloks. The hub's, not an organization's.",
+            description="A repository a catalog offers for import: an app's OCI repository or a GitHub repository of apps and bloks, with its name, description and tags.",
         ),
     ],
     signals=[
@@ -249,6 +254,16 @@ HOSTS = Hosts(
             identifier="@kabinet/githubrepo",
             kinds=["CREATED", "DELETED"],
             description="A GitHub repository was added or removed.",
+        ),
+        Signal(
+            identifier="@kabinet/catalog",
+            kinds=["CREATED", "DELETED"],
+            description="A catalog (a curated list of repositories) was added to the organization or removed.",
+        ),
+        Signal(
+            identifier="@kabinet/catalogentry",
+            kinds=["CREATED", "UPDATED", "DELETED"],
+            description="A catalog listed a new repository, changed what it says of one, or no longer lists it.",
         ),
     ],
 )
@@ -309,10 +324,6 @@ contract = Contract(
         "ensureadmin": Job(
             ("ensureadmin",), "Create the operator account the config names"
         ),
-        "ensurecatalogs": Job(
-            ("ensurecatalogs",),
-            "Make the hub's catalogs (curated repository lists) exactly the ones the config names",
-        ),
         "restore_descriptors": Job(
             ("restore_descriptors",),
             "Store the descriptors of every flavour, release, definition, deployment and pod that misses one (--all: of every row)",
@@ -322,5 +333,5 @@ contract = Contract(
             "Store what the bloks of every flavour draw where it has none stored (--all: of every flavour)",
         ),
     },
-    setup=("ensureadmin", "ensurecatalogs", "restore_descriptors", "restore_bloks"),
+    setup=("ensureadmin", "restore_descriptors", "restore_bloks"),
 )

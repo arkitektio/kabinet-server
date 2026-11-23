@@ -19,6 +19,8 @@ EXPECTED = {
     "@kabinet/pod": ["CREATED", "UPDATED", "DELETED"],
     "@kabinet/app": ["CREATED"],
     "@kabinet/githubrepo": ["CREATED", "DELETED"],
+    "@kabinet/catalog": ["CREATED", "DELETED"],
+    "@kabinet/catalogentry": ["CREATED", "UPDATED", "DELETED"],
 }
 
 
@@ -36,9 +38,8 @@ def test_the_manifest_declares_every_model_signal() -> None:
 
 def test_the_manifest_lists_what_kabinet_hosts_with_its_descriptors() -> None:
     hosted = {s["identifier"]: s for s in service.manifest()["structures"]}
-    # Everything kabinet hosts is signalled, and nothing else is -- except a catalog entry: it
-    # is the hub's, not an organization's, and a signal goes to one organization.
-    assert set(hosted) == set(EXPECTED) | {"@kabinet/catalogentry"}
+    # Everything kabinet hosts is signalled, and nothing else is.
+    assert set(hosted) == set(EXPECTED)
     assert hosted["@kabinet/pod"]["label"] == "Pod"
     assert [(d["key"], d["type"]) for d in hosted["@kabinet/pod"]["descriptors"]] == [
         ("@kabinet/status", "STRING"),
