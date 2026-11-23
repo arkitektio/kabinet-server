@@ -8,7 +8,7 @@ from typing import Optional, TypeVar
 import strawberry
 import strawberry.django
 import strawberry_django
-from arkitekt_service.collaborations.guests import object_scope
+from arkitekt_service.collaborations.guests import guest_of, object_scope
 from authentikate import models as auth_models
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db.models import Count, Model, Prefetch, Q, QuerySet
@@ -784,16 +784,18 @@ class App:
         return self.releases.count()
 
     @strawberry_django.field(
-        description="How many deployments the app's flavours have, of any release and in any status: 0 for an app that is not installed.",
+        description="How many deployments the app's flavours have, of any release and in any status: 0 for an app that is not installed (and for a guest of the organization: where it runs is never shared).",
         annotate={"_deployment_count": Count(APP_DEPLOYMENTS, distinct=True)},
     )
-    def deployment_count(self) -> int:
+    def deployment_count(self, info: Info) -> int:
+        if guest_of(info) is not None:
+            return 0
         if hasattr(self, "_deployment_count"):
             return self._deployment_count
         return models.Deployment.objects.filter(flavour__release__app=self).count()
 
     @strawberry_django.field(
-        description="How many of the app's deployments are RUNNING.",
+        description="How many of the app's deployments are RUNNING (0 for a guest of the organization: where it runs is never shared).",
         annotate={
             "_running_count": Count(
                 APP_DEPLOYMENTS,
@@ -804,7 +806,9 @@ class App:
             )
         },
     )
-    def running_count(self) -> int:
+    def running_count(self, info: Info) -> int:
+        if guest_of(info) is not None:
+            return 0
         if hasattr(self, "_running_count"):
             return self._running_count
         return models.Deployment.objects.filter(

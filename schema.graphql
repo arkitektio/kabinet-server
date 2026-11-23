@@ -355,11 +355,13 @@ type App @identified(by: "@kabinet/app") {
   releaseCount: Int!
 
   """
-  How many deployments the app's flavours have, of any release and in any status: 0 for an app that is not installed.
+  How many deployments the app's flavours have, of any release and in any status: 0 for an app that is not installed (and for a guest of the organization: where it runs is never shared).
   """
   deploymentCount: Int!
 
-  """How many of the app's deployments are RUNNING."""
+  """
+  How many of the app's deployments are RUNNING (0 for a guest of the organization: where it runs is never shared).
+  """
   runningCount: Int!
 
   """

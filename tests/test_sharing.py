@@ -48,6 +48,8 @@ RENDER = """
 query ($id: ID!) {
   app(id: $id) {
     id
+    deploymentCount
+    runningCount
     releases {
       id
       approvals { id }
@@ -110,6 +112,9 @@ async def test_a_guest_reads_the_shared_app_and_nothing_of_where_it_runs(
     }, "the image it deploys comes along"
     assert [d["id"] for d in flavour["definitions"]] == [str(action.pk)]
     assert flavour["deployments"] == [], "where it runs is never a guest's"
+    assert (app["deploymentCount"], app["runningCount"]) == (0, 0), (
+        "nor how often it runs"
+    )
 
     assert (await run(ctx, APP, id=str(other.app.pk))).errors
     assert (await run(ctx, DEPLOYMENT, id=str(running.deployment.pk))).errors
@@ -117,6 +122,10 @@ async def test_a_guest_reads_the_shared_app_and_nothing_of_where_it_runs(
     assert ids(member_sees, "deployments") == {str(running.deployment.pk)}, (
         "a full member is not narrowed"
     )
+    counted = await member(
+        "query ($id: ID!) { app(id: $id) { deploymentCount } }", id=str(shared.app.pk)
+    )
+    assert counted["app"] == {"deploymentCount": 1}
 
 
 async def test_what_a_shared_app_gains_later_comes_along(
@@ -287,7 +296,7 @@ async def test_the_routes_beside_graphql_take_no_guest_token(
         response = await getattr(client, method)(
             route, headers={"Authorization": "Bearer guest"}
         )
-        assert response.status_code in (401, 403, 404, 405, 503), (
+        assert response.status_code in (401, 403, 405, 503), (
             route,
             response.status_code,
         )
