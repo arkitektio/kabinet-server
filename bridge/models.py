@@ -16,6 +16,20 @@ from embeddings import engine as embedding_engine
 from embeddings.models import EmbeddedDescriptionMixin, embedding_indexes
 
 
+def created_through() -> models.ForeignKey:
+    """The task (koherent's) an object was created through, if a workflow created it: what
+    ``shareWorkflow`` and the ``createdUnder`` filters read. Stamped on create only: an upsert
+    that finds the row leaves it."""
+    return models.ForeignKey(
+        "koherent.Task",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_%(class)ss",
+        help_text="The task this object was created through, if any",
+    )
+
+
 class Repo(EmbeddedDescriptionMixin, models.Model):
     """A source of app images.
 
@@ -60,6 +74,7 @@ class GithubRepo(Repo):
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="repos"
     )
+    created_through = created_through()
 
     #: Its own column, not the base table's way round (`Repo.embedding_organization_path`).
     embedding_organization_path = "organization"
@@ -352,6 +367,7 @@ class App(EmbeddedDescriptionMixin, models.Model):
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="apps"
     )
+    created_through = created_through()
     source = models.ForeignKey(
         Repo,
         on_delete=models.SET_NULL,
@@ -420,6 +436,7 @@ class Release(Described):
     released_at = models.DateTimeField(
         auto_now_add=True, help_text="When this release was created"
     )
+    created_through = created_through()
     created_at = models.DateTimeField(
         auto_now=True, help_text="When this release was created"
     )
@@ -473,6 +490,7 @@ class Flavour(EmbeddedDescriptionMixin, Described):
     inspection = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now=True)
     deployed_at = models.DateTimeField(null=True)
+    created_through = created_through()
     manifest = models.JSONField(default=dict)
     requirements = models.JSONField(default=list)
     bloks = models.JSONField(
@@ -584,6 +602,7 @@ class Definition(EmbeddedDescriptionMixin, Described):
     organization = models.ForeignKey(
         Organization, on_delete=models.CASCADE, related_name="definitions"
     )
+    created_through = created_through()
     collections = models.ManyToManyField(
         Collection,
         related_name="actions",

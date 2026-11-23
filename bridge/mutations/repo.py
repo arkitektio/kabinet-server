@@ -16,6 +16,7 @@ import logging
 from asgiref.sync import sync_to_async
 from authentikate.models import Organization, User
 from kante.types import Info
+from koherent.utils import get_or_create_task
 
 from bridge import inputs, models, types
 from bridge.repo import oci
@@ -86,6 +87,7 @@ async def _create_github_repo(
         defaults=dict(
             name=name,
             creator=creator,
+            created_through=await sync_to_async(get_or_create_task)(),
         ),
     )
 

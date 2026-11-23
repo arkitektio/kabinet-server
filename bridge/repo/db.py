@@ -15,6 +15,7 @@ already been fetched by the caller -- so there is nothing to be gained by stayin
 """
 
 from django.db import transaction
+from koherent.utils import get_or_create_task
 
 from bridge import models
 
@@ -46,26 +47,31 @@ def upsert_app_image(
     repository, which is what makes ``Flavour.repo`` nullable.
     """
     manifest = app_image.manifest
+    # What a workflow creates here says so (`created_through`); an upsert that finds a row leaves it.
+    task = get_or_create_task()
 
     app, _ = models.App.objects.get_or_create(
         identifier=manifest.identifier,
         organization=organization,
+        defaults=dict(created_through=task),
     )
 
+    release_fields: dict[str, object] = dict(
+        scopes=manifest.scopes,
+        # `Release.logo` is a FK to MediaStore, not a FileField. This used to call
+        # `release.logo.save(...)` on that FK -- which is None for a new release --
+        # so every manifest carrying a logo raised `AttributeError`, was wrapped into
+        # a bare `DBError` and failed the whole scan. Until the image is ingested
+        # into the datalayer, the upstream URL is what we have, and `original_logo`
+        # is the field that holds it.
+        original_logo=manifest.logo,
+        entrypoint=manifest.entrypoint or "app",
+    )
     release, _ = models.Release.objects.update_or_create(
         version=manifest.version,
         app=app,
-        defaults=dict(
-            scopes=manifest.scopes,
-            # `Release.logo` is a FK to MediaStore, not a FileField. This used to call
-            # `release.logo.save(...)` on that FK -- which is None for a new release --
-            # so every manifest carrying a logo raised `AttributeError`, was wrapped into
-            # a bare `DBError` and failed the whole scan. Until the image is ingested
-            # into the datalayer, the upstream URL is what we have, and `original_logo`
-            # is the field that holds it.
-            original_logo=manifest.logo,
-            entrypoint=manifest.entrypoint or "app",
-        ),
+        defaults=release_fields,
+        create_defaults={**release_fields, "created_through": task},
     )
 
     image, _ = models.DockerImage.objects.update_or_create(
@@ -74,49 +80,53 @@ def upsert_app_image(
         defaults=dict(build_at=app_image.image.build_at),
     )
 
+    flavour_fields: dict[str, object] = dict(
+        deployment_id=app_image.app_image_id,
+        flavour=app_image.app_image_id,
+        selectors=[selector.model_dump() for selector in app_image.selectors],
+        repo=repo,
+        image=image,
+        manifest=manifest.model_dump(),
+        requirements=[
+            requirement.model_dump()
+            for requirement in app_image.inspection.requirements
+        ],
+        bloks=[blok.model_dump(mode="json") for blok in app_image.inspection.bloks],
+        blok_renders=bloks.render_bloks(
+            blok.model_dump(mode="json") for blok in app_image.inspection.bloks
+        ),
+        action_logos=bloks.action_logos(
+            (implementation.definition.unique_hash, implementation.logo)
+            for implementation in app_image.inspection.implementations
+        ),
+        inspection=app_image.inspection.model_dump(mode="json"),
+    )
     flavour, _ = models.Flavour.objects.update_or_create(
         release=release,
         name=app_image.flavour_name or "vanilla",
-        defaults=dict(
-            deployment_id=app_image.app_image_id,
-            flavour=app_image.app_image_id,
-            selectors=[selector.model_dump() for selector in app_image.selectors],
-            repo=repo,
-            image=image,
-            manifest=manifest.model_dump(),
-            requirements=[
-                requirement.model_dump()
-                for requirement in app_image.inspection.requirements
-            ],
-            bloks=[blok.model_dump(mode="json") for blok in app_image.inspection.bloks],
-            blok_renders=bloks.render_bloks(
-                blok.model_dump(mode="json") for blok in app_image.inspection.bloks
-            ),
-            action_logos=bloks.action_logos(
-                (implementation.definition.unique_hash, implementation.logo)
-                for implementation in app_image.inspection.implementations
-            ),
-            inspection=app_image.inspection.model_dump(mode="json"),
-        ),
+        defaults=flavour_fields,
+        create_defaults={**flavour_fields, "created_through": task},
     )
 
     for implementation in app_image.inspection.implementations:
         definition = implementation.definition
+        definition_fields: dict[str, object] = dict(
+            description=definition.description or "",
+            args=[port.model_dump() for port in definition.args],
+            returns=[port.model_dump() for port in definition.returns],
+            port_groups=[group.model_dump() for group in definition.port_groups],
+            kind=definition.kind.value
+            if hasattr(definition.kind, "value")
+            else definition.kind,
+            pure=definition.pure,
+            idempotent=definition.idempotent,
+            name=definition.name,
+        )
         def_model, _ = models.Definition.objects.update_or_create(
             hash=definition.unique_hash,
             organization=organization,
-            defaults=dict(
-                description=definition.description or "",
-                args=[port.model_dump() for port in definition.args],
-                returns=[port.model_dump() for port in definition.returns],
-                port_groups=[group.model_dump() for group in definition.port_groups],
-                kind=definition.kind.value
-                if hasattr(definition.kind, "value")
-                else definition.kind,
-                pure=definition.pure,
-                idempotent=definition.idempotent,
-                name=definition.name,
-            ),
+            defaults=definition_fields,
+            create_defaults={**definition_fields, "created_through": task},
         )
         def_model.flavours.add(flavour)
 
@@ -175,7 +185,9 @@ def apply_release(
         )
 
     app, _ = models.App.objects.select_for_update().get_or_create(
-        identifier=manifest.identifier, organization=organization
+        identifier=manifest.identifier,
+        organization=organization,
+        defaults=dict(created_through=get_or_create_task()),
     )
     if app.source_id is None:
         app.source = repo
