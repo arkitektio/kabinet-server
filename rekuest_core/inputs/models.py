@@ -743,6 +743,8 @@ _CHOICE_KINDS = {enums.PortKind.ENUM, enums.PortKind.INT, enums.PortKind.FLOAT, 
 def _check_port_shape(port: "PortInputModel") -> None:
     """The per-kind structure table: children, identifier and choices."""
     owner = f"Port {port.key!r} of kind {port.kind.value}"
+    if port.kind in enums.CATALOG_ONLY_KINDS:
+        raise ValueError(f"{owner}: CALLBACK, ASSET and BINDING type a catalog's props, never an action's, a state's or a local's (port.catalog_only)")
     children = port.children or []
 
     bounds = _CHILD_COUNT.get(port.kind)
@@ -885,6 +887,13 @@ class PortMatchInputModel(BaseModel):
     dimension: str | None = Field(default=None, description="The canonical pint dimensionality the port must have (QUANTITY wiring-compatibility key).")
     descriptors: list[DescriptorInputModel] | None = Field(default=None, description="Runtime descriptors of a candidate object, evaluated against the port's compiled requires micro-constraint. Omit for purely structural matching.")
     children: Optional[list["PortMatchInputModel"]] = Field(default=None, description="The matches for the children of the port to match.")
+
+    @field_validator("kind")
+    @classmethod
+    def _no_catalog_only_kind(cls, kind: "enums.PortKind | None") -> "enums.PortKind | None":
+        if kind in enums.CATALOG_ONLY_KINDS:
+            raise ValueError(f"A {kind.value} port: CALLBACK, ASSET and BINDING type a catalog's props, never a match's (port.catalog_only)")
+        return kind
 
 
 class ActionDemandInputModel(BaseModel):

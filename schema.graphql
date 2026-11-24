@@ -3359,6 +3359,21 @@ enum PortKind {
   A physical quantity with a unit; `reference_unit` required, `dimension` derived. No children.
   """
   QUANTITY
+
+  """
+  A catalog prop that holds a call (onClick); its children are the payload it is called with. Never an agent's port.
+  """
+  CALLBACK
+
+  """
+  A catalog prop that names a file an app registered (`self.assets.<name>`). No children. Never an agent's port.
+  """
+  ASSET
+
+  """
+  A catalog prop that reads and writes a local (`bind`); its one child, keyed '...', is what it writes. Never an agent's port.
+  """
+  BINDING
 }
 
 """

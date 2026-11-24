@@ -405,3 +405,17 @@ def test_value_mismatch_recurses_into_containers() -> None:
     assert (
         value_mismatch(port, {"xs": [1], "s": 3}) == "m.s: expected a STRING, got int"
     )
+
+
+# --------------------------------------------------------------------------- catalog-only kinds
+
+
+@pytest.mark.parametrize("kind", ["CALLBACK", "ASSET", "BINDING"])
+def test_an_agent_declares_no_catalog_only_port(kind: str) -> None:
+    """CALLBACK, ASSET and BINDING type a catalog's props: an action, a nested field or a match is refused."""
+    with pytest.raises(ValidationError, match="port.catalog_only"):
+        _arg(kind=kind)
+    with pytest.raises(ValidationError, match="port.catalog_only"):
+        _arg(kind="LIST", children=[_port("...", kind)])
+    with pytest.raises(ValidationError, match="port.catalog_only"):
+        imodels.PortMatchInputModel.model_validate({"kind": kind})
