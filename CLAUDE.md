@@ -26,7 +26,7 @@ anything is recreated — and runs everything else as a job the image offers by 
 
 What this service declares:
 
-- Setup, in order: `ensureadmin`, `restore_descriptors`, `restore_bloks`. The catalogs the
+- Setup, in order: `ensureadmin`, `restore_descriptors`, `restore_bloks`, `restore_collections`. The catalogs the
   config names (`ensure_catalogs`, `docs/catalogs.md`) are no job: an organization gets them
   when it lists its catalogs.
   `restore_descriptors` stores the descriptors of every flavour, release, definition, deployment
@@ -35,6 +35,8 @@ What this service declares:
   bloks draw (`Flavour.blok_renders`, parsed from their BSX) and which blok draws each action
   (`Flavour.action_logos`) for flavours imported before either existed; `--all` renders every
   flavour again after the parser changed.
+  `restore_collections` puts every definition imported before collections were stored in the
+  collections its declaration names (read off its flavours' stored inspections).
 - Other jobs: none.
 - `upgrade_from` is `9.0.0`: the migration history restarted at `0001` there (blok language v2), so
   older hubs are refused (their database is reset). `bridge/0001_initial` is what `makemigrations`

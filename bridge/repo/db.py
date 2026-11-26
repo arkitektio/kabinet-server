@@ -129,8 +129,28 @@ def upsert_app_image(
             create_defaults={**definition_fields, "created_through": task},
         )
         def_model.flavours.add(flavour)
+        store_collections(def_model, definition.collections, organization)
 
     return flavour
+
+
+def store_collections(
+    definition: models.Definition,
+    names: list[str],
+    organization: models.Organization,
+) -> None:
+    """Put ``definition`` in the collections its declaration names, as rekuest's registration
+    does for an action (takt, ``upsert_implementation``): by ``(organization, name)``, created
+    when missing. Collections are part of the definition's hash, so a row's set never differs
+    between the flavours that provide it."""
+    definition.collections.set(
+        [
+            models.Collection.objects.get_or_create(
+                name=name, organization=organization, defaults={"description": ""}
+            )[0]
+            for name in dict.fromkeys(names)
+        ]
+    )
 
 
 @transaction.atomic

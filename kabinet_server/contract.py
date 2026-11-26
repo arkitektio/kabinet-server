@@ -336,6 +336,15 @@ contract = Contract(
             ("restore_bloks",),
             "Store what the bloks of every flavour draw where it has none stored (--all: of every flavour)",
         ),
+        "restore_collections": Job(
+            ("restore_collections",),
+            "Put every definition in the collections its declaration names, where it is in none",
+        ),
     },
-    setup=("ensureadmin", "restore_descriptors", "restore_bloks"),
+    setup=(
+        "ensureadmin",
+        "restore_descriptors",
+        "restore_bloks",
+        "restore_collections",
+    ),
 )
