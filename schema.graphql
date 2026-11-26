@@ -1786,6 +1786,9 @@ input DefinitionFilter {
 
   """Only what the workflow (its root task id) created"""
   createdUnder: ID
+
+  """The cleartext name of this Action"""
+  name: StrFilterLookup
   AND: DefinitionFilter
   OR: DefinitionFilter
   NOT: DefinitionFilter
@@ -1854,6 +1857,24 @@ input DefinitionFilter {
 
   """Keep only definitions whose ports satisfy all of the given demands."""
   demands: [PortDemandInput!]
+
+  """
+  Any of these demand sets: the definitions that satisfy every demand of at least one set (each set as `demands`). One statement, so prefer it to `OR`-ing `demands`. An empty list is ignored; an empty set is an error.
+  """
+  anyDemands: [[PortDemandInput!]!]
+
+  """
+  Keep only definitions whose ports accept the given concrete objects: `demands`, for the case where each match carries the object's descriptors, checked against the port's `requires`.
+  """
+  objectDemands: [PortDemandInput!]
+
+  """Keep only definitions in the collection of this name."""
+  inCollection: String
+
+  """
+  Keep only definitions provided by the app of this identifier (by any of its releases).
+  """
+  appIdentifier: String
 
   """
   Filter to the objects satisfying every one of these descriptor constraints: the `requires` of a port (`RequiresInput`), handed on unchanged, so a picker offers what the port accepts. Answered from the stored descriptors, in one indexed query
@@ -1957,6 +1978,21 @@ input DefinitionOrder @oneOf {
   definedAt: Ordering
   name: Ordering
   kind: Ordering
+
+  """
+  By the identifier of the app that provides the definition (the first, alphabetically, when several do), so one app's definitions stay together across pages.
+  """
+  appIdentifier: Ordering
+
+  """
+  By the name of the definition's first collection (alphabetically): the collection a grouped list files it under. Definitions in no collection come last.
+  """
+  collection: Ordering
+
+  """
+  Deployed first (DESC) or last (ASC), by `DefinitionFilter.alreadyDeployed`: rekuest's `ActionOrder.assignable` for what is not running yet. The order the filters set (a `search`'s ranking) is kept as the tie-break.
+  """
+  deployed: Ordering
 }
 
 """Input for removing a catalog the organization added."""
@@ -4611,6 +4647,26 @@ input StateImplementationInput {
   The schema of the state implementation. This is used to define the structure of the state
   """
   definition: StateDefinitionInput!
+}
+
+input StrFilterLookup {
+  exact: String
+  iExact: String
+  contains: String
+  iContains: String
+  inList: [String!]
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+  startsWith: String
+  iStartsWith: String
+  endsWith: String
+  iEndsWith: String
+  range: [String!]
+  isNull: Boolean
+  regex: String
+  iRegex: String
 }
 
 type StringAssignWidget implements AssignWidget {

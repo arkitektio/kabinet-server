@@ -11,12 +11,15 @@ from django.db.models import (
     F,
     Func,
     Max,
+    Min,
     OuterRef,
     Q,
     QuerySet,
     Value,
 )
+from django.db.models.expressions import OrderBy
 from kante.types import Info
+from strawberry_django.filters import FilterLookup
 
 from bridge import enums, inputs, managers, models, scoping
 from embeddings import search
@@ -99,15 +102,102 @@ def flavour_hardware_q(hardware: "enums.AppHardware") -> Q:
     return Q(stored_descriptors__has_key="@kabinet/gpu") & ~runs_on_cpu
 
 
+def deployed_in_organization(prefix: str = "") -> Exists:
+    """Whether a flavour that provides the definition has a deployment on one of its
+    organization's backends.
+
+    `Exists`, not a join over flavours and their deployments: a definition provided by a
+    deployed flavour of several releases would come back once per deployment.
+    """
+    return Exists(
+        models.Deployment.objects.filter(
+            flavour__definitions=OuterRef(f"{prefix}pk"),
+            backend__organization=OuterRef(f"{prefix}organization"),
+        )
+    )
+
+
+def port_demands(info: Info, value: list[inputs.PortDemandInput], prefix: str) -> Q:
+    """Shared body of ``demands`` and ``object_demands``: the definitions of the organization
+    meeting every demand, as an id subquery (rekuest's ``_filter_by_port_demands``). An empty
+    list is ignored."""
+    if len(value) == 0:
+        return Q()
+    return Q(
+        **{
+            f"{prefix}id__in": managers.get_port_demand_subquery(
+                [managers.PortDemand.of(demand) for demand in value],
+                organization_id=info.context.request.organization.id,
+            )
+        }
+    )
+
+
 @strawberry_django.order_type(
     models.Definition, description="Order for action definitions."
 )
 class DefinitionOrder:
-    """Order for action definitions."""
+    """Order for action definitions: rekuest's ``ActionOrder`` where it applies."""
 
     defined_at: strawberry.auto
     name: strawberry.auto
     kind: strawberry.auto
+
+    @strawberry_django.order_field(
+        description="By the identifier of the app that provides the definition (the first, alphabetically, when several do), so one app's definitions stay together across pages."
+    )
+    def app_identifier(
+        self,
+        info: Info,
+        queryset: QuerySet,
+        value: strawberry_django.Ordering,
+        prefix: str,
+    ) -> tuple[QuerySet, list[OrderBy]]:
+        if not value:
+            return queryset, []
+        queryset = queryset.annotate(
+            first_app_identifier=Min(f"{prefix}flavours__release__app__identifier")
+        )
+        return queryset, [value.resolve("first_app_identifier")]
+
+    @strawberry_django.order_field(
+        description="By the name of the definition's first collection (alphabetically): the collection a grouped list files it under. Definitions in no collection come last."
+    )
+    def collection(
+        self,
+        info: Info,
+        queryset: QuerySet,
+        value: strawberry_django.Ordering,
+        prefix: str,
+    ) -> tuple[QuerySet, list[OrderBy]]:
+        if not value:
+            return queryset, []
+        queryset = queryset.annotate(
+            first_collection_name=Min(f"{prefix}collections__name")
+        )
+        name = F("first_collection_name")
+        return queryset, [
+            name.desc(nulls_last=True)
+            if "DESC" in value.name
+            else name.asc(nulls_last=True)
+        ]
+
+    @strawberry_django.order_field(
+        description="Deployed first (DESC) or last (ASC), by `DefinitionFilter.alreadyDeployed`: rekuest's `ActionOrder.assignable` for what is not running yet. The order the filters set (a `search`'s ranking) is kept as the tie-break."
+    )
+    def deployed(
+        self,
+        info: Info,
+        queryset: QuerySet,
+        value: strawberry_django.Ordering,
+        prefix: str,
+    ) -> tuple[QuerySet, list[OrderBy | str]]:
+        if not value:
+            return queryset, []
+        existing = list(queryset.query.order_by) or list(queryset.model._meta.ordering)
+        tie_break = [*existing, *([] if "pk" in existing else ["pk"])]
+        queryset = queryset.annotate(is_deployed=deployed_in_organization(prefix))
+        return queryset, [value.resolve("is_deployed"), *tie_break]
 
 
 @strawberry_django.filter_type(
@@ -129,7 +219,7 @@ class GithubRepoFilter(SharingFilterMixin):
         self, info: Info, queryset: QuerySet, value: str, prefix: str
     ) -> tuple[QuerySet, Q]:
         return hybrid_search(
-            queryset, prefix, value, Q(**{f"{prefix}name__icontains": value})
+            queryset, prefix, value, Q(**{f"{prefix}name__icontains": value}), "name"
         )
 
     @strawberry_django.filter_field(
@@ -266,6 +356,8 @@ class RepoBlokFilter:
 class DefinitionFilter(SharingFilterMixin):
     """Filter for action definitions."""
 
+    name: FilterLookup[str] | None
+
     @strawberry_django.filter_field(
         description="Keep only definitions whose ID is in this list."
     )
@@ -288,7 +380,7 @@ class DefinitionFilter(SharingFilterMixin):
         lexical = Q(**{f"{prefix}name__icontains": value}) | Q(
             **{f"{prefix}description__icontains": value}
         )
-        return hybrid_search(queryset, prefix, value, lexical)
+        return hybrid_search(queryset, prefix, value, lexical, "name")
 
     @strawberry_django.filter_field(
         description=(
@@ -429,14 +521,7 @@ class DefinitionFilter(SharingFilterMixin):
         )
     )
     def already_deployed(self, value: bool, prefix: str) -> Q:
-        # `Exists`, not a join over flavours and their deployments: a definition provided by a
-        # deployed flavour of several releases would come back once per deployment.
-        deployed = Exists(
-            models.Deployment.objects.filter(
-                flavour__definitions=OuterRef(f"{prefix}pk"),
-                backend__organization=OuterRef(f"{prefix}organization"),
-            )
-        )
+        deployed = deployed_in_organization(prefix)
         return Q(deployed) if value else ~Q(deployed)
 
     @strawberry_django.filter_field(
@@ -454,28 +539,62 @@ class DefinitionFilter(SharingFilterMixin):
     @strawberry_django.filter_field(
         description="Keep only definitions whose ports satisfy all of the given demands.",
     )
-    def demands(self, value: list[inputs.PortDemandInput], prefix: str) -> Q:
-        filtered_ids = None
+    def demands(
+        self, info: Info, value: list[inputs.PortDemandInput], prefix: str
+    ) -> Q:
+        return port_demands(info, value, prefix)
 
-        for ports_demand in value:
-            new_ids = managers.get_action_ids_by_demands(
-                ports_demand.matches,
-                type=ports_demand.kind.value,
-                force_length=ports_demand.force_length,
-                force_non_nullable_length=ports_demand.force_non_nullable_length,
-                force_structure_length=ports_demand.force_structure_length,
-                model="bridge_definition",
-            )
-
-            if filtered_ids is None:
-                filtered_ids = set(new_ids)
-            else:
-                filtered_ids = filtered_ids.intersection(new_ids)
-
-        if filtered_ids is None:
+    @strawberry_django.filter_field(
+        description="Any of these demand sets: the definitions that satisfy every demand of at least one set (each set as `demands`). One statement, so prefer it to `OR`-ing `demands`. An empty list is ignored; an empty set is an error."
+    )
+    def any_demands(
+        self, info: Info, value: list[list[inputs.PortDemandInput]], prefix: str
+    ) -> Q:
+        if len(value) == 0:
             return Q()
+        sets = [
+            [managers.PortDemand.of(demand) for demand in demands] for demands in value
+        ]
+        return Q(
+            **{
+                f"{prefix}id__in": managers.get_any_port_demand_subquery(
+                    sets, organization_id=info.context.request.organization.id
+                )
+            }
+        )
 
-        return Q(**{f"{prefix}id__in": filtered_ids})
+    @strawberry_django.filter_field(
+        description="Keep only definitions whose ports accept the given concrete objects: `demands`, for the case where each match carries the object's descriptors, checked against the port's `requires`."
+    )
+    def object_demands(
+        self, info: Info, value: list[inputs.PortDemandInput], prefix: str
+    ) -> Q:
+        return port_demands(info, value, prefix)
+
+    @strawberry_django.filter_field(
+        description="Keep only definitions in the collection of this name."
+    )
+    def in_collection(self, value: str, prefix: str) -> Q:
+        return Q(
+            Exists(
+                models.Collection.objects.filter(
+                    actions=OuterRef(f"{prefix}pk"), name=value
+                )
+            )
+        )
+
+    @strawberry_django.filter_field(
+        description="Keep only definitions provided by the app of this identifier (by any of its releases)."
+    )
+    def app_identifier(self, value: str, prefix: str) -> Q:
+        return Q(
+            Exists(
+                models.Flavour.objects.filter(
+                    definitions=OuterRef(f"{prefix}pk"),
+                    release__app__identifier=value,
+                )
+            )
+        )
 
     @strawberry_django.filter_field(description=REQUIRES_DESCRIPTION)
     def requires(self, value: list[RequiresInput], prefix: str) -> Q:
@@ -515,7 +634,7 @@ class FlavourFilter(SharingFilterMixin):
         self, info: Info, queryset: QuerySet, value: str, prefix: str
     ) -> tuple[QuerySet, Q]:
         return hybrid_search(
-            queryset, prefix, value, Q(**{f"{prefix}name__icontains": value})
+            queryset, prefix, value, Q(**{f"{prefix}name__icontains": value}), "name"
         )
 
     @strawberry_django.filter_field(
@@ -701,7 +820,7 @@ class AppFilter(SharingFilterMixin):
             | Q(Exists(actions))
             | Q(Exists(newest_flavours(prefix).filter(offered_bloks_named(value))))
         )
-        return hybrid_search(queryset, prefix, value, lexical)
+        return hybrid_search(queryset, prefix, value, lexical, "identifier")
 
     @strawberry_django.filter_field(
         description="true: only apps whose newest release brings a panel or a scene (a blok the store offers); false: only apps whose newest release brings none."

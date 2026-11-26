@@ -18,8 +18,9 @@ The contract, in one place:
   inside the serving process, so any number of replicas can run it and no command or cron
   exists. Until healed, such rows are found by the lexical leg of ``search`` only.
 * **Search is hybrid.** :func:`embeddings.search.hybrid_search` ORs the existing lexical
-  predicate with "cosine distance below the threshold", ranks lexical hits first and then by
-  distance, and degrades to lexical-only whenever embeddings are off or unavailable.
+  predicate with "cosine distance below the threshold" and ranks as rekuest does: the name
+  itself, then a name prefix, then other lexical hits by trigram similarity, then by distance.
+  It degrades to lexical-only whenever embeddings are off or unavailable.
 """
 
 from embeddings.engine import (

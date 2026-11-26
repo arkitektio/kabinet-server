@@ -15,7 +15,7 @@ from asgiref.sync import sync_to_async
 from kante.context import HttpContext
 
 from bridge.models import Definition
-from tests.utils import execute
+from tests.utils import execute, execute_raw
 
 FILTERED = "query($f: DefinitionFilter){ definitions(filters: $f){ name } }"
 
@@ -289,3 +289,147 @@ async def test_a_search_within_the_demands_finds_the_definition(
         {"f": {"demands": [_args(match)], "search": "measure max"}, "p": {"limit": 12}},
     )
     assert data["definitions"][0]["name"] == "Measure Max"
+
+
+# --- rekuest parity: anyDemands, objectDemands, depth, counts, the descriptor-only guard -----
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_any_demands_answer_each_set(authenticated_context: HttpContext) -> None:
+    """`anyDemands` keeps what meets every demand of at least one set: the selection's, or a related context's."""
+    ctx = authenticated_context
+    await _definition(ctx, "Image", [_port("image", "@mikro/image")])
+    await _definition(ctx, "Table", [_port("table", "@mikro/table")])
+    await _definition(ctx, "File", [_port("file", "@mikro/file")])
+
+    data = await execute(
+        FILTERED,
+        ctx,
+        {
+            "f": {
+                "anyDemands": [
+                    [_args({"at": 0, "identifier": "@mikro/image"})],
+                    [_args({"at": 0, "identifier": "@mikro/table"})],
+                ]
+            }
+        },
+    )
+    assert {d["name"] for d in data["definitions"]} == {"Image", "Table"}
+
+    # An empty list constrains nothing, as an empty `demands`.
+    data = await execute(FILTERED, ctx, {"f": {"anyDemands": []}})
+    assert len(data["definitions"]) == 3
+
+    # An empty set is refused rather than read as "anything".
+    result = await execute_raw(
+        FILTERED,
+        ctx,
+        {"f": {"anyDemands": [[_args({"identifier": "@mikro/image"})], []]}},
+    )
+    assert result.errors
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_object_demands_are_demands(authenticated_context: HttpContext) -> None:
+    ctx = authenticated_context
+    await _definition(ctx, "Image", [_port("image", "@mikro/image")])
+    await _definition(ctx, "Table", [_port("table", "@mikro/table")])
+
+    data = await execute(
+        FILTERED, ctx, {"f": {"objectDemands": [_args(_image(axes="c"))]}}
+    )
+    assert {d["name"] for d in data["definitions"]} == {"Image"}
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_children_are_matched_at_any_depth(
+    authenticated_context: HttpContext,
+) -> None:
+    """A list of lists of images: the match reaches the grandchild, `requires` and all."""
+    ctx = authenticated_context
+    image = lambda requires=None: _port("0", "@mikro/image", requires=requires)
+    nested = lambda requires=None: [
+        _port(
+            "batches",
+            kind="LIST",
+            children=[_port("0", kind="LIST", children=[image(requires)])],
+        )
+    ]
+    await _definition(ctx, "Any batches", nested())
+    await _definition(
+        ctx,
+        "Channel batches",
+        nested([{"key": "axes", "operator": "EQUALS", "value": "c"}]),
+    )
+    await _definition(
+        ctx, "Flat list", [_port("images", kind="LIST", children=[image()])]
+    )
+
+    def demand(axes: str) -> dict:
+        grandchild = {
+            "kind": "STRUCTURE",
+            "identifier": "@mikro/image",
+            "descriptors": [{"key": "axes", "value": axes}],
+        }
+        return _args(
+            {
+                "at": 0,
+                "kind": "LIST",
+                "children": [{"kind": "LIST", "children": [grandchild]}],
+            }
+        )
+
+    assert await _names(ctx, [demand("z")]) == {"Any batches"}
+    assert await _names(ctx, [demand("c")]) == {"Any batches", "Channel batches"}
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_port_without_nullable_counts_as_non_nullable(
+    authenticated_context: HttpContext,
+) -> None:
+    """`forceNonNullableLength` reads a port that does not state `nullable` as rekuest does: not nullable."""
+    ctx = authenticated_context
+    unstated = {"key": "image", "kind": "STRUCTURE", "identifier": "@mikro/image"}
+    await _definition(ctx, "Unstated", [unstated])
+    await _definition(ctx, "Nullable", [{**unstated, "nullable": True}])
+
+    demand = {"kind": "ARGS", "forceNonNullableLength": 1}
+    assert await _names(ctx, [demand]) == {"Unstated"}
+    demand = {"kind": "ARGS", "forceLength": 1, "forceStructureLength": 1}
+    assert await _names(ctx, [demand]) == {"Unstated", "Nullable"}
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_a_root_match_of_descriptors_alone_is_refused(
+    authenticated_context: HttpContext,
+) -> None:
+    """As in rekuest: descriptors need a structural field beside them at the root."""
+    ctx = authenticated_context
+    await _definition(ctx, "Image", [_port("image", "@mikro/image")])
+    result = await execute_raw(
+        FILTERED,
+        ctx,
+        {"f": {"demands": [_args({"descriptors": [{"key": "axes", "value": "c"}]})]}},
+    )
+    assert result.errors
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_demands_compose_with_not(authenticated_context: HttpContext) -> None:
+    """The demands are a subquery in the list's own statement, so `NOT` and `OR` compose with them."""
+    ctx = authenticated_context
+    await _definition(ctx, "Image", [_port("image", "@mikro/image")])
+    await _definition(ctx, "Table", [_port("table", "@mikro/table")])
+
+    data = await execute(
+        FILTERED,
+        ctx,
+        {"f": {"NOT": {"demands": [_args({"at": 0, "identifier": "@mikro/image"})]}}},
+    )
+    assert {d["name"] for d in data["definitions"]} == {"Table"}

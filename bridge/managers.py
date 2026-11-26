@@ -1,17 +1,27 @@
-import json
-import typing as t
-from typing import TypeAlias
+"""The matching engine: which definitions satisfy a port demand.
 
-from django.db import connection
+Rekuest's (``facade/managers.py``) on the JSONB a definition keeps its ports in: the same
+match fields, the same demand sets (``anyDemands``), unbounded nesting and the same
+``requires`` / ``provides`` check. Change one, change both.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import typing as t
+from dataclasses import dataclass
+
+from django.db.models.expressions import RawSQL
 
 from rekuest_core.inputs.types import PortMatchInput
+
+if t.TYPE_CHECKING:
+    from bridge.inputs import PortDemandInput
 
 #: The constraints a port states on the objects that flow through it, by demand type: an
 #: argument ``requires``, a return ``provides``.
 CONSTRAINT_FIELD = {"args": "requires", "returns": "provides"}
-
-#: The named parameters a built query binds: keys, kinds, flags and positions.
-SqlParams: TypeAlias = dict[str, str | int | bool]
 
 
 def _jsonpath_condition(constraint: str) -> str:
@@ -75,182 +85,260 @@ def candidate_object(item: PortMatchInput) -> str:
     )
 
 
-def build_port_conditions(
-    item: PortMatchInput,
-    port: str,
-    value_path: str,
-    field: str,
-    parts: list[str],
-    params: SqlParams,
-) -> None:
-    """What ``item`` asks of one port, besides its position: shape, nullability, constraints.
+#: The table the demands select from.
+DEFINITION_TABLE = "bridge_definition"
 
-    ``nullable`` and ``dimension`` used to be dropped here without a word, and ``descriptors``
-    too: a demand carrying them came back with every structural match, which looks right and
-    is not.
-    """
-    if item.key:
-        parts.append(f"{port}->>'key' = %({value_path}_key)s")
-        params[f"{value_path}_key"] = item.key
+#: The named bind parameters of a statement built here.
+Params = dict[str, int | str | bool]
+#: Positional bind parameters, as a ``RawSQL`` embedded in an ORM query takes them.
+PositionalParams = list[int | str | bool]
 
-    if item.kind:
-        parts.append(f"{port}->>'kind' = %({value_path}_kind)s")
-        params[f"{value_path}_kind"] = item.kind.value
 
-    if item.identifier:
-        parts.append(f"{port}->>'identifier' = %({value_path}_identifier)s")
-        params[f"{value_path}_identifier"] = item.identifier
+@dataclass(frozen=True)
+class PortDemand:
+    """What the ports on one side of a definition (its args, or its returns) must look like."""
 
-    if item.dimension:
-        parts.append(f"{port}->>'dimension' = %({value_path}_dimension)s")
-        params[f"{value_path}_dimension"] = item.dimension
+    kind: t.Literal["args", "returns"]
+    matches: list[PortMatchInput] | None = None
+    force_length: int | None = None
+    force_non_nullable_length: int | None = None
+    force_structure_length: int | None = None
 
-    if item.nullable is not None:
-        # A stored port states its nullability (``PortModel.nullable`` defaults to false).
-        parts.append(
-            f"COALESCE(({port}->>'nullable')::boolean, false) = %({value_path}_nullable)s"
+    @classmethod
+    def of(cls, demand: PortDemandInput) -> PortDemand:
+        """The demand a GraphQL ``PortDemandInput`` states."""
+        return cls(
+            kind=_demand_kind(demand.kind.value),
+            matches=list(demand.matches) if demand.matches is not None else None,
+            force_length=demand.force_length,
+            force_non_nullable_length=demand.force_non_nullable_length,
+            force_structure_length=demand.force_structure_length,
         )
-        params[f"{value_path}_nullable"] = item.nullable
-
-    if item.descriptors:
-        parts.append(accepts_object(port, field, f"{value_path}_object"))
-        params[f"{value_path}_object"] = candidate_object(item)
 
 
-def build_child_recursively(
-    item: PortMatchInput,
-    prefix: str,
-    value_path: str,
-    parts: list[str],
-    params: SqlParams,
-    field: str = "requires",
-) -> None:
-    build_port_conditions(item, prefix, value_path, field, parts, params)
-
-    if item.children:
-        # Nested children are flattened one level up by `build_sql_for_item_recursive`;
-        # a child that carries its own children is not something this SQL can express.
-        # (A recursive call used to follow this raise, unreachable, and it referenced
-        # `item.child`, which `PortMatchInput` does not have.)
-        raise ValueError("Children should not be present in the child item")
+def _demand_kind(kind: str) -> t.Literal["args", "returns"]:
+    """Which side of a definition a demand is about."""
+    if kind == "args":
+        return "args"
+    if kind == "returns":
+        return "returns"
+    raise ValueError("Type must be either 'args' or 'returns'")
 
 
-def build_sql_for_item_recursive(
-    item: PortMatchInput,
-    index: int,
-    at_value: int | None = None,
-    prefix: str = "arg",
-    field: str = "requires",
-) -> tuple[str, SqlParams]:
-    sql_parts: list[str] = []
-    params: SqlParams = {}
+def _elements(ports: str) -> str:
+    """``ports`` (a JSONB expression) as rows; anything but an array (a missing or null
+    ``children``) is no rows, where ``jsonb_array_elements`` would raise on a scalar."""
+    return f"jsonb_array_elements(CASE WHEN jsonb_typeof({ports}) = 'array' THEN {ports} ELSE '[]'::jsonb END)"
 
-    if at_value is not None:
-        sql_parts.append(f"idx = %({prefix}_at_{index})s")
-        params[f"{prefix}_at_{index}"] = at_value + 1
 
-    build_port_conditions(item, "item", f"{prefix}_{index}", field, sql_parts, params)
+def _build_match_exists(
+    match: PortMatchInput,
+    ports: str,
+    field: str,
+    id_path: str,
+    params: Params,
+    root: bool,
+) -> str:
+    """One ``EXISTS`` over the ports at ``ports`` for a single match: rekuest's
+    ``_build_match_exists`` on the JSONB a definition keeps its ports in.
 
-    if item.children:
-        # Adjusting the prefix for recursion
-        child_parts: list[str] = []
-        child_params: SqlParams = {}
-        for idx, child in enumerate(item.children):
-            build_child_recursively(
+    A root match scans the definition's ``args`` / ``returns``, a child its parent port's
+    ``children``; children recurse, so nesting depth is unbounded. ``at`` is a port's 0-based
+    position among its siblings, as rekuest's ``index``. The ``descriptors`` activate the
+    object-level check: the port's ``requires`` / ``provides`` must accept the object they
+    describe (``accepts_object``).
+    """
+    alias = f"p_{id_path}"
+    port = f"{alias}.item"
+    conditions: list[str] = []
+
+    if match.at is not None:
+        key = f"at_{id_path}"
+        # WITH ORDINALITY counts from 1.
+        params[key] = match.at + 1
+        conditions.append(f"{alias}.idx = %({key})s")
+
+    if match.key is not None:
+        key = f"key_{id_path}"
+        params[key] = match.key
+        conditions.append(f"{port}->>'key' = %({key})s")
+
+    if match.kind is not None:
+        key = f"kind_{id_path}"
+        params[key] = match.kind.value
+        conditions.append(f"{port}->>'kind' = %({key})s")
+
+    if match.identifier is not None:
+        key = f"ident_{id_path}"
+        params[key] = match.identifier
+        conditions.append(f"{port}->>'identifier' = %({key})s")
+
+    if match.dimension is not None:
+        key = f"dim_{id_path}"
+        params[key] = match.dimension
+        conditions.append(f"{port}->>'dimension' = %({key})s")
+
+    if match.nullable is not None:
+        # A stored port states its nullability (``PortModel.nullable`` defaults to false).
+        key = f"null_{id_path}"
+        params[key] = match.nullable
+        conditions.append(
+            f"COALESCE(({port}->>'nullable')::boolean, false) = %({key})s"
+        )
+
+    if match.descriptors and root:
+        # As in rekuest: a root match with ONLY descriptors would evaluate the constraints
+        # against every root port of the organization; a structural field must narrow first.
+        # A child is exempt, its parent already narrows.
+        if all(
+            value is None
+            for value in (
+                match.at,
+                match.key,
+                match.kind,
+                match.identifier,
+                match.dimension,
+            )
+        ):
+            raise ValueError(
+                "A root port match with descriptors must also narrow structurally (identifier, kind, key, at or dimension) — descriptor-only matches would scan every port in the organization."
+            )
+    if match.descriptors:
+        key = f"obj_{id_path}"
+        params[key] = candidate_object(match)
+        conditions.append(accepts_object(port, field, key))
+
+    for child_index, child in enumerate(match.children or []):
+        conditions.append(
+            _build_match_exists(
                 child,
-                # jsonb `->` on an array is 0-based (unlike the 1-based WITH ORDINALITY idx above).
-                f"item->'children'->{idx}",
-                f"children_{index}_{idx}",
-                child_parts,
-                child_params,
+                f"{port}->'children'",
                 field,
+                f"{id_path}_{child_index}",
+                params,
+                root=False,
             )
-        sql_parts += child_parts
-        params.update(child_params)
+        )
 
-    return (" AND ".join(sql_parts), params)
+    inner = " AND ".join(conditions) if conditions else "TRUE"
+    return f"EXISTS (SELECT 1 FROM {_elements(ports)} WITH ORDINALITY AS {alias}(item, idx) WHERE {inner})"
 
 
-def build_params(
-    search_params: list[PortMatchInput] | None,
-    type: t.Literal["args", "returns"] = "args",
-    force_length: int | None = None,
-    force_non_nullable_length: int | None = None,
-    force_structure_length: int | None = None,
-    model: str = "bridge_definition",
-) -> tuple[str, SqlParams]:
-    individual_queries: list[str] = []
-    all_params: SqlParams = {}
-    if search_params:
-        for index, item in enumerate(search_params):
-            sql_part, params = build_sql_for_item_recursive(
-                item, index, at_value=item.at, field=CONSTRAINT_FIELD[type]
+def _root_count(
+    ports: str, condition: str, key: str, value: int, params: Params
+) -> str:
+    """A ``(SELECT COUNT(*) ...) = N`` clause over a definition's root ports."""
+    params[key] = value
+    return f"(SELECT COUNT(*) FROM {_elements(ports)} AS pc(item) WHERE {condition}) = %({key})s"
+
+
+def _port_demand_sql(
+    demands: t.Sequence[PortDemand], organization_id: int | str | None = None
+) -> tuple[str, Params]:
+    """The (sql, named params) selecting the ids of the definitions satisfying EVERY demand."""
+    alias = "d"
+    clauses: list[str] = []
+    params: Params = {}
+
+    if organization_id is not None:
+        params["org"] = organization_id
+        clauses.append(f"{alias}.organization_id = %(org)s")
+
+    for demand_index, demand in enumerate(demands):
+        ports = f"{alias}.{demand.kind}"
+        field = CONSTRAINT_FIELD[demand.kind]
+
+        for match_index, match in enumerate(demand.matches or []):
+            clauses.append(
+                _build_match_exists(
+                    match,
+                    ports,
+                    field,
+                    f"{demand_index}_{match_index}",
+                    params,
+                    root=True,
+                )
             )
-            if not sql_part:
-                # Every field on `PortMatchInput` is optional, so a client can send `{}`.
-                # That produced an empty predicate and rendered
-                # `EXISTS (SELECT 1 FROM ... WHERE )` -- a `ProgrammingError` and a 500,
-                # from a well-formed query. A match that constrains nothing matches
-                # everything, so it simply contributes no clause.
-                continue
-            if type == "args":
-                subquery = f"EXISTS (SELECT 1 FROM jsonb_array_elements(args) WITH ORDINALITY AS j(item, idx) WHERE {sql_part})"
-            else:
-                subquery = f"EXISTS (SELECT 1 FROM jsonb_array_elements(returns) WITH ORDINALITY AS j(item, idx) WHERE {sql_part})"
 
-            individual_queries.append(subquery)
-            all_params.update(params)
+        if demand.force_length is not None:
+            key = f"force_length_{demand_index}"
+            params[key] = demand.force_length
+            clauses.append(
+                f"jsonb_array_length(CASE WHEN jsonb_typeof({ports}) = 'array' THEN {ports} ELSE '[]'::jsonb END) = %({key})s"
+            )
 
-    if force_length is not None:
-        individual_queries.append(f"jsonb_array_length({type}) = {force_length}")
+        if demand.force_non_nullable_length is not None:
+            clauses.append(
+                _root_count(
+                    ports,
+                    "NOT COALESCE((pc.item->>'nullable')::boolean, false)",
+                    f"force_non_nullable_{demand_index}",
+                    demand.force_non_nullable_length,
+                    params,
+                )
+            )
 
-    if force_non_nullable_length is not None:
-        sql_part = "item->>'nullable'::text = 'false'"
-        count_condition = f"""(SELECT COUNT(*) FROM jsonb_array_elements({type}) AS j(item) WHERE {sql_part}) = {force_non_nullable_length}"""
-        individual_queries.append(count_condition)
+        if demand.force_structure_length is not None:
+            clauses.append(
+                _root_count(
+                    ports,
+                    "pc.item->>'kind' = 'STRUCTURE'",
+                    f"force_structure_{demand_index}",
+                    demand.force_structure_length,
+                    params,
+                )
+            )
 
-    if force_structure_length is not None:
-        sql_part = "item->>'kind' = 'STRUCTURE'"
-        count_condition = f"""(SELECT COUNT(*) FROM jsonb_array_elements({type}) AS j(item) WHERE {sql_part}) = {force_structure_length}"""
-        individual_queries.append(count_condition)
-
-    if not individual_queries:
+    if not clauses:
         raise ValueError("No search params provided")
 
-    full_sql = f"SELECT id FROM {model} WHERE " + " AND ".join(individual_queries)
-
-    return full_sql, all_params
-
-
-def get_action_ids_by_demands(
-    demands: list[PortMatchInput] | None = None,
-    type: t.Literal["args", "returns"] = "args",
-    force_length: int | None = None,
-    force_non_nullable_length: int | None = None,
-    force_structure_length: int | None = None,
-    model: str = "bridge_definition",
-) -> list[int]:
-    if type not in ["args", "returns"]:
-        raise ValueError("Type must be either 'args' or 'returns'")
-
-    full_sql, all_params = build_params(
-        demands,
-        type=type,
-        force_length=force_length,
-        force_non_nullable_length=force_non_nullable_length,
-        force_structure_length=force_structure_length,
-        model=model,
+    sql = f"SELECT {alias}.id FROM {DEFINITION_TABLE} {alias} WHERE " + " AND ".join(
+        clauses
     )
-
-    with connection.cursor() as cursor:
-        cursor.execute(full_sql, all_params)
-        rows = cursor.fetchall()
-        ids = [row[0] for row in rows]
-        return ids
+    return sql, params
 
 
-# `build_action_demand_params`, `build_state_params`, `filter_actions_by_demands`,
-# `get_action_ids_by_action_demand` and `get_state_ids_by_demands` used to follow. None
-# of them had a caller, and their default table names -- "facade_action",
-# "facade_state_schema" and "facade_stateschema", three spellings of two tables -- name
-# rekuest's schema, not kabinet's. Nothing in this database would have answered them.
+_NAMED_PARAM_RE = re.compile(r"%\((\w+)\)s")
+
+
+def _to_positional(sql: str, params: Params) -> tuple[str, PositionalParams]:
+    """Convert pyformat named placeholders to positional ``%s`` ones.
+
+    ``RawSQL`` params are combined with the rest of the query's params into one flat
+    sequence by the ORM compiler, so a mapping cannot be passed through — the same
+    statement needs its params positional to be embeddable as a subquery.
+    """
+    ordered_keys = _NAMED_PARAM_RE.findall(sql)
+    return _NAMED_PARAM_RE.sub("%s", sql), [params[key] for key in ordered_keys]
+
+
+def get_port_demand_subquery(
+    demands: t.Sequence[PortDemand], organization_id: int | str
+) -> RawSQL:
+    """The definitions of the organization satisfying every demand, as a ``RawSQL`` id
+    subquery for ``Q(id__in=...)``.
+
+    Nested in the list's own query: one round trip, no ids materialized in Python, and
+    composable with ``OR`` / ``NOT``. A guest's narrowing to their collaborations stays the
+    list's; this only ever keeps rows of the request's organization, a superset of theirs.
+    """
+    return RawSQL(*_to_positional(*_port_demand_sql(demands, organization_id)))
+
+
+def get_any_port_demand_subquery(
+    sets: t.Sequence[t.Sequence[PortDemand]], organization_id: int | str
+) -> RawSQL:
+    """The definitions satisfying every demand of at least one set, as one ``UNION`` id subquery.
+
+    Spelled out rather than left to ``OR``, as in rekuest: ``id IN (A) OR id IN (B)`` cannot
+    be a semi-join, ``id IN (A UNION B)`` can.
+    """
+    if any(len(demands) == 0 for demands in sets):
+        raise ValueError("Every set of anyDemands needs at least one demand.")
+    statements = [
+        _to_positional(*_port_demand_sql(demands, organization_id)) for demands in sets
+    ]
+    return RawSQL(
+        " UNION ".join(sql for sql, _ in statements),
+        [param for _, params in statements for param in params],
+    )
