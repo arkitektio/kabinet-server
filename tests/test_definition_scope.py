@@ -147,15 +147,27 @@ async def test_deployed_ordering_keeps_the_search_ranking(
             flavour=definition.flavours.get(), backend=backend
         )
 
-    await deploy("Segment cells")
+    @sync_to_async
+    def also_in_segment(name: str) -> None:
+        segment = models.Definition.objects.get(name="Segment cells").flavours.get()
+        row = models.Definition.objects.create(
+            name=name, hash=uuid.uuid4().hex, organization=ctx.request.organization
+        )
+        row.flavours.add(segment)
+
+    # Created in the reverse of their ranking, so pk order is not the answer.
+    await also_in_segment("Segment and measure")  # another match: third tier
+    await also_in_segment("Measure")  # the name itself: first tier
+    await deploy("Measure area")  # deploys both measure definitions (one flavour)
 
     with override_settings(EMBEDDINGS={"ENABLED": False}):
-        searched = await _names(ctx, {"search": "measure"})
-        assert searched == ["Measure area", "Measure length"]
-        names = await _names(ctx, {}, [{"deployed": "DESC"}])
-        assert names[0] == "Segment cells"
-        names = await _names(ctx, {}, [{"deployed": "ASC"}])
-        assert names[-1] == "Segment cells"
+        names = await _names(ctx, {"search": "measure"}, [{"deployed": "DESC"}])
+        assert set(names[:2]) == {"Measure area", "Measure length"}
+        assert names[2:] == ["Measure", "Segment and measure"]
+
+        names = await _names(ctx, {"search": "measure"}, [{"deployed": "ASC"}])
+        assert names[:2] == ["Measure", "Segment and measure"]
+        assert set(names[2:]) == {"Measure area", "Measure length"}
 
 
 @pytest.mark.django_db(transaction=True)
